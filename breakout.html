@@ -194,7 +194,7 @@
             stopMusic();
             currentTrack = track;
             if (muted) return;
-            ensureAudio();
+            ensureAudio(); if (audioCtx.state === 'suspended') audioCtx.resume();
 
             // Home: disco/funk groove in A mixolydian
             var homeMelody = [

@@ -154,7 +154,7 @@
 
         function playTone(freq, duration, type = 'square', vol = 0.15) {
             if (muted) return;
-            ensureAudio();
+            ensureAudio(); if (audioCtx.state === 'suspended') audioCtx.resume();
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             osc.type = type;
@@ -198,7 +198,7 @@
             stopMusic();
             currentTrack = track;
             if (muted) return;
-            ensureAudio();
+            ensureAudio(); if (audioCtx.state === 'suspended') audioCtx.resume();
 
             // Home screen: bouncy, cheerful hop-like rhythm in C major
             const homeMelody = [

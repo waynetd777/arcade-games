@@ -232,7 +232,7 @@
             stopMusic();
             currentTrack = track;
             if (muted) return;
-            ensureAudio();
+            ensureAudio(); if (audioCtx.state === 'suspended') audioCtx.resume();
 
             // Home: spacey, ethereal floating theme in D minor
             var homeMelody = [

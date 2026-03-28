@@ -342,7 +342,7 @@
             var targetY = ball.y;
             // Predict where ball will be
             if (ball.vx < 0) {
-                var timeToReach = (ball.x - PADDLE_MARGIN) / Math.abs(ball.vx);
+                var timeToReach = Math.max(0.01, (ball.x - (PADDLE_MARGIN + PADDLE_W / 2 + 8)) / Math.abs(ball.vx));
                 targetY = ball.y + ball.vy * timeToReach;
                 // Bounce prediction
                 while (targetY < 0 || targetY > H) {
@@ -366,7 +366,7 @@
                 // Predict ball position
                 var targetY = ball.y;
                 if (ball.vx > 0) {
-                    var timeToReach = ((W - PADDLE_MARGIN) - ball.x) / Math.abs(ball.vx + 0.001);
+                    var timeToReach = Math.max(0.01, ((W - PADDLE_MARGIN - PADDLE_W / 2 - 8) - ball.x) / Math.abs(ball.vx + 0.001));
                     targetY = ball.y + ball.vy * timeToReach;
                     while (targetY < 0 || targetY > H) {
                         if (targetY < 0) targetY = -targetY;
@@ -516,8 +516,8 @@
                     serveTimer = 1.0;
                     ball.vx = 0; ball.vy = 0;
                     ball.x = W / 2; ball.y = H / 2;
-                    checkLevelUp();
                     checkGameOver();
+                    checkLevelUp();
                 }
                 if (ball.x > W + 20) {
                     // Player scores
@@ -529,8 +529,8 @@
                     serveTimer = 1.0;
                     ball.vx = 0; ball.vy = 0;
                     ball.x = W / 2; ball.y = H / 2;
-                    checkLevelUp();
                     checkGameOver();
+                    checkLevelUp();
                 }
             }
 
@@ -583,6 +583,7 @@
         }
 
         function checkLevelUp() {
+            if (playerScore >= 11 || cpuScore >= 11) return;
             var totalPoints = playerScore + cpuScore;
             var newLevel = Math.floor(totalPoints / 5) + 1;
             if (newLevel > level) {
@@ -602,7 +603,7 @@
                 var finalScore = playerScore;
                 gameOverTimeout = setTimeout(function() {
                     if (state !== 'OVER') return;
-                    if (!aiMode && finalScore > 0 && (highScores.length < 10 || finalScore > highScores[highScores.length - 1].s)) {
+                    if (!aiMode && finalScore >= 5 && (highScores.length < 10 || finalScore > highScores[highScores.length - 1].s)) {
                         stopMusic();
                         var n = prompt("LEGENDARY SCORE! Enter Initials:", "ACE");
                         if (n) {
@@ -895,10 +896,12 @@
         if (dUp) {
             dUp.addEventListener('touchstart', function(e) { e.preventDefault(); if (state !== 'PLAY' || paused || aiMode) return; keys['ArrowUp'] = true; });
             dUp.addEventListener('touchend', function(e) { e.preventDefault(); keys['ArrowUp'] = false; });
+            dUp.addEventListener('touchcancel', function(e) { e.preventDefault(); keys['ArrowUp'] = false; });
         }
         if (dDown) {
             dDown.addEventListener('touchstart', function(e) { e.preventDefault(); if (state !== 'PLAY' || paused || aiMode) return; keys['ArrowDown'] = true; });
             dDown.addEventListener('touchend', function(e) { e.preventDefault(); keys['ArrowDown'] = false; });
+            dDown.addEventListener('touchcancel', function(e) { e.preventDefault(); keys['ArrowDown'] = false; });
         }
 
         document.addEventListener('visibilitychange', function() {

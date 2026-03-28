@@ -300,6 +300,7 @@
             paddle.x = W / 2;
             paddle.w = DIFF_PADDLE[difficulty];
             ballSpeed = DIFF_BALL_SPEED[difficulty] + (level - 1) * 15;
+            ballSpeed = Math.min(ballSpeed, 550);
             balls = [{ x: W / 2, y: PADDLE_Y - BALL_R - paddle.h / 2, vx: 0, vy: 0 }];
             ballOnPaddle = true;
             bricks = getBrickPattern(level);
@@ -574,7 +575,7 @@
                         if (gameOverTimeoutId) clearTimeout(gameOverTimeoutId);
                         gameOverTimeoutId = setTimeout(function() {
                             if (state !== 'OVER') return;
-                            if (!aiMode && score > 0 && (highScores.length < 10 || score > highScores[highScores.length - 1].s)) {
+                            if (!aiMode && score >= 100 && (highScores.length < 10 || score > highScores[highScores.length - 1].s)) {
                                 stopMusic();
                                 var n = prompt("LEGENDARY SCORE! Enter Initials:", "ACE");
                                 if (n) {
@@ -664,7 +665,9 @@
                 }
 
                 // Brick collisions
+                let brickHit = false;
                 bricks.forEach(function(brick) {
+                    if (brickHit) return;
                     if (!brick.alive) return;
                     // AABB check
                     if (ball.x + BALL_R > brick.x && ball.x - BALL_R < brick.x + brick.w &&
@@ -699,6 +702,7 @@
                             }
                         }
                         sfxBrickHit();
+                        brickHit = true;
                     }
                 });
             });
@@ -1097,9 +1101,13 @@
 
         // === Touch ===
         var touchStartX = 0;
+        var touchStartY = 0;
+        var touchTotalMove = 0;
         canvas.addEventListener('touchstart', function(e) {
             e.preventDefault();
             touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+            touchTotalMove = 0;
             // Difficulty button hit-testing
             if (state === 'START' || state === 'OVER') {
                 ensureAudio();
@@ -1120,22 +1128,27 @@
                     }
                 }
             }
-            // Tap to launch
-            if (state === 'PLAY' && !paused && !aiMode) keys[' '] = true;
         }, { passive: false });
         canvas.addEventListener('touchmove', function(e) {
             e.preventDefault();
-            if (state !== 'PLAY' || paused || aiMode) return;
             var dx = e.touches[0].clientX - touchStartX;
+            var dy = e.touches[0].clientY - touchStartY;
+            touchTotalMove += Math.abs(e.touches[0].clientX - touchStartX) + Math.abs(e.touches[0].clientY - touchStartY);
             touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+            if (state !== 'PLAY' || paused || aiMode) return;
             paddle.x += dx * 1.5 * (W / canvas.getBoundingClientRect().width);
             paddle.x = Math.max(paddle.w / 2, Math.min(W - paddle.w / 2, paddle.x));
         }, { passive: false });
         document.addEventListener('touchend', function() {
-            keys[' '] = false;
+            // Treat as a tap (launch) only if the touch didn't move significantly
+            if (touchTotalMove < 10 && state === 'PLAY' && !paused && !aiMode) {
+                keys[' '] = true;
+                setTimeout(function() { keys[' '] = false; }, 100);
+            }
         });
         document.addEventListener('touchcancel', function() {
-            keys[' '] = false;
+            // No action needed on cancel
         });
 
         // D-pad

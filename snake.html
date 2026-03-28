@@ -134,7 +134,56 @@
                 }
                 attempts++;
             }
+            // Deterministic scan to find a genuinely free cell
+            for (var sy = 0; sy < ROWS; sy++) {
+                for (var sx = 0; sx < COLS; sx++) {
+                    if (!isWall(sx, sy) && !isSnake(sx, sy) &&
+                        !(food && food.x === sx && food.y === sy) &&
+                        !(bonusFood && bonusFood.x === sx && bonusFood.y === sy)) {
+                        return {x: sx, y: sy};
+                    }
+                }
+            }
             return {x: Math.floor(COLS / 2), y: Math.floor(ROWS / 2)};
+        }
+
+        function isReachable(fromX, fromY, toX, toY) {
+            var visited = {};
+            var queue = [{x: fromX, y: fromY}];
+            visited[fromX + ',' + fromY] = true;
+            var dirs = [{x:0,y:-1},{x:0,y:1},{x:-1,y:0},{x:1,y:0}];
+            while (queue.length > 0) {
+                var cur = queue.shift();
+                if (cur.x === toX && cur.y === toY) return true;
+                for (var d = 0; d < dirs.length; d++) {
+                    var nx = cur.x + dirs[d].x;
+                    var ny = cur.y + dirs[d].y;
+                    if (difficulty <= 1 && (nx < 0 || nx >= COLS)) {
+                        nx = ((nx % COLS) + COLS) % COLS;
+                    }
+                    if (difficulty === 0 && (ny < 0 || ny >= ROWS)) {
+                        ny = ((ny % ROWS) + ROWS) % ROWS;
+                    }
+                    if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) continue;
+                    var key = nx + ',' + ny;
+                    if (visited[key]) continue;
+                    if (isWall(nx, ny)) continue;
+                    visited[key] = true;
+                    queue.push({x: nx, y: ny});
+                }
+            }
+            return false;
+        }
+
+        function ensureFoodReachable() {
+            var maxRetries = 10;
+            for (var attempt = 0; attempt < maxRetries; attempt++) {
+                if (food && snake.length > 0 && isReachable(snake[0].x, snake[0].y, food.x, food.y)) {
+                    return;
+                }
+                generateWalls();
+                spawnFood();
+            }
         }
 
         function spawnFood() {
@@ -159,7 +208,9 @@
                     const cy = Math.floor(Math.random() * (ROWS - 4)) + 2;
                     // Avoid center spawn area
                     if (Math.abs(cx - COLS / 2) < 4 && Math.abs(cy - ROWS / 2) < 4) { attempts++; continue; }
-                    if (!isWall(cx, cy)) {
+                    if (!isWall(cx, cy) && !isSnake(cx, cy) &&
+                        !(food && food.x === cx && food.y === cy) &&
+                        !(bonusFood && bonusFood.x === cx && bonusFood.y === cy)) {
                         walls.push({x: cx, y: cy});
                         break;
                     }
@@ -185,6 +236,7 @@
             bonusTimer = 8 + Math.random() * 10;
             generateWalls();
             spawnFood();
+            ensureFoodReachable();
         }
 
         function startGame() {
@@ -360,6 +412,7 @@
 
         // === AI (Neural Override) ===
         function runAI() {
+            if (deathTimer > 0) return;
             var head = snake[0];
             var target = food;
             // Prefer bonus if available
@@ -419,8 +472,10 @@
                 for (var d = 0; d < dirs.length; d++) {
                     var nx = head.x + dirs[d].x;
                     var ny = head.y + dirs[d].y;
-                    if (difficulty === 0) {
+                    if (difficulty <= 1 && (nx < 0 || nx >= COLS)) {
                         nx = ((nx % COLS) + COLS) % COLS;
+                    }
+                    if (difficulty === 0 && (ny < 0 || ny >= ROWS)) {
                         ny = ((ny % ROWS) + ROWS) % ROWS;
                     }
                     if (nx >= 0 && nx < COLS && ny >= 0 && ny < ROWS && !isWall(nx, ny) && !isSnake(nx, ny)) {
@@ -493,8 +548,8 @@
             var mx = OFFSET_X + GRID_W / 2;
             var my = OFFSET_Y + GRID_H / 2;
             if (topBotPass) {
-                ctx.fillText('\u2194', mx, OFFSET_Y - 4);
-                ctx.fillText('\u2194', mx, OFFSET_Y + GRID_H + 14);
+                ctx.fillText('\u2195', mx, OFFSET_Y - 4);
+                ctx.fillText('\u2195', mx, OFFSET_Y + GRID_H + 14);
             }
             if (sidesPass) {
                 ctx.save();
@@ -1008,6 +1063,11 @@
                         floatingTexts.push({x: W / 2, y: H / 2, t: 'LEVEL UP!', life: 1.5, c: '#4ae04a'});
                         sfxLevelUp();
                         generateWalls();
+                        spawnFood();
+                        if (bonusFood && isWall(bonusFood.x, bonusFood.y)) {
+                            bonusFood = null;
+                        }
+                        ensureFoodReachable();
                     }
                 }
 

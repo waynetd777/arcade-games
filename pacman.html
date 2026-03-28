@@ -3,6 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#00e5ff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Pac-Man Deluxe</title>
     <style>
         body { background: #050505; color: #4ae04a; font-family: 'Courier New', Courier, monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; min-height: 100dvh; margin: 0; padding: 10px; box-sizing: border-box; overflow: auto; user-select: none; touch-action: manipulation; }
@@ -25,9 +29,11 @@
         .dpad button:active { background: #ffff00; color: #000; }
         .dpad .empty { visibility: hidden; }
         @media (max-width: 580px) { .stats { font-size: 14px; gap: 10px; } .controls { display: flex; gap: 4px; margin-top: 8px; width: 100%; flex-wrap: nowrap; } .controls button, .controls a { padding: 8px 2px !important; font-size: 11px !important; text-align: center; box-sizing: border-box; flex: 1; min-width: 0; } }
+        #transition-overlay { position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;opacity:1;pointer-events:none;background:repeating-linear-gradient(0deg,#000 0px,#000 2px,rgba(0,0,0,0.85) 2px,rgba(0,0,0,0.85) 4px);transition:opacity 0.4s; }
     </style>
 </head>
 <body>
+    <div id="transition-overlay"></div>
 
     <div class="stats">
         <div>SCORE: <span id="s">0</span></div>
@@ -59,6 +65,7 @@
         <div class="empty"></div>
     </div>
 
+    <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');</script>
     <script>
     (function() {
         const canvas = document.getElementById('c');
@@ -72,7 +79,8 @@
         const _spkOn = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><path d="M14,9.5 Q17,12 14,14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M16,7.5 Q21,12 16,16.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
         const _spkOff = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><line x1="15" y1="9" x2="21" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="21" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
         muteBtn.innerHTML = muted ? _spkOff : _spkOn;
-        muteBtn.onclick = () => { muted = !muted; localStorage.setItem('arcade_muted', muted); muteBtn.innerHTML = muted ? _spkOff : _spkOn; if (muted) stopMusic(); else { currentTrack = null; if (state === 'START' || state === 'OVER') playMusic('home'); else if (state === 'PLAY' && !paused) playMusic('game'); } };
+        muteBtn.onclick = () => { haptic(30); muted = !muted; localStorage.setItem('arcade_muted', muted); muteBtn.innerHTML = muted ? _spkOff : _spkOn; if (muted) stopMusic(); else { currentTrack = null; if (state === 'START' || state === 'OVER') playMusic('home'); else if (state === 'PLAY' && !paused) playMusic('game'); } };
+        function haptic(ms) { try { if (navigator.vibrate) navigator.vibrate(ms || 50); } catch(e) {} }
 
         const TILE = 19;
         const COLS = 28, ROWS = 31;
@@ -175,21 +183,22 @@
             osc.onended = () => { osc.disconnect(); gain.disconnect(); };
         }
 
-        function sfxChomp() { playTone(261, 0.05, 'sawtooth', 0.08); }
+        function sfxChomp() { playTone(294, 0.04, 'sine', 0.09); setTimeout(() => playTone(262, 0.04, 'sine', 0.07), 40); }
         function sfxPower() {
-            [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => playTone(f, 0.1, 'square', 0.08), i * 40));
+            [392, 523, 659, 784, 1047].forEach((f, i) => setTimeout(() => playTone(f, 0.12, 'sine', 0.1), i * 50));
         }
         function sfxEatGhost() {
-            [400, 600, 800, 1200].forEach((f, i) => setTimeout(() => playTone(f, 0.08, 'square', 0.1), i * 30));
+            [330, 494, 659, 880, 1175, 1568].forEach((f, i) => setTimeout(() => playTone(f, 0.07, 'sine', 0.11), i * 25));
         }
         function sfxDie() {
-            [500, 450, 400, 350, 300, 250, 200, 150].forEach((f, i) => setTimeout(() => playTone(f, 0.12, 'sawtooth', 0.1), i * 80));
+            [587, 523, 494, 440, 392, 349, 330, 294, 262, 220].forEach((f, i) => setTimeout(() => playTone(f, 0.1, 'sine', 0.1), i * 70));
         }
         function sfxLevelClear() {
-            [523, 659, 784, 1047, 1319].forEach((f, i) => setTimeout(() => playTone(f, 0.2, 'triangle', 0.12), i * 100));
+            [523, 587, 659, 784, 880, 1047, 1319].forEach((f, i) => setTimeout(() => playTone(f, 0.18, 'sine', 0.12), i * 80));
         }
         function sfxGameOver() {
-            [400, 350, 300, 200].forEach((f, i) => setTimeout(() => playTone(f, 0.3, 'sawtooth', 0.1), i * 150));
+            [440, 415, 392, 370, 349, 330, 294, 262].forEach((f, i) => setTimeout(() => playTone(f, 0.25, 'sine', 0.1), i * 130));
+            setTimeout(() => playTone(196, 0.6, 'sine', 0.08), 1100);
         }
 
         // === Music Engine ===
@@ -1089,6 +1098,7 @@
 
         // === Controls ===
         btn.onclick = () => {
+            haptic(30);
             ensureAudio();
             score = 0; lives = 3; level = 1;
             paused = false;
@@ -1102,6 +1112,7 @@
         };
 
         aiBtn.onclick = () => {
+            haptic(30);
             aiMode = !aiMode;
             aiBtn.innerText = aiMode ? "AI: ON" : "AI: OFF";
             aiBtn.className = aiMode ? "ai-active" : "";
@@ -1109,6 +1120,7 @@
         };
 
         pauseBtn.onclick = () => {
+            haptic(30);
             if (state !== 'PLAY') return;
             paused = !paused;
             pauseBtn.className = paused ? "pause-active" : "";
@@ -1199,10 +1211,10 @@
         }, { passive: false });
 
         // D-pad
-        document.getElementById('d-up')?.addEventListener('touchstart', (e) => { e.preventDefault(); if (state === 'PLAY' && !paused && !aiMode) pac.nextDir = 3; });
-        document.getElementById('d-down')?.addEventListener('touchstart', (e) => { e.preventDefault(); if (state === 'PLAY' && !paused && !aiMode) pac.nextDir = 1; });
-        document.getElementById('d-left')?.addEventListener('touchstart', (e) => { e.preventDefault(); if (state === 'PLAY' && !paused && !aiMode) pac.nextDir = 2; });
-        document.getElementById('d-right')?.addEventListener('touchstart', (e) => { e.preventDefault(); if (state === 'PLAY' && !paused && !aiMode) pac.nextDir = 0; });
+        document.getElementById('d-up')?.addEventListener('touchstart', (e) => { e.preventDefault(); haptic(50); if (state === 'PLAY' && !paused && !aiMode) pac.nextDir = 3; });
+        document.getElementById('d-down')?.addEventListener('touchstart', (e) => { e.preventDefault(); haptic(50); if (state === 'PLAY' && !paused && !aiMode) pac.nextDir = 1; });
+        document.getElementById('d-left')?.addEventListener('touchstart', (e) => { e.preventDefault(); haptic(50); if (state === 'PLAY' && !paused && !aiMode) pac.nextDir = 2; });
+        document.getElementById('d-right')?.addEventListener('touchstart', (e) => { e.preventDefault(); haptic(50); if (state === 'PLAY' && !paused && !aiMode) pac.nextDir = 0; });
 
         // Start home music on load
         function startHomeMusic() {
@@ -1220,6 +1232,9 @@
         document.addEventListener('keydown', startHomeMusic);
         document.addEventListener('touchstart', startHomeMusic);
         startHomeMusic();
+
+        var _tOv = document.getElementById('transition-overlay');
+        if (_tOv) { setTimeout(function(){ _tOv.style.opacity='0'; setTimeout(function(){ _tOv.remove(); }, 500); }, 50); }
 
         requestAnimationFrame(loop);
     })();

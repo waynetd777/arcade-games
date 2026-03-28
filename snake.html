@@ -431,7 +431,7 @@
             stopMusic();
             currentTrack = track;
             if (muted) return;
-            ensureAudio();
+            ensureAudio(); if (audioCtx.state === 'suspended') audioCtx.resume();
 
             // Home: mysterious snake-charmer in Phrygian dominant
             var homeMelody = [

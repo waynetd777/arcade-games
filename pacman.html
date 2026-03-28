@@ -161,7 +161,7 @@
 
         function playTone(freq, duration, type = 'square', vol = 0.12) {
             if (muted) return;
-            ensureAudio();
+            ensureAudio(); if (audioCtx.state === 'suspended') audioCtx.resume();
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             osc.type = type;
@@ -206,7 +206,7 @@
             stopMusic();
             currentTrack = track;
             if (muted) return;
-            ensureAudio();
+            ensureAudio(); if (audioCtx.state === 'suspended') audioCtx.resume();
 
             // Home: funky, chromatic, playful pac-man bounce
             const homeMelody = [

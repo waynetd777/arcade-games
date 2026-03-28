@@ -1264,7 +1264,7 @@
                 return;
             }
             if (e.key === 'a' || e.key === 'A') { aiBtn.click(); return; }
-                if (e.key === 's' || e.key === 'S') { muteBtn.click(); return; }
+            if (e.key === 's' || e.key === 'S') { muteBtn.click(); return; }
             if (e.key === 'p' || e.key === 'P') { pauseBtn.click(); return; }
             if (state !== 'PLAY' || paused || aiMode) return;
             if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === ' ') {
@@ -1352,7 +1352,7 @@
         function startHomeMusic() {
             ensureAudio();
             function play() {
-                if (state === 'START' || state === 'OVER') { currentTrack = null; playMusic('home'); }
+                if (!muted && (state === 'START' || state === 'OVER')) { currentTrack = null; playMusic('home'); }
                 document.removeEventListener('click', startHomeMusic);
                 document.removeEventListener('keydown', startHomeMusic);
                 document.removeEventListener('touchstart', startHomeMusic);

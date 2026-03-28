@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frogger Deluxe - Enhanced</title>
+    <style>
+        body { background: #050505; color: #4ae04a; font-family: 'Courier New', Courier, monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; user-select: none; }
+        .stats { margin-bottom: 10px; font-size: 22px; display: flex; gap: 30px; font-weight: bold; text-shadow: 2px 2px #000; flex-wrap: wrap; justify-content: center; }
+        #s, #l, #v, #timer { color: #fff; }
+        #timer.warning { color: #ff4444; animation: blink 0.5s infinite; }
+        @keyframes blink { 50% { opacity: 0.4; } }
+        #game-wrapper { position: relative; border: 4px solid #333; box-shadow: 0 0 50px rgba(74, 224, 74, 0.15); border-radius: 8px; overflow: hidden; touch-action: none; }
+        canvas { display: block; background: #000; cursor: pointer; }
+        .controls { display: flex; gap: 15px; margin-top: 15px; z-index: 10; flex-wrap: wrap; justify-content: center; }
+        button { padding: 12px 25px; font-size: 16px; font-family: inherit; font-weight: bold; cursor: pointer; border: none; border-radius: 4px; transition: 0.2s; text-transform: uppercase; }
+        #b { background: linear-gradient(180deg, #4ae04a, #2eb32e); color: #000; box-shadow: 0 4px 0 #1e7a1e; }
+        #ai-btn { background: #222; color: #00ccff; border: 2px solid #00ccff; box-shadow: 0 0 10px rgba(0, 204, 255, 0.3); }
+        #pause-btn { background: #222; color: #ffaa00; border: 2px solid #ffaa00; box-shadow: 0 0 10px rgba(255, 170, 0, 0.3); }
+        button:active { transform: translateY(3px); box-shadow: none; }
+        .ai-active { background: #00ccff !important; color: #000 !important; box-shadow: 0 0 20px #00ccff !important; }
+        .pause-active { background: #ffaa00 !important; color: #000 !important; box-shadow: 0 0 20px #ffaa00 !important; }
+        .dpad { display: none; margin-top: 10px; }
+        @media (pointer: coarse) { .dpad { display: grid; } }
+        .dpad { grid-template-columns: 60px 60px 60px; grid-template-rows: 60px 60px 60px; gap: 4px; justify-content: center; }
+        .dpad button { padding: 0; width: 60px; height: 60px; font-size: 24px; background: #222; color: #4ae04a; border: 2px solid #4ae04a; border-radius: 8px; }
+        .dpad button:active { background: #4ae04a; color: #000; }
+        .dpad .empty { visibility: hidden; }
+    </style>
+</head>
+<body>
+
+    <div class="stats">
+        <div>SCORE: <span id="s">0</span></div>
+        <div>LIVES: <span id="l">3</span></div>
+        <div>LVL: <span id="v">1</span></div>
+        <div>TIME: <span id="timer">30</span></div>
+    </div>
+
+    <div id="game-wrapper">
+        <canvas id="c" width="560" height="600"></canvas>
+    </div>
+
+    <div class="controls">
+        <button id="b">START MISSION</button>
+        <button id="ai-btn">NEURAL OVERRIDE: OFF</button>
+        <button id="pause-btn">PAUSE</button>
+        <a href="index.html" style="padding: 12px 25px; font-size: 16px; font-family: 'Courier New', Courier, monospace; font-weight: bold; cursor: pointer; border: none; border-radius: 4px; text-transform: uppercase; background: #222; color: #888; border: 2px solid #555; text-decoration: none; display: inline-block; transition: 0.2s;">MENU</a>
+    </div>
+
+    <div class="dpad">
+        <div class="empty"></div>
+        <button id="d-up">&#9650;</button>
+        <div class="empty"></div>
+        <button id="d-left">&#9664;</button>
+        <div class="empty"></div>
+        <button id="d-right">&#9654;</button>
+        <div class="empty"></div>
+        <button id="d-down">&#9660;</button>
+        <div class="empty"></div>
+    </div>
+
+    <script>
+    (function() {
+        const canvas = document.getElementById('c');
+        const ctx = canvas.getContext('2d');
+        const btn = document.getElementById('b');
+        const aiBtn = document.getElementById('ai-btn');
+        const pauseBtn = document.getElementById('pause-btn');
+        const GRID = 40;
+        const W = 560, H = 600;
+        const GAME_W = 480, GAME_H = 560;
+        const OFFSET_X = 40, OFFSET_Y = 20;
+        const ROWS = GAME_H / GRID; // 14 rows (0-13)
+        // Layout (y values):
+        // Row 0  (y=0):   Goal slots
+        // Row 1-5 (y=40-200): River (logs + turtles)
+        // Row 6  (y=240): Safe median
+        // Row 7-11 (y=280-440): Road (cars)
+        // Row 12 (y=480): Safe grass (start area)
+        // Row 13 (y=520): Bottom grass
+
+        const RIVER_TOP = 40, RIVER_BOT = 200;
+        const ROAD_TOP = 280, ROAD_BOT = 440;
+        const START_Y = 480;
+        const GOAL_Y = 0;
+        const TIME_LIMIT = 30;
+
+        let state = 'START', aiMode = false, paused = false, aiTick = 0;
+        let score = 0, lives = 3, level = 1, timeLeft = TIME_LIMIT, lastTime = 0;
+        let obstacles = [], floatingTexts = [], goalSlots = [];
+        let dyingThisFrame = false;
+        let difficulty = 1; // 0=Easy, 1=Medium, 2=Hard
+        let gameOverTimeout = null;
+        // Title frog hop animation — waypoints define the path
+        let titleFrogTimer = 0;
+        const HOP_DUR = 0.28; // seconds per hop
+        const HOP_ARC = 14; // pixel height of each hop arc
+        // Left frog: center -> left edge -> up the side -> right to title
+        const FROG_L_PATH = [
+            {x: 280, y: 520},  // start center bottom
+            {x: 240, y: 520},  // hop left
+            {x: 200, y: 520},
+            {x: 160, y: 520},
+            {x: 80,  y: 520},  // at left edge
+            {x: 80,  y: 440},  // hop up
+            {x: 80,  y: 360},
+            {x: 80,  y: 280},
+            {x: 80,  y: 200},
+            {x: 80,  y: 120},
+            {x: 80,  y: 55},   // level with title
+            {x: 120, y: 55},   // hop in to final position
+        ];
+        // Right frog: center -> right edge -> up the side -> left to title
+        const FROG_R_PATH = [
+            {x: 280, y: 520},
+            {x: 320, y: 520},
+            {x: 360, y: 520},
+            {x: 400, y: 520},
+            {x: 480, y: 520},
+            {x: 480, y: 440},
+            {x: 480, y: 360},
+            {x: 480, y: 280},
+            {x: 480, y: 200},
+            {x: 480, y: 120},
+            {x: 480, y: 55},
+            {x: 440, y: 55},
+        ];
+        const TITLE_FROG_HOPS = FROG_L_PATH.length - 1;
+        const TITLE_FROG_TOTAL = TITLE_FROG_HOPS * HOP_DUR;
+        const DIFF_NAMES = ['E: EASY', 'M: MEDIUM', 'H: HARD'];
+        const DIFF_COLORS = ['#4ae04a', '#ffaa00', '#ff3333'];
+        const DIFF_SPEED = [1.0, 1.5, 2.1];
+        const DIFF_SPAWN = [0, 0.3, 0.7]; // extra obstacle density bonus
+        let highScores = JSON.parse(localStorage.getItem('frogger_deluxe_scores2')) || [{n:'CPU', s:1000}];
+        // Ensure we keep up to 10
+        highScores = highScores.slice(0, 10);
+
+        const frog = { x: 200, y: START_Y, jump: 0 };
+
+        // === Sound Engine ===
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+        function ensureAudio() { if (!audioCtx) audioCtx = new AudioCtx(); }
+
+        function playTone(freq, duration, type = 'square', vol = 0.15) {
+            ensureAudio();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.onended = () => { osc.disconnect(); gain.disconnect(); };
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        function sfxJump() { playTone(400, 0.08); playTone(600, 0.08); }
+        function sfxDie() {
+            playTone(200, 0.3, 'sawtooth', 0.2);
+            setTimeout(() => playTone(100, 0.4, 'sawtooth', 0.15), 100);
+        }
+        function sfxGoal() {
+            [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => playTone(f, 0.15, 'square', 0.12), i * 80));
+        }
+        function sfxLevelClear() {
+            [523, 659, 784, 1047, 1319].forEach((f, i) => setTimeout(() => playTone(f, 0.2, 'triangle', 0.15), i * 100));
+        }
+        function sfxGameOver() {
+            [400, 350, 300, 200].forEach((f, i) => setTimeout(() => playTone(f, 0.3, 'sawtooth', 0.12), i * 150));
+        }
+        function sfxTimeWarning() { playTone(800, 0.05, 'square', 0.1); }
+
+        // === Music Engine ===
+        let musicInterval = null;
+        let currentTrack = null;
+
+        function stopMusic() {
+            if (musicInterval) { clearInterval(musicInterval); musicInterval = null; }
+            currentTrack = null;
+        }
+
+        function playMusic(track) {
+            if (currentTrack === track) return;
+            stopMusic();
+            currentTrack = track;
+            ensureAudio();
+
+            // Home screen: bouncy, upbeat chiptune
+            const homeMelody = [
+                // phrase 1 — energetic ascending runs
+                523, 659, 784, 0, 880, 784, 659, 0,
+                698, 784, 880, 0, 1047, 880, 784, 0,
+                // phrase 2 — playful bounce
+                659, 0, 784, 659, 523, 0, 659, 784,
+                880, 0, 784, 0, 659, 523, 659, 0,
+                // phrase 3 — call and response
+                1047, 0, 880, 0, 784, 880, 1047, 0,
+                880, 0, 784, 659, 784, 0, 880, 0,
+                // phrase 4 — resolution with flair
+                1047, 1175, 1047, 0, 880, 784, 659, 784,
+                880, 0, 659, 0, 523, 0, 0, 0,
+            ];
+
+            const homeBass = [
+                262, 0, 262, 262, 330, 0, 330, 330,
+                349, 0, 349, 349, 392, 0, 392, 392,
+                330, 0, 330, 0, 262, 0, 262, 330,
+                440, 0, 392, 0, 330, 262, 330, 0,
+                523, 0, 440, 0, 392, 440, 523, 0,
+                440, 0, 392, 330, 392, 0, 440, 0,
+                523, 0, 523, 0, 440, 392, 330, 392,
+                440, 0, 330, 0, 262, 0, 262, 0,
+            ];
+
+            // Game: fast, driving, high-energy
+            const gameMelody = [
+                // phrase 1 — urgent ascending
+                659, 784, 880, 784, 659, 784, 880, 1047,
+                988, 880, 784, 0, 880, 988, 1047, 0,
+                // phrase 2 — rapid fire
+                1047, 880, 1047, 1175, 1319, 1175, 1047, 880,
+                784, 880, 784, 659, 784, 0, 880, 0,
+                // phrase 3 — tension builder
+                659, 698, 784, 880, 784, 698, 784, 880,
+                1047, 988, 880, 784, 880, 1047, 1175, 0,
+                // phrase 4 — peak and resolve
+                1319, 1175, 1047, 1175, 1319, 0, 1175, 1047,
+                880, 784, 880, 1047, 880, 784, 659, 0,
+            ];
+
+            const gameBass = [
+                330, 0, 330, 330, 392, 0, 392, 392,
+                440, 0, 440, 0, 392, 0, 392, 0,
+                523, 0, 523, 523, 440, 0, 440, 440,
+                392, 0, 392, 330, 392, 0, 440, 0,
+                330, 0, 349, 0, 392, 0, 440, 392,
+                523, 0, 494, 0, 440, 0, 523, 0,
+                659, 0, 587, 0, 523, 0, 587, 523,
+                440, 392, 440, 523, 440, 392, 330, 0,
+            ];
+
+            const melody = track === 'home' ? homeMelody : gameMelody;
+            const bass = track === 'home' ? homeBass : gameBass;
+            const tempo = track === 'home' ? 210 : 260;
+            const melVol = 0.06;
+            const bassVol = 0.04;
+            const stepMs = 60000 / tempo;
+            let step = 0;
+
+            musicInterval = setInterval(() => {
+                if (paused) return;
+                const note = melody[step % melody.length];
+                const bn = bass[step % bass.length];
+                if (note > 0) playTone(note, stepMs / 1000 * 0.8, 'square', melVol);
+                if (bn > 0) playTone(bn, stepMs / 1000 * 1.2, 'triangle', bassVol);
+                step++;
+            }, stepMs);
+        }
+
+        // === Goal Slots ===
+        function initGoalSlots() {
+            goalSlots = [];
+            const slotWidth = 50;
+            const gap = (GAME_W - 5 * slotWidth) / 6;
+            for (let i = 0; i < 5; i++) {
+                goalSlots.push({ x: gap + i * (slotWidth + gap), filled: false });
+            }
+        }
+
+        // === Level Initialization ===
+        function initLevel() {
+            const sm = 0.5 * DIFF_SPEED[difficulty] * (1 + (level - 1) * 0.15);
+            obstacles = [];
+
+            // Progressively add more obstacles per lane as levels increase
+            function laneCount(base) {
+                const extra = Math.floor((level - 1 + DIFF_SPAWN[difficulty] * 3) / 3);
+                return Math.min(base + extra, 4);
+            }
+
+            // Road lanes — base counts start low
+            const roadLanes = [
+                { y: 440, s:  1.8, c: '#ff3333', baseW: 50, base: 1 },
+                { y: 400, s: -1.2, c: '#eeee00', baseW: 75, base: 1 },
+                { y: 360, s:  2.4, c: '#00ccff', baseW: 45, base: 1 },
+                { y: 320, s: -0.9, c: '#ffffff', baseW: 90, base: 1 },
+                { y: 280, s:  2.0, c: '#ff8800', baseW: 55, base: 1 }
+            ];
+
+            roadLanes.forEach(lane => {
+                const count = laneCount(lane.base);
+                const spacing = GAME_W / count;
+                for (let i = 0; i < count; i++) {
+                    const w = lane.baseW + Math.floor(Math.random() * 20 - 10);
+                    obstacles.push({
+                        x: i * spacing + Math.random() * 40,
+                        y: lane.y, w: w,
+                        s: lane.s * sm,
+                        c: lane.c, t: 'car'
+                    });
+                }
+            });
+
+            // River lanes — logs are wider at early levels for easier landing
+            const logShrink = Math.min(60, Math.max(0, (level - 1) * 8));
+            // Turtles appear earlier on harder difficulties
+            const turtleLevel = [3, 2, 1][difficulty];
+            const hasTurtles = level >= turtleLevel;
+
+            const riverLanes = [
+                { y: 200, s:  1.0, baseW: 170 - logShrink, base: 1, t: 'log' },
+                { y: 160, s: -1.5, baseW: 110 - logShrink, base: 1, t: hasTurtles ? 'turtle' : 'log' },
+                { y: 120, s:  0.7, baseW: 200 - logShrink, base: 1, t: 'log' },
+                { y:  80, s: -1.3, baseW: 120 - logShrink, base: 1, t: hasTurtles ? 'turtle' : 'log' },
+                { y:  40, s:  1.2, baseW: 150 - logShrink, base: 1, t: 'log' }
+            ];
+
+            riverLanes.forEach(lane => {
+                const count = laneCount(lane.base);
+                const spacing = GAME_W / count;
+                const minW = lane.t === 'log' ? 80 : 70;
+                for (let i = 0; i < count; i++) {
+                    const w = Math.max(minW, lane.baseW + Math.floor(Math.random() * 20 - 10));
+                    const ob = {
+                        x: i * spacing + Math.random() * 30,
+                        y: lane.y, w: w,
+                        s: lane.s * sm,
+                        c: lane.t === 'log' ? '#7b3f00' : '#2e8b57',
+                        t: lane.t
+                    };
+                    if (lane.t === 'turtle') {
+                        // Turtles submerge faster at higher levels
+                        const subFreq = Math.max(2, 6 - (level - 3) * 0.5);
+                        ob.submergeTimer = Math.random() * subFreq + subFreq * 0.5;
+                        ob.submerged = false;
+                        ob.submergeDuration = Math.min(subFreq * 0.4, 1.2 + Math.random() * Math.min(1.5, level * 0.15));
+                    }
+                    obstacles.push(ob);
+                }
+            });
+
+            timeLeft = TIME_LIMIT;
+            updateHUD();
+        }
+
+        function updateHUD() {
+            document.getElementById('s').innerText = score;
+            document.getElementById('l').innerText = lives;
+            document.getElementById('v').innerText = level;
+            const timerEl = document.getElementById('timer');
+            timerEl.innerText = Math.ceil(timeLeft);
+            timerEl.className = timeLeft <= 5 ? 'warning' : '';
+        }
+
+        // === Frog Movement ===
+        function moveFrog(dx, dy) {
+            if (state !== 'PLAY' || paused || aiMode) return;
+            const nx = frog.x + dx;
+            const ny = frog.y + dy;
+            if (nx < 0 || nx >= GAME_W || ny < GOAL_Y || ny > START_Y) return;
+            frog.x = nx;
+            frog.y = ny;
+            frog.x = Math.round(frog.x / GRID) * GRID;
+            frog.jump = 12;
+            sfxJump();
+        }
+
+        // === AI ===
+        function simulatePos(o, dt) {
+            let fx = o.x + o.s * dt * 60;
+            if (fx > GAME_W) fx -= (GAME_W + o.w);
+            if (fx < -o.w) fx += (GAME_W + o.w);
+            return fx;
+        }
+
+        function evaluatePosition(nx, ny, steps) {
+            if (nx < 0 || nx >= GAME_W || ny < GOAL_Y || ny > START_Y) return -10000;
+
+            let s = 0;
+            const inWater = (ny >= RIVER_TOP && ny <= RIVER_BOT);
+            const inRoad = (ny >= ROAD_TOP && ny <= ROAD_BOT);
+            let onLog = false, logSpeed = 0;
+
+            // Check collisions at future positions
+            for (let t = 0; t <= 10; t += 5) {
+                obstacles.forEach(o => {
+                    const ox = simulatePos(o, t);
+                    if (nx < ox + o.w && nx + GRID > ox && ny === o.y) {
+                        if (o.t === 'car') s -= 8000;
+                        else if (o.t === 'turtle' && o.submerged) s -= 8000;
+                        else if (t === 0) { onLog = true; logSpeed = o.s; }
+                    }
+                });
+            }
+
+            if (inWater && !onLog) s -= 8000;
+
+            // Check if landing on a goal slot
+            if (ny === GOAL_Y) {
+                let onSlot = false;
+                goalSlots.forEach(slot => {
+                    if (!slot.filled && nx >= slot.x - 10 && nx <= slot.x + 50 - GRID + 10) {
+                        onSlot = true;
+                        s += 5000;
+                    }
+                });
+                if (!onSlot) s -= 8000;
+            }
+
+            // Prefer moving up
+            s += (START_Y - ny) * 3;
+
+            // Penalize edges when on logs drifting off
+            if (onLog) {
+                s += 100; // stability bonus for being on a log
+                const futureX = nx + logSpeed * 3;
+                if ((futureX < 40 && logSpeed < 0) || (futureX > GAME_W - 80 && logSpeed > 0)) s -= 2000;
+                if ((nx < 40 && logSpeed < 0) || (nx > GAME_W - 80 && logSpeed > 0)) s -= 2000;
+            }
+
+            // Recursive lookahead
+            if (steps > 0) {
+                const moves = [{dx:0,dy:-GRID},{dx:0,dy:0},{dx:GRID,dy:0},{dx:-GRID,dy:0},{dx:0,dy:GRID}];
+                let bestFuture = -Infinity;
+                moves.forEach(m => {
+                    const fs = evaluatePosition(nx + m.dx, ny + m.dy, steps - 1);
+                    if (fs > bestFuture) bestFuture = fs;
+                });
+                s += bestFuture * 0.3;
+            }
+
+            return s;
+        }
+
+        function runAI(dt) {
+            aiTick += dt;
+            if (aiTick < 0.12) return;
+            aiTick = 0;
+
+            const moves = [
+                {dx:0, dy:-GRID}, // up
+                {dx:0, dy:0},     // wait
+                {dx:GRID, dy:0},  // right
+                {dx:-GRID, dy:0}, // left
+                {dx:0, dy:GRID}   // down
+            ];
+
+            let best = moves[1], maxS = -Infinity;
+            moves.forEach(m => {
+                const nx = frog.x + m.dx;
+                const ny = frog.y + m.dy;
+                const s = evaluatePosition(nx, ny, 2);
+                if (s > maxS) { maxS = s; best = m; }
+            });
+
+            if (best.dx !== 0 || best.dy !== 0) {
+                const nx = frog.x + best.dx;
+                const ny = frog.y + best.dy;
+                if (nx < 0 || nx >= GAME_W || ny < GOAL_Y || ny > START_Y) return;
+                frog.x = nx;
+                frog.y = ny;
+                frog.x = Math.round(frog.x / GRID) * GRID;
+                frog.jump = 12;
+            }
+        }
+
+        // === Death ===
+        function die() {
+            if (dyingThisFrame) return;
+            dyingThisFrame = true;
+            lives--;
+            sfxDie();
+            const msgs = ["SPLAT!", "GLUG!", "REBOOT!", "ERROR!", "CROAK!", "ZAP!"];
+            floatingTexts.push({ x: frog.x + 20, y: frog.y, t: msgs[Math.floor(Math.random() * msgs.length)], life: 1, c: '#ff4444' });
+
+            if (lives <= 0) {
+                state = 'OVER';
+                titleFrogTimer = 0;
+                stopMusic();
+                sfxGameOver();
+                updateHUD();
+                gameOverTimeout = setTimeout(() => {
+                    gameOverTimeout = null;
+                    if (!aiMode && (highScores.length < 10 || score > highScores[highScores.length - 1].s)) {
+                        stopMusic();
+                        let n = prompt("LEGENDARY SCORE! Enter Initials:", "FRG");
+                        if (n) {
+                            highScores.push({ n: n.substring(0, 3).toUpperCase(), s: score });
+                            highScores.sort((a, b) => b.s - a.s);
+                            highScores = highScores.slice(0, 10);
+                            localStorage.setItem('frogger_deluxe_scores2', JSON.stringify(highScores));
+                        }
+                        playMusic('home');
+                    } else {
+                        playMusic('home');
+                    }
+                }, 500);
+            } else {
+                frog.x = 200;
+                frog.y = START_Y;
+                timeLeft = TIME_LIMIT;
+            }
+            updateHUD();
+        }
+
+        // === Drawing ===
+        function drawFrogSprite(x, y, scale) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.scale(scale, scale);
+            ctx.fillStyle = aiMode ? '#00ccff' : '#4ae04a';
+            ctx.fillRect(-18, -18, 8, 8); ctx.fillRect(10, -18, 8, 8);
+            ctx.fillRect(-18, 10, 8, 8); ctx.fillRect(10, 10, 8, 8);
+            ctx.fillRect(-13, -13, 26, 26);
+            ctx.fillStyle = '#fff'; ctx.fillRect(-8, -9, 6, 6); ctx.fillRect(2, -9, 6, 6);
+            ctx.fillStyle = '#000'; ctx.fillRect(-6, -8, 2, 2); ctx.fillRect(4, -8, 2, 2);
+            ctx.restore();
+        }
+
+        function drawGoalSlots() {
+            ctx.fillStyle = '#001133';
+            ctx.fillRect(-OFFSET_X, 0, W, GRID);
+            goalSlots.forEach(slot => {
+                if (slot.filled) {
+                    drawFrogSprite(slot.x + 25, 20, 0.7);
+                } else {
+                    ctx.fillStyle = '#003300';
+                    ctx.strokeStyle = '#4ae04a';
+                    ctx.lineWidth = 1;
+                    // Draw lily pad
+                    ctx.beginPath();
+                    ctx.arc(slot.x + 25, 20, 18, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                }
+            });
+        }
+
+        function drawTurtle(o, time) {
+            if (o.submerged) {
+                ctx.globalAlpha = 0.25;
+            }
+            ctx.fillStyle = o.c;
+            const count = Math.floor(o.w / 35);
+            for (let i = 0; i < count; i++) {
+                const tx = o.x + 5 + i * 35;
+                // Shell
+                ctx.beginPath();
+                ctx.arc(tx + 13, o.y + 20, 13, Math.PI, 0);
+                ctx.fill();
+                ctx.fillRect(tx, o.y + 20, 26, 10);
+                // Head
+                ctx.fillStyle = '#3cb371';
+                ctx.fillRect(tx + 9, o.y + 5, 8, 8);
+                ctx.fillStyle = o.c;
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        function drawCar(o) {
+            ctx.fillStyle = o.c;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = o.c;
+            // Body
+            ctx.fillRect(o.x + 2, o.y + 8, o.w - 4, 24);
+            ctx.shadowBlur = 0;
+            // Windshield
+            ctx.fillStyle = '#88ccff';
+            const windX = o.s > 0 ? o.x + o.w - 18 : o.x + 6;
+            ctx.fillRect(windX, o.y + 10, 12, 10);
+            // Wheels
+            ctx.fillStyle = '#333';
+            ctx.fillRect(o.x + 6, o.y + 4, 10, 6);
+            ctx.fillRect(o.x + o.w - 16, o.y + 4, 10, 6);
+            ctx.fillRect(o.x + 6, o.y + 30, 10, 6);
+            ctx.fillRect(o.x + o.w - 16, o.y + 30, 10, 6);
+            ctx.shadowBlur = 0;
+        }
+
+        function drawLog(o) {
+            ctx.fillStyle = o.c;
+            ctx.fillRect(o.x + 2, o.y + 5, o.w - 4, 30);
+            // Wood grain
+            ctx.strokeStyle = '#5a2d00';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < o.w - 10; i += 20) {
+                ctx.beginPath();
+                ctx.moveTo(o.x + 8 + i, o.y + 10);
+                ctx.lineTo(o.x + 8 + i, o.y + 30);
+                ctx.stroke();
+            }
+        }
+
+        // === Main Loop ===
+        function loop(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            const rawDt = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+            // Cap delta to prevent huge jumps on tab switch
+            const dt = Math.min(rawDt, 0.05);
+
+            ctx.clearRect(0, 0, W, H);
+
+            if (state === 'START' || state === 'OVER') {
+                // Background gradient
+                const bgG = ctx.createLinearGradient(0, 0, 0, H);
+                bgG.addColorStop(0, '#001a00');
+                bgG.addColorStop(0.4, '#002200');
+                bgG.addColorStop(0.7, '#001133');
+                bgG.addColorStop(1, '#050505');
+                ctx.fillStyle = bgG;
+                ctx.fillRect(0, 0, W, H);  // full 560x600
+
+                // Advance title frog animation
+                titleFrogTimer = Math.min(titleFrogTimer + dt, TITLE_FROG_TOTAL);
+
+                // Animated frogs hopping along waypoint paths
+                const hopIndex = Math.min(Math.floor(titleFrogTimer / HOP_DUR), TITLE_FROG_HOPS);
+                const hopFrac = hopIndex >= TITLE_FROG_HOPS ? 1 : (titleFrogTimer % HOP_DUR) / HOP_DUR;
+
+                // Title — pulses in sync with each hop landing
+                const titlePulse = (hopIndex < TITLE_FROG_HOPS)
+                    ? 1 + 0.08 * Math.sin(hopFrac * Math.PI)
+                    : 1;
+                const titleGlow = (hopIndex < TITLE_FROG_HOPS)
+                    ? 20 + 15 * Math.sin(hopFrac * Math.PI)
+                    : 20;
+                const titleSize = Math.round(58 * titlePulse);
+                ctx.save();
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#4ae04a';
+                ctx.font = `bold ${titleSize}px Courier`;
+                ctx.shadowBlur = titleGlow;
+                ctx.shadowColor = '#4ae04a';
+                ctx.fillText("FROGGER", W / 2, 70);
+                ctx.shadowBlur = 0;
+                const done = hopIndex >= TITLE_FROG_HOPS;
+
+                function getFrogPos(path) {
+                    if (done) return path[path.length - 1];
+                    const from = path[hopIndex];
+                    const to = path[hopIndex + 1];
+                    const x = from.x + (to.x - from.x) * hopFrac;
+                    const y = from.y + (to.y - from.y) * hopFrac;
+                    // Parabolic arc perpendicular to hop direction
+                    const arc = -HOP_ARC * 4 * hopFrac * (1 - hopFrac);
+                    return { x, y: y + arc };
+                }
+
+                const frogL = getFrogPos(FROG_L_PATH);
+                const frogR = getFrogPos(FROG_R_PATH);
+                const hopScale = done ? 0.8 : (1 + 0.15 * Math.sin(hopFrac * Math.PI));
+
+                drawFrogSprite(frogL.x, frogL.y, hopScale);
+                drawFrogSprite(frogR.x, frogR.y, hopScale);
+
+                // High scores panel
+                const panelW = 320, panelH = 280;
+                const panelX = (W - panelW) / 2, panelY = 110;
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.fillRect(panelX, panelY, panelW, panelH);
+                ctx.strokeStyle = '#4ae04a';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(panelX, panelY, panelW, panelH);
+
+                ctx.fillStyle = '#4ae04a';
+                ctx.font = 'bold 16px Courier';
+                ctx.fillText("--- HALL OF FAME ---", W / 2, panelY + 25);
+
+                // Column headers
+                ctx.fillStyle = '#666';
+                ctx.font = '11px Courier';
+                ctx.textAlign = 'left';
+                ctx.fillText("RNK", panelX + 15, panelY + 45);
+                ctx.fillText("NAME", panelX + 55, panelY + 45);
+                ctx.textAlign = 'right';
+                ctx.fillText("SCORE", panelX + panelW - 15, panelY + 45);
+
+                // Divider line
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(panelX + 10, panelY + 50);
+                ctx.lineTo(panelX + panelW - 10, panelY + 50);
+                ctx.stroke();
+
+                // Top 10 scores
+                for (let i = 0; i < 10; i++) {
+                    const rowY = panelY + 68 + i * 22;
+                    if (i < highScores.length) {
+                        const h = highScores[i];
+                        const isTop3 = i < 3;
+                        ctx.fillStyle = isTop3 ? ['#ffd700', '#c0c0c0', '#cd7f32'][i] : '#aaa';
+                        ctx.font = isTop3 ? 'bold 13px Courier' : '13px Courier';
+                        ctx.textAlign = 'left';
+                        ctx.fillText(`${(i + 1).toString().padStart(2, ' ')}.`, panelX + 15, rowY);
+                        ctx.fillText(h.n, panelX + 55, rowY);
+                        ctx.textAlign = 'right';
+                        ctx.fillText(h.s, panelX + panelW - 15, rowY);
+                    } else {
+                        ctx.fillStyle = '#333';
+                        ctx.font = '13px Courier';
+                        ctx.textAlign = 'left';
+                        ctx.fillText(`${(i + 1).toString().padStart(2, ' ')}.`, panelX + 15, rowY);
+                        ctx.fillText("---", panelX + 55, rowY);
+                        ctx.textAlign = 'right';
+                        ctx.fillText("---", panelX + panelW - 15, rowY);
+                    }
+                }
+
+                // Difficulty selector
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#aaa';
+                ctx.font = 'bold 14px Courier';
+                ctx.fillText("DIFFICULTY", W / 2, 412);
+
+                const btnW = 90, btnH = 30, btnGap = 15;
+                const totalW = 3 * btnW + 2 * btnGap;
+                const btnStartX = (W - totalW) / 2;
+                const btnY = 422;
+                for (let d = 0; d < 3; d++) {
+                    const bx = btnStartX + d * (btnW + btnGap);
+                    const selected = d === difficulty;
+                    ctx.fillStyle = selected ? DIFF_COLORS[d] : '#222';
+                    ctx.fillRect(bx, btnY, btnW, btnH);
+                    ctx.strokeStyle = DIFF_COLORS[d];
+                    ctx.lineWidth = selected ? 2 : 1;
+                    ctx.strokeRect(bx, btnY, btnW, btnH);
+                    ctx.fillStyle = selected ? '#000' : DIFF_COLORS[d];
+                    ctx.font = selected ? 'bold 13px Courier' : '13px Courier';
+                    ctx.fillText(DIFF_NAMES[d], bx + btnW / 2, btnY + 20);
+                }
+
+                // Bottom text
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 18px Courier';
+                ctx.fillText(state === 'START' ? "READY TO JUMP?" : "SYSTEM FAILURE", W / 2, 500);
+                ctx.font = '12px Courier';
+                ctx.fillStyle = '#888';
+                ctx.fillText("SPACE: START | N: NEURAL OVERRIDE | P: PAUSE", W / 2, 525);
+                ctx.fillText("ARROW KEYS / SWIPE TO MOVE", W / 2, 550);
+
+                ctx.restore();
+                requestAnimationFrame(loop);
+                return;
+            }
+
+            if (paused) {
+                // Dark background for full canvas
+                ctx.fillStyle = '#0a0a0a';
+                ctx.fillRect(0, 0, W, H);
+                ctx.save();
+                ctx.translate(OFFSET_X, OFFSET_Y);
+                ctx.fillStyle = 'rgba(0,0,0,0.7)';
+                ctx.fillRect(0, 0, GAME_W, GAME_H);
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#ffaa00';
+                ctx.font = 'bold 40px Courier';
+                ctx.fillText("PAUSED", GAME_W / 2, 260);
+                ctx.font = '16px Courier';
+                ctx.fillStyle = '#fff';
+                ctx.fillText("PRESS P OR CLICK RESUME", GAME_W / 2, 300);
+                ctx.restore();
+                requestAnimationFrame(loop);
+                return;
+            }
+
+            dyingThisFrame = false;
+
+            // Dark border/background for margins
+            ctx.fillStyle = '#0a0a0a';
+            ctx.fillRect(0, 0, W, H);
+            ctx.save();
+            ctx.translate(OFFSET_X, OFFSET_Y);
+
+            // === Timer ===
+            const prevTime = Math.ceil(timeLeft);
+            timeLeft -= dt;
+            const currTime = Math.ceil(timeLeft);
+            if (timeLeft <= 5 && currTime !== prevTime && timeLeft > 0) sfxTimeWarning();
+            if (timeLeft <= 0) {
+                floatingTexts.push({ x: GAME_W / 2, y: 240, t: "TIME'S UP!", life: 1, c: '#ff4444' });
+                die();
+            }
+            const skipCollisions = dyingThisFrame || state !== 'PLAY';
+
+            if (aiMode) runAI(dt);
+
+            // === Draw Background (extend to full canvas width) ===
+            // River
+            const rG = ctx.createLinearGradient(0, RIVER_TOP, 0, RIVER_BOT + GRID);
+            rG.addColorStop(0, '#001133');
+            rG.addColorStop(1, '#003366');
+            ctx.fillStyle = rG;
+            ctx.fillRect(-OFFSET_X, RIVER_TOP, W, RIVER_BOT - RIVER_TOP + GRID);
+
+            // Road
+            ctx.fillStyle = '#111';
+            ctx.fillRect(-OFFSET_X, ROAD_TOP, W, ROAD_BOT - ROAD_TOP + GRID);
+            // Road lane markings
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([15, 20]);
+            for (let y = ROAD_TOP + GRID; y <= ROAD_BOT; y += GRID) {
+                ctx.beginPath();
+                ctx.moveTo(-OFFSET_X, y);
+                ctx.lineTo(-OFFSET_X + W, y);
+                ctx.stroke();
+            }
+            ctx.setLineDash([]);
+
+            // Grass strips
+            ctx.fillStyle = '#004400';
+            ctx.fillRect(-OFFSET_X, START_Y, W, GAME_H - START_Y + OFFSET_Y); // bottom
+            ctx.fillRect(-OFFSET_X, 240, W, GRID); // median
+
+            // Median decoration
+            ctx.fillStyle = '#006600';
+            for (let x = 10; x < GAME_W; x += 30) {
+                ctx.fillRect(x, 248, 8, 24);
+            }
+
+            // === Goal Slots ===
+            drawGoalSlots();
+
+            // === Update & Draw Obstacles ===
+            let onLog = false, logSpeed = 0;
+
+            obstacles.forEach(o => {
+                // Move (frame-rate independent)
+                o.x += o.s * dt * 60;
+                if (o.x > GAME_W) o.x -= (GAME_W + o.w);
+                if (o.x < -o.w) o.x += (GAME_W + o.w);
+
+                // Turtle submersion
+                if (o.t === 'turtle') {
+                    o.submergeTimer -= dt;
+                    if (o.submergeTimer <= 0) {
+                        o.submerged = !o.submerged;
+                        o.submergeTimer = o.submerged ? o.submergeDuration : (3 + Math.random() * 4);
+                    }
+                }
+
+                // Draw
+                if (o.t === 'car') drawCar(o);
+                else if (o.t === 'turtle') drawTurtle(o);
+                else drawLog(o);
+
+                // Collision with frog
+                if (!skipCollisions && !dyingThisFrame && frog.x < o.x + o.w && frog.x + GRID > o.x && frog.y === o.y) {
+                    if (o.t === 'car') {
+                        die();
+                    } else if (o.t === 'turtle' && o.submerged) {
+                        // Don't count as on log
+                    } else {
+                        onLog = true;
+                        logSpeed = o.s;
+                    }
+                }
+            });
+
+            // Drift frog on log
+            if (onLog) {
+                frog.x += logSpeed * dt * 60;
+            }
+
+            // Snap frog.x to grid on safe rows when not riding a log
+            if (!onLog && (frog.y === 240 || frog.y >= START_Y)) {
+                frog.x = Math.round(frog.x / GRID) * GRID;
+            }
+
+            if (!skipCollisions) {
+            // Water death check
+            if (!dyingThisFrame && frog.y >= RIVER_TOP && frog.y <= RIVER_BOT && !onLog) die();
+            // Off-screen from log drift
+            if (!dyingThisFrame && (frog.x < -20 || frog.x > GAME_W - 20)) die();
+
+            // === Goal Slot Check ===
+            if (!dyingThisFrame && frog.y === GOAL_Y) {
+                let landed = false;
+                goalSlots.forEach(slot => {
+                    if (!slot.filled && frog.x >= slot.x - 10 && frog.x <= slot.x + 50 - GRID + 10) {
+                        slot.filled = true;
+                        landed = true;
+                        score += 50 * level + Math.ceil(timeLeft) * 5;
+                        sfxGoal();
+                        floatingTexts.push({ x: slot.x + 25, y: 30, t: "+" + (50 * level + Math.ceil(timeLeft) * 5), life: 1, c: '#ffff00' });
+                    }
+                });
+                if (!landed) {
+                    die();
+                } else {
+                    frog.x = 200;
+                    frog.y = START_Y;
+                    timeLeft = TIME_LIMIT;
+
+                    // Check if all slots filled
+                    if (goalSlots.every(s => s.filled)) {
+                        score += 200 * level;
+                        level++;
+                        sfxLevelClear();
+                        floatingTexts.push({ x: GAME_W / 2, y: 240, t: "LEVEL CLEAR!", life: 1.5, c: '#ffff00' });
+                        initGoalSlots();
+                        initLevel();
+                    }
+                }
+                updateHUD();
+            }
+            } // end skipCollisions
+
+            // === Draw Frog ===
+            if (state === 'PLAY') {
+                const sc = frog.jump > 0 ? 1.15 : 1;
+                drawFrogSprite(frog.x + 20, frog.y + 20, sc);
+                if (frog.jump > 0) frog.jump = Math.max(0, frog.jump - dt * 80);
+            }
+
+            // === Floating Texts ===
+            floatingTexts = floatingTexts.filter(vt => {
+                vt.y -= 40 * dt;
+                vt.life -= dt * 0.8;
+                ctx.globalAlpha = Math.max(0, vt.life);
+                ctx.fillStyle = vt.c;
+                ctx.font = 'bold 24px Courier';
+                ctx.textAlign = 'center';
+                ctx.fillText(vt.t, vt.x, vt.y);
+                return vt.life > 0;
+            });
+            ctx.globalAlpha = 1;
+
+            // === Timer bar ===
+            const barW = Math.max(0, (timeLeft / TIME_LIMIT) * GAME_W);
+            ctx.globalAlpha = 0.6;
+            ctx.fillStyle = timeLeft > 10 ? '#4ae04a' : timeLeft > 5 ? '#ffaa00' : '#ff3333';
+            ctx.fillRect(0, GAME_H - 4, barW, 4);
+
+            ctx.globalAlpha = 1;
+            ctx.restore();
+            updateHUD();
+            requestAnimationFrame(loop);
+        }
+
+        // === Difficulty selector click ===
+        canvas.addEventListener('click', (e) => {
+            if (state !== 'START' && state !== 'OVER') return;
+            ensureAudio();
+            playMusic('home');
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = W / rect.width;
+            const scaleY = H / rect.height;
+            const mx = (e.clientX - rect.left) * scaleX;
+            const my = (e.clientY - rect.top) * scaleY;
+            const btnW = 90, btnH = 30, btnGap = 15;
+            const totalW = 3 * btnW + 2 * btnGap;
+            const btnStartX = (W - totalW) / 2;
+            const btnY = 422;
+            for (let d = 0; d < 3; d++) {
+                const bx = btnStartX + d * (btnW + btnGap);
+                if (mx >= bx && mx <= bx + btnW && my >= btnY && my <= btnY + btnH) {
+                    difficulty = d;
+                }
+            }
+        });
+
+        // === Controls ===
+        btn.onclick = () => {
+            ensureAudio();
+            if (gameOverTimeout) { clearTimeout(gameOverTimeout); gameOverTimeout = null; }
+            score = 0; lives = 3; level = 1;
+            frog.x = 200; frog.y = START_Y;
+            paused = false;
+            initGoalSlots();
+            initLevel();
+            state = 'PLAY';
+            lastTime = performance.now();
+            playMusic('game');
+            canvas.focus();
+        };
+
+        aiBtn.onclick = () => {
+            aiMode = !aiMode;
+            aiBtn.innerText = aiMode ? "NEURAL OVERRIDE: ON" : "NEURAL OVERRIDE: OFF";
+            aiBtn.className = aiMode ? "ai-active" : "";
+            if (!aiMode) { frog.x = Math.round(frog.x / GRID) * GRID; }
+            canvas.focus();
+        };
+
+        pauseBtn.onclick = () => {
+            if (state !== 'PLAY') return;
+            paused = !paused;
+            pauseBtn.className = paused ? "pause-active" : "";
+            pauseBtn.innerText = paused ? "RESUME" : "PAUSE";
+            if (!paused) lastTime = performance.now(); // reset dt to avoid time jump
+        };
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === ' ') {
+                e.preventDefault();
+                if (state === 'START' || state === 'OVER') btn.click();
+                return;
+            }
+            if ((state === 'START' || state === 'OVER') && (e.key === 'e' || e.key === 'E')) {
+                difficulty = 0; return;
+            }
+            if ((state === 'START' || state === 'OVER') && (e.key === 'm' || e.key === 'M')) {
+                difficulty = 1; return;
+            }
+            if ((state === 'START' || state === 'OVER') && (e.key === 'h' || e.key === 'H')) {
+                difficulty = 2; return;
+            }
+            if (e.key === 'n' || e.key === 'N') {
+                aiBtn.click();
+                return;
+            }
+            if (e.key === 'p' || e.key === 'P') {
+                pauseBtn.click();
+                return;
+            }
+            if (e.key === 'Escape') {
+                if (paused) pauseBtn.click();
+                else if (state === 'PLAY') pauseBtn.click();
+                return;
+            }
+            if (state !== 'PLAY' || paused || aiMode) return;
+            if (e.key.startsWith("Arrow")) e.preventDefault();
+            if (e.key === 'ArrowUp') moveFrog(0, -GRID);
+            if (e.key === 'ArrowDown') moveFrog(0, GRID);
+            if (e.key === 'ArrowLeft') moveFrog(-GRID, 0);
+            if (e.key === 'ArrowRight') moveFrog(GRID, 0);
+        });
+
+        // === Touch / Swipe ===
+        let touchStartX = 0, touchStartY = 0;
+        canvas.addEventListener('touchstart', (e) => {
+            if (state === 'PLAY') e.preventDefault();
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', (e) => {
+            if (state === 'PLAY') e.preventDefault();
+            const dx = e.changedTouches[0].clientX - touchStartX;
+            const dy = e.changedTouches[0].clientY - touchStartY;
+            const absDx = Math.abs(dx), absDy = Math.abs(dy);
+            if (Math.max(absDx, absDy) < 15) return; // too small, ignore
+            if (absDx > absDy) {
+                moveFrog(dx > 0 ? GRID : -GRID, 0);
+            } else {
+                moveFrog(0, dy > 0 ? GRID : -GRID);
+            }
+        }, { passive: false });
+
+        // D-pad buttons
+        document.getElementById('d-up')?.addEventListener('touchstart', (e) => { e.preventDefault(); moveFrog(0, -GRID); }, { passive: false });
+        document.getElementById('d-down')?.addEventListener('touchstart', (e) => { e.preventDefault(); moveFrog(0, GRID); }, { passive: false });
+        document.getElementById('d-left')?.addEventListener('touchstart', (e) => { e.preventDefault(); moveFrog(-GRID, 0); }, { passive: false });
+        document.getElementById('d-right')?.addEventListener('touchstart', (e) => { e.preventDefault(); moveFrog(GRID, 0); }, { passive: false });
+
+        // Start home music — attempt on load, retry on first interaction if blocked
+        function startHomeMusic() {
+            ensureAudio();
+            if (state === 'START' || state === 'OVER') playMusic('home');
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume().then(() => {
+                    if (state === 'START' || state === 'OVER') playMusic('home');
+                });
+            }
+            document.removeEventListener('click', startHomeMusic);
+            document.removeEventListener('keydown', startHomeMusic);
+            document.removeEventListener('touchstart', startHomeMusic);
+        }
+        // Fallback for browsers that block autoplay
+        document.addEventListener('click', startHomeMusic);
+        document.addEventListener('keydown', startHomeMusic);
+        document.addEventListener('touchstart', startHomeMusic);
+        // Try immediately (after listeners are registered so removeEventListener works)
+        startHomeMusic();
+
+        // Stop music when tab is backgrounded, resume appropriate track when visible
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                stopMusic();
+            } else {
+                if (state === 'START' || state === 'OVER') playMusic('home');
+                else if (state === 'PLAY' && !paused) playMusic('game');
+            }
+        });
+
+        requestAnimationFrame(loop);
+    })();
+    </script>
+</body>
+</html>

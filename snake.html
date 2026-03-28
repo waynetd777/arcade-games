@@ -24,7 +24,7 @@
         .dpad-row { display: flex; gap: 5px; justify-content: center; width: 100%; }
         .dpad button { padding: 0; width: 60px; height: 55px; font-size: 24px; background: #222; color: #4ae04a; border: 2px solid #4ae04a; border-radius: 8px; }
         .dpad button:active { background: #4ae04a; color: #000; }
-        @media (max-width: 580px) { .stats { font-size: 16px; gap: 15px; } button { padding: 8px 16px; font-size: 13px; } .controls { gap: 8px; margin-top: 10px; } .controls a { padding: 8px 16px !important; font-size: 13px !important; } }
+        @media (max-width: 580px) { .stats { font-size: 14px; gap: 10px; } .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; width: 100%; } .controls button, .controls a { padding: 8px 4px !important; font-size: 12px !important; text-align: center; box-sizing: border-box; } }
     </style>
 </head>
 <body>
@@ -58,6 +58,8 @@
         const btn = document.getElementById('b');
         const aiBtn = document.getElementById('ai-btn');
         const pauseBtn = document.getElementById('pause-btn');
+        const _mob = window.innerWidth <= 580;
+        if (_mob) { btn.innerText = 'START'; aiBtn.innerText = 'AI: OFF'; }
 
         const W = 560, H = 600;
         canvas.width = W;
@@ -1451,7 +1453,7 @@
 
         aiBtn.onclick = function() {
             aiMode = !aiMode;
-            aiBtn.innerText = aiMode ? "NEURAL OVERRIDE: ON" : "NEURAL OVERRIDE: OFF";
+            aiBtn.innerText = aiMode ? (_mob ? "AI: ON" : "NEURAL OVERRIDE: ON") : (_mob ? "AI: OFF" : "NEURAL OVERRIDE: OFF");
             aiBtn.className = aiMode ? "ai-active" : "";
             canvas.focus();
         };

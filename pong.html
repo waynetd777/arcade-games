@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pong Deluxe</title>
+    <style>
+        body { background: #050505; color: #ff4444; font-family: 'Courier New', Courier, monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; user-select: none; }
+        .stats { margin-bottom: 10px; font-size: 22px; display: flex; gap: 30px; font-weight: bold; text-shadow: 2px 2px #000; flex-wrap: wrap; justify-content: center; }
+        #s, #s2, #v { color: #fff; }
+        #game-wrapper { position: relative; border: 4px solid #333; box-shadow: 0 0 50px rgba(255, 68, 68, 0.15); border-radius: 8px; overflow: hidden; touch-action: none; }
+        canvas { display: block; background: #000; cursor: default; }
+        .controls { display: flex; gap: 15px; margin-top: 15px; z-index: 10; flex-wrap: wrap; justify-content: center; }
+        button { padding: 12px 25px; font-size: 16px; font-family: inherit; font-weight: bold; cursor: pointer; border: none; border-radius: 4px; transition: 0.2s; text-transform: uppercase; }
+        #b { background: linear-gradient(180deg, #ff4444, #cc2222); color: #000; box-shadow: 0 4px 0 #881111; }
+        #ai-btn { background: #222; color: #00ccff; border: 2px solid #00ccff; box-shadow: 0 0 10px rgba(0, 204, 255, 0.3); }
+        #pause-btn { background: #222; color: #ffaa00; border: 2px solid #ffaa00; box-shadow: 0 0 10px rgba(255, 170, 0, 0.3); }
+        button:active { transform: translateY(3px); box-shadow: none; }
+        .ai-active { background: #00ccff !important; color: #000 !important; box-shadow: 0 0 20px #00ccff !important; }
+        .pause-active { background: #ffaa00 !important; color: #000 !important; box-shadow: 0 0 20px #ffaa00 !important; }
+        .dpad { display: none; margin-top: 10px; }
+        @media (pointer: coarse) { .dpad { display: flex; } }
+        .dpad { gap: 10px; justify-content: center; align-items: center; }
+        .dpad button { padding: 0; width: 70px; height: 60px; font-size: 24px; background: #222; color: #ff4444; border: 2px solid #ff4444; border-radius: 8px; }
+        .dpad button:active { background: #ff4444; color: #000; }
+    </style>
+</head>
+<body>
+
+    <div class="stats">
+        <div>SCORE: <span id="s">0</span></div>
+        <div>SCORE: <span id="s2">0</span></div>
+        <div>LVL: <span id="v">1</span></div>
+    </div>
+
+    <div id="game-wrapper">
+        <canvas id="c" width="560" height="600"></canvas>
+    </div>
+
+    <div class="controls">
+        <button id="b">START MISSION</button>
+        <button id="ai-btn">NEURAL OVERRIDE: OFF</button>
+        <button id="pause-btn">PAUSE</button>
+        <a href="index.html" style="padding: 12px 25px; font-size: 16px; font-family: 'Courier New', Courier, monospace; font-weight: bold; cursor: pointer; border: none; border-radius: 4px; text-transform: uppercase; background: #222; color: #888; border: 2px solid #555; text-decoration: none; display: inline-block; transition: 0.2s;">MENU</a>
+    </div>
+
+    <div class="dpad">
+        <button id="d-up">&#9650;</button>
+        <button id="d-down">&#9660;</button>
+    </div>
+
+    <script>
+    (function() {
+        const canvas = document.getElementById('c');
+        const ctx = canvas.getContext('2d');
+        const btn = document.getElementById('b');
+        const aiBtn = document.getElementById('ai-btn');
+        const pauseBtn = document.getElementById('pause-btn');
+
+        const W = 560, H = 600;
+        canvas.width = W;
+        canvas.height = H;
+
+        let state = 'START', aiMode = false, paused = false;
+        let playerScore = 0, cpuScore = 0, level = 1, lastTime = performance.now(), gameTime = 0;
+        let floatingTexts = [], particles = [];
+        let difficulty = 1;
+        const DIFF_NAMES = ['E: EASY', 'M: MEDIUM', 'H: HARD'];
+        const DIFF_COLORS = ['#4ae04a', '#ffaa00', '#ff3333'];
+        const DIFF_BALL_SPEED = [4.5, 6, 8];
+        const DIFF_CPU_SPEED = [2.5, 4, 6];
+        const DIFF_CPU_ERROR = [80, 40, 10];
+        const DIFF_PADDLE_H = [100, 80, 60];
+        let highScores = JSON.parse(localStorage.getItem('pong_deluxe_scores')) || [{n:'CPU', s:11}];
+        highScores = highScores.slice(0, 10);
+
+        let titleTimer = 0;
+        let gameOverTimeout = null;
+
+        // Paddles
+        const PADDLE_W = 12;
+        let playerPaddleH = 80;
+        let cpuPaddleH = 80;
+        const PADDLE_MARGIN = 30;
+        let player = { y: H / 2 };
+        let cpu = { y: H / 2 };
+        let cpuTargetY = H / 2;
+        let cpuReactionTimer = 0;
+
+        // Ball
+        let ball = { x: W / 2, y: H / 2, vx: 0, vy: 0 };
+        let ballSpeed = 6;
+        let rallyCount = 0;
+        let serveTimer = 0;
+        let serveDir = 1;
+
+        let keys = {};
+
+        // Stars
+        let stars = [];
+        function initStars() {
+            stars = [];
+            for (let i = 0; i < 60; i++) {
+                stars.push({
+                    x: Math.random() * W,
+                    y: Math.random() * H,
+                    s: Math.random() * 1.5 + 0.5,
+                    b: Math.random(),
+                    speed: Math.random() * 0.5 + 0.5
+                });
+            }
+        }
+        initStars();
+
+        // === Sound Engine ===
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+        function ensureAudio() { if (!audioCtx) audioCtx = new AudioCtx(); }
+
+        function playTone(freq, duration, type, vol) {
+            if (type === undefined) type = 'square';
+            if (vol === undefined) vol = 0.12;
+            ensureAudio();
+            var osc = audioCtx.createOscillator();
+            var gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+            osc.onended = function() { osc.disconnect(); gain.disconnect(); };
+        }
+
+        function sfxPaddleHit() { playTone(440, 0.08, 'square', 0.1); playTone(660, 0.06, 'square', 0.06); }
+        function sfxWallHit() { playTone(220, 0.06, 'triangle', 0.08); }
+        function sfxScore() {
+            [523, 659, 784, 1047].forEach(function(f, i) { setTimeout(function() { playTone(f, 0.12, 'square', 0.08); }, i * 60); });
+        }
+        function sfxCpuScore() {
+            [300, 250, 200, 150].forEach(function(f, i) { setTimeout(function() { playTone(f, 0.15, 'sawtooth', 0.08); }, i * 80); });
+        }
+        function sfxLevelUp() {
+            [392, 494, 587, 698, 784, 880].forEach(function(f, i) { setTimeout(function() { playTone(f, 0.15, 'triangle', 0.1); }, i * 80); });
+        }
+        function sfxGameOver() {
+            [400, 350, 300, 250, 200].forEach(function(f, i) { setTimeout(function() { playTone(f, 0.25, 'sawtooth', 0.1); }, i * 120); });
+        }
+
+        // === Music Engine ===
+        let musicInterval = null;
+        let currentTrack = null;
+
+        function stopMusic() {
+            if (musicInterval) { clearInterval(musicInterval); musicInterval = null; }
+            currentTrack = null;
+        }
+
+        function playMusic(track) {
+            if (currentTrack === track) return;
+            stopMusic();
+            currentTrack = track;
+            ensureAudio();
+
+            // Home: chill retro synth in D minor -- unique to Pong
+            var homeMelody = [
+                294, 0, 349, 0, 440, 0, 523, 494,
+                440, 0, 349, 0, 330, 0, 294, 0,
+                262, 0, 294, 0, 349, 0, 440, 0,
+                494, 0, 523, 494, 440, 0, 0, 0,
+                587, 0, 523, 0, 494, 0, 440, 349,
+                330, 0, 294, 0, 262, 0, 294, 0,
+                349, 0, 392, 0, 440, 0, 494, 440,
+                392, 0, 349, 0, 294, 0, 0, 0
+            ];
+            var homeBass = [
+                147, 0, 147, 0, 175, 0, 175, 0,
+                220, 0, 220, 0, 165, 0, 147, 0,
+                131, 0, 147, 0, 175, 0, 220, 0,
+                247, 0, 262, 247, 220, 0, 0, 0,
+                294, 0, 262, 0, 247, 0, 220, 175,
+                165, 0, 147, 0, 131, 0, 147, 0,
+                175, 0, 196, 0, 220, 0, 247, 220,
+                196, 0, 175, 0, 147, 0, 0, 0
+            ];
+            // Game: upbeat bouncy theme in G major -- unique to Pong
+            var gameMelody = [
+                392, 0, 494, 0, 587, 0, 494, 392,
+                440, 0, 523, 0, 587, 659, 784, 0,
+                740, 0, 659, 587, 494, 0, 440, 0,
+                392, 0, 494, 523, 587, 0, 0, 0,
+                784, 0, 740, 0, 659, 587, 494, 0,
+                523, 0, 587, 0, 659, 0, 784, 740,
+                659, 0, 587, 494, 440, 0, 494, 0,
+                523, 587, 659, 0, 587, 0, 0, 0
+            ];
+            var gameBass = [
+                196, 0, 196, 0, 247, 0, 247, 196,
+                220, 0, 262, 0, 294, 330, 392, 0,
+                370, 0, 330, 294, 247, 0, 220, 0,
+                196, 0, 247, 262, 294, 0, 0, 0,
+                392, 0, 370, 0, 330, 294, 247, 0,
+                262, 0, 294, 0, 330, 0, 392, 370,
+                330, 0, 294, 247, 220, 0, 247, 0,
+                262, 294, 330, 0, 294, 0, 0, 0
+            ];
+
+            var melody = track === 'home' ? homeMelody : gameMelody;
+            var bass = track === 'home' ? homeBass : gameBass;
+            var tempo = track === 'home' ? 180 : 210;
+            var melVol = 0.05;
+            var bassVol = 0.03;
+            var stepMs = 60000 / tempo;
+            var step = 0;
+
+            musicInterval = setInterval(function() {
+                if (paused) return;
+                var note = melody[step % melody.length];
+                var bn = bass[step % bass.length];
+                if (note > 0) playTone(note, stepMs / 1000 * 0.8, 'square', melVol);
+                if (bn > 0) playTone(bn, stepMs / 1000 * 1.2, 'triangle', bassVol);
+                step++;
+            }, stepMs);
+        }
+
+        // === Particles ===
+        function spawnExplosion(x, y, color, count) {
+            for (var i = 0; i < count; i++) {
+                var angle = Math.random() * Math.PI * 2;
+                var speed = Math.random() * 120 + 30;
+                particles.push({
+                    x: x, y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    life: 0.5 + Math.random() * 0.5,
+                    color: color, size: Math.random() * 3 + 1
+                });
+            }
+        }
+
+        function spawnBallTrail() {
+            particles.push({
+                x: ball.x, y: ball.y,
+                vx: (Math.random() - 0.5) * 20,
+                vy: (Math.random() - 0.5) * 20,
+                life: 0.3 + Math.random() * 0.2,
+                color: '#ff4444',
+                size: Math.random() * 2 + 1
+            });
+        }
+
+        // === Drawing helpers ===
+        function drawStars(dt) {
+            stars.forEach(function(s) {
+                s.b += dt * s.speed;
+                var brightness = (Math.sin(s.b) + 1) / 2;
+                ctx.fillStyle = 'rgba(255,255,255,' + (0.3 + brightness * 0.5) + ')';
+                ctx.fillRect(s.x, s.y, s.s, s.s);
+            });
+        }
+
+        function drawCenterLine() {
+            ctx.setLineDash([10, 10]);
+            ctx.strokeStyle = 'rgba(255, 20, 147, 0.3)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(W / 2, 0);
+            ctx.lineTo(W / 2, H);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.lineWidth = 1;
+        }
+
+        function drawPaddle(x, y, w, h, color) {
+            ctx.fillStyle = color;
+            ctx.shadowBlur = 12;
+            ctx.shadowColor = color;
+            ctx.fillRect(x - w / 2, y - h / 2, w, h);
+            // highlight stripe
+            ctx.fillStyle = 'rgba(255,255,255,0.3)';
+            ctx.fillRect(x - w / 2 + 2, y - h / 2 + 2, 3, h - 4);
+            ctx.shadowBlur = 0;
+        }
+
+        function drawBall(bx, by) {
+            ctx.fillStyle = '#fff';
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#ff4444';
+            ctx.beginPath();
+            ctx.arc(bx, by, 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+
+        function drawScores() {
+            ctx.textAlign = 'center';
+            ctx.font = 'bold 60px Courier';
+            ctx.fillStyle = 'rgba(255, 20, 147, 0.25)';
+            ctx.shadowBlur = 0;
+            ctx.fillText(playerScore, W / 4, 70);
+            ctx.fillText(cpuScore, 3 * W / 4, 70);
+        }
+
+        function updateHUD() {
+            document.getElementById('s').innerText = playerScore;
+            document.getElementById('s2').innerText = cpuScore;
+            document.getElementById('v').innerText = level;
+        }
+
+        // === Init / Reset ===
+        function serveBall() {
+            ball.x = W / 2;
+            ball.y = H / 2;
+            ballSpeed = DIFF_BALL_SPEED[difficulty] * (1 + (level - 1) * 0.08);
+            var angle = (Math.random() * 0.8 - 0.4); // -0.4 to 0.4 radians
+            ball.vx = Math.cos(angle) * ballSpeed * serveDir;
+            ball.vy = Math.sin(angle) * ballSpeed;
+            rallyCount = 0;
+            serveTimer = 0;
+        }
+
+        function initGame() {
+            playerPaddleH = DIFF_PADDLE_H[difficulty];
+            cpuPaddleH = DIFF_PADDLE_H[difficulty];
+            player.y = H / 2;
+            cpu.y = H / 2;
+            cpuTargetY = H / 2;
+            cpuReactionTimer = 0;
+            serveDir = 1;
+            serveTimer = 1.0;
+            ball.x = W / 2;
+            ball.y = H / 2;
+            ball.vx = 0;
+            ball.vy = 0;
+            rallyCount = 0;
+        }
+
+        // === AI (Neural Override) ===
+        function runAI(dt) {
+            var targetY = ball.y;
+            // Predict where ball will be
+            if (ball.vx < 0) {
+                var timeToReach = (ball.x - PADDLE_MARGIN) / Math.abs(ball.vx);
+                targetY = ball.y + ball.vy * timeToReach;
+                // Bounce prediction
+                while (targetY < 0 || targetY > H) {
+                    if (targetY < 0) targetY = -targetY;
+                    if (targetY > H) targetY = 2 * H - targetY;
+                }
+            }
+            var diff = targetY - player.y;
+            var aiSpeed = 7;
+            if (Math.abs(diff) > 5) {
+                player.y += Math.sign(diff) * Math.min(Math.abs(diff), aiSpeed * 60 * dt);
+            }
+            player.y = Math.max(playerPaddleH / 2, Math.min(H - playerPaddleH / 2, player.y));
+        }
+
+        // === CPU AI ===
+        function updateCPU(dt) {
+            cpuReactionTimer -= dt;
+            if (cpuReactionTimer <= 0) {
+                cpuReactionTimer = 0.15 + Math.random() * 0.2;
+                // Predict ball position
+                var targetY = ball.y;
+                if (ball.vx > 0) {
+                    var timeToReach = ((W - PADDLE_MARGIN) - ball.x) / Math.abs(ball.vx + 0.001);
+                    targetY = ball.y + ball.vy * timeToReach;
+                    while (targetY < 0 || targetY > H) {
+                        if (targetY < 0) targetY = -targetY;
+                        if (targetY > H) targetY = 2 * H - targetY;
+                    }
+                }
+                // Add error based on difficulty (only when picking new target)
+                var error = (Math.random() - 0.5) * DIFF_CPU_ERROR[difficulty];
+                cpuTargetY = targetY + error;
+            }
+            // Smooth interpolation toward target (no jitter)
+            var diff = cpuTargetY - cpu.y;
+            var cpuSpeed = DIFF_CPU_SPEED[difficulty] * (1 + (level - 1) * 0.05) * 60;
+            var smoothing = 0.12;
+            if (Math.abs(diff) > 8) {
+                cpu.y += diff * smoothing * dt * 60;
+                var maxMove = cpuSpeed * dt;
+                if (Math.abs(diff * smoothing * dt * 60) > maxMove) {
+                    cpu.y = cpu.y - diff * smoothing * dt * 60 + Math.sign(diff) * maxMove;
+                }
+            }
+            cpu.y = Math.max(cpuPaddleH / 2, Math.min(H - cpuPaddleH / 2, cpu.y));
+        }
+
+        // === Main Loop ===
+        function loop(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            var rawDt = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+            var dt = Math.min(rawDt, 0.05);
+
+            ctx.clearRect(0, 0, W, H);
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, W, H);
+
+            if (state === 'START' || state === 'OVER') {
+                drawHomeScreen(dt);
+                requestAnimationFrame(loop);
+                return;
+            }
+
+            if (paused) {
+                drawStars(0);
+                drawCenterLine();
+                drawScores();
+                drawPaddle(PADDLE_MARGIN, player.y, PADDLE_W, playerPaddleH, aiMode ? '#00ccff' : '#ff4444');
+                drawPaddle(W - PADDLE_MARGIN, cpu.y, PADDLE_W, cpuPaddleH, '#ff6666');
+                drawBall(ball.x, ball.y);
+                ctx.fillStyle = 'rgba(0,0,0,0.7)';
+                ctx.fillRect(0, 0, W, H);
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#ffaa00';
+                ctx.font = 'bold 40px Courier';
+                ctx.fillText("PAUSED", W / 2, H / 2 - 10);
+                ctx.font = '16px Courier';
+                ctx.fillStyle = '#fff';
+                ctx.fillText("PRESS P OR CLICK RESUME", W / 2, H / 2 + 25);
+                requestAnimationFrame(loop);
+                return;
+            }
+
+            gameTime += dt;
+
+            // Serve timer
+            if (serveTimer > 0) {
+                serveTimer -= dt;
+                if (serveTimer <= 0) {
+                    serveBall();
+                }
+            }
+
+            if (aiMode) runAI(dt);
+
+            // Player movement
+            var playerSpeed = 380;
+            if (keys['ArrowUp'] || keys['w'] || keys['W']) player.y -= playerSpeed * dt;
+            if (keys['ArrowDown'] || keys['s'] || keys['S']) player.y += playerSpeed * dt;
+            player.y = Math.max(playerPaddleH / 2, Math.min(H - playerPaddleH / 2, player.y));
+
+            // CPU movement
+            updateCPU(dt);
+
+            // Ball movement
+            if (serveTimer <= 0) {
+                ball.x += ball.vx * 60 * dt;
+                ball.y += ball.vy * 60 * dt;
+
+                // Ball trail
+                if (Math.abs(ball.vx) > 0.1) {
+                    spawnBallTrail();
+                }
+
+                // Top/bottom wall bounce
+                if (ball.y - 8 <= 0) {
+                    ball.y = 8;
+                    ball.vy = Math.abs(ball.vy);
+                    sfxWallHit();
+                }
+                if (ball.y + 8 >= H) {
+                    ball.y = H - 8;
+                    ball.vy = -Math.abs(ball.vy);
+                    sfxWallHit();
+                }
+
+                // Player paddle collision (left)
+                var px = PADDLE_MARGIN;
+                if (ball.vx < 0 && ball.x - 8 <= px + PADDLE_W / 2 && ball.x + 8 >= px - PADDLE_W / 2) {
+                    if (ball.y >= player.y - playerPaddleH / 2 && ball.y <= player.y + playerPaddleH / 2) {
+                        ball.x = px + PADDLE_W / 2 + 8;
+                        var relativeHit = (ball.y - player.y) / (playerPaddleH / 2);
+                        var bounceAngle = relativeHit * Math.PI / 3; // max 60 degrees
+                        rallyCount++;
+                        var speedBoost = 1 + rallyCount * 0.02;
+                        var currentSpeed = ballSpeed * speedBoost;
+                        ball.vx = Math.cos(bounceAngle) * currentSpeed;
+                        ball.vy = Math.sin(bounceAngle) * currentSpeed;
+                        sfxPaddleHit();
+                        spawnExplosion(px + PADDLE_W / 2, ball.y, '#ff4444', 6);
+                    }
+                }
+
+                // CPU paddle collision (right)
+                var cpx = W - PADDLE_MARGIN;
+                if (ball.vx > 0 && ball.x + 8 >= cpx - PADDLE_W / 2 && ball.x - 8 <= cpx + PADDLE_W / 2) {
+                    if (ball.y >= cpu.y - cpuPaddleH / 2 && ball.y <= cpu.y + cpuPaddleH / 2) {
+                        ball.x = cpx - PADDLE_W / 2 - 8;
+                        var relativeHit2 = (ball.y - cpu.y) / (cpuPaddleH / 2);
+                        var bounceAngle2 = relativeHit2 * Math.PI / 3;
+                        rallyCount++;
+                        var speedBoost2 = 1 + rallyCount * 0.02;
+                        var currentSpeed2 = ballSpeed * speedBoost2;
+                        ball.vx = -Math.cos(bounceAngle2) * currentSpeed2;
+                        ball.vy = Math.sin(bounceAngle2) * currentSpeed2;
+                        sfxPaddleHit();
+                        spawnExplosion(cpx - PADDLE_W / 2, ball.y, '#ff6666', 6);
+                    }
+                }
+
+                // Scoring - ball goes past left or right
+                if (ball.x < -20) {
+                    // CPU scores
+                    cpuScore++;
+                    spawnExplosion(0, ball.y, '#ff6666', 15);
+                    floatingTexts.push({ x: W / 4, y: H / 2, t: 'POINT!', life: 1.2, c: '#ff6666' });
+                    sfxCpuScore();
+                    serveDir = 1;
+                    serveTimer = 1.0;
+                    ball.vx = 0; ball.vy = 0;
+                    ball.x = W / 2; ball.y = H / 2;
+                    checkLevelUp();
+                    checkGameOver();
+                }
+                if (ball.x > W + 20) {
+                    // Player scores
+                    playerScore++;
+                    spawnExplosion(W, ball.y, '#ff4444', 15);
+                    floatingTexts.push({ x: 3 * W / 4, y: H / 2, t: '+1', life: 1.0, c: '#ff4444' });
+                    sfxScore();
+                    serveDir = -1;
+                    serveTimer = 1.0;
+                    ball.vx = 0; ball.vy = 0;
+                    ball.x = W / 2; ball.y = H / 2;
+                    checkLevelUp();
+                    checkGameOver();
+                }
+            }
+
+            // === Draw ===
+            drawStars(dt);
+            drawCenterLine();
+            drawScores();
+
+            // Paddles
+            drawPaddle(PADDLE_MARGIN, player.y, PADDLE_W, playerPaddleH, aiMode ? '#00ccff' : '#ff4444');
+            drawPaddle(W - PADDLE_MARGIN, cpu.y, PADDLE_W, cpuPaddleH, '#ff6666');
+
+            // Ball
+            if (serveTimer <= 0) {
+                drawBall(ball.x, ball.y);
+            } else {
+                // Blinking ball at center during serve
+                if (Math.floor(gameTime * 6) % 2 === 0) {
+                    drawBall(W / 2, H / 2);
+                }
+            }
+
+            // Particles
+            particles.forEach(function(p) {
+                p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt;
+                if (p.life > 0) {
+                    ctx.globalAlpha = Math.max(0, p.life);
+                    ctx.fillStyle = p.color;
+                    ctx.fillRect(p.x, p.y, p.size, p.size);
+                }
+            });
+            particles = particles.filter(function(p) { return p.life > 0; });
+            ctx.globalAlpha = 1;
+
+            // Floating texts
+            floatingTexts = floatingTexts.filter(function(vt) {
+                vt.y -= 40 * dt;
+                vt.life -= dt * 0.8;
+                ctx.globalAlpha = Math.max(0, vt.life);
+                ctx.fillStyle = vt.c;
+                ctx.font = 'bold 18px Courier';
+                ctx.textAlign = 'center';
+                ctx.fillText(vt.t, vt.x, vt.y);
+                return vt.life > 0;
+            });
+            ctx.globalAlpha = 1;
+
+            updateHUD();
+            requestAnimationFrame(loop);
+        }
+
+        function checkLevelUp() {
+            var totalPoints = playerScore + cpuScore;
+            var newLevel = Math.floor(totalPoints / 5) + 1;
+            if (newLevel > level) {
+                level = newLevel;
+                ballSpeed = DIFF_BALL_SPEED[difficulty] * (1 + (level - 1) * 0.08);
+                sfxLevelUp();
+                floatingTexts.push({ x: W / 2, y: H / 2 - 40, t: 'LEVEL ' + level + '!', life: 1.5, c: '#ffaa00' });
+            }
+        }
+
+        function checkGameOver() {
+            if (playerScore >= 11 || cpuScore >= 11) {
+                state = 'OVER';
+                titleTimer = 0;
+                stopMusic();
+                sfxGameOver();
+                var finalScore = playerScore;
+                gameOverTimeout = setTimeout(function() {
+                    if (state !== 'OVER') return;
+                    if (!aiMode && finalScore > 0 && (highScores.length < 10 || finalScore > highScores[highScores.length - 1].s)) {
+                        stopMusic();
+                        var n = prompt("LEGENDARY SCORE! Enter Initials:", "ACE");
+                        if (n) {
+                            highScores.push({ n: n.substring(0, 3).toUpperCase(), s: finalScore });
+                            highScores.sort(function(a, b) { return b.s - a.s; });
+                            highScores = highScores.slice(0, 10);
+                            localStorage.setItem('pong_deluxe_scores', JSON.stringify(highScores));
+                        }
+                    }
+                    playMusic('home');
+                }, 1000);
+            }
+        }
+
+        // === Home Screen ===
+        function drawHomeScreen(dt) {
+            titleTimer += dt;
+
+            var bgG = ctx.createLinearGradient(0, 0, 0, H);
+            bgG.addColorStop(0, '#0a0005');
+            bgG.addColorStop(0.5, '#0a0010');
+            bgG.addColorStop(1, '#050505');
+            ctx.fillStyle = bgG;
+            ctx.fillRect(0, 0, W, H);
+
+            drawStars(dt);
+
+            // Title pulse
+            var titlePulse = 1 + 0.05 * Math.sin(titleTimer * 8);
+            var titleGlow = 15 + 10 * Math.sin(titleTimer * 8);
+            var titleSize = Math.round(52 * titlePulse);
+
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#ff4444';
+            ctx.font = 'bold ' + titleSize + 'px Courier';
+            ctx.shadowBlur = titleGlow;
+            ctx.shadowColor = '#ff4444';
+            ctx.fillText("PONG", W / 2, 68);
+            ctx.shadowBlur = 0;
+
+            // Animated scene: ball bouncing between two paddles on sides
+            var demoPaddleH = 60;
+            var demoPaddleW = 8;
+            // Left paddle moves up/down
+            var leftPY = H / 2 + Math.sin(titleTimer * 1.5) * 100;
+            // Right paddle moves
+            var rightPY = H / 2 + Math.sin(titleTimer * 1.5 + 1) * 100;
+            // Ball bouncing
+            var demoBallPeriod = 2.0;
+            var demoBallT = (titleTimer % demoBallPeriod) / demoBallPeriod;
+            var demoBallX = 40 + demoBallT * (W - 80);
+            if (Math.floor(titleTimer / demoBallPeriod) % 2 === 1) {
+                demoBallX = W - 40 - demoBallT * (W - 80);
+            }
+            var demoBallY = H / 2 + Math.sin(titleTimer * 3.7) * 80;
+
+            // Draw demo paddles (small, semi-transparent)
+            ctx.globalAlpha = 0.3;
+            drawPaddle(25, leftPY, demoPaddleW, demoPaddleH, '#ff4444');
+            drawPaddle(W - 25, rightPY, demoPaddleW, demoPaddleH, '#ff6666');
+            // demo ball
+            ctx.globalAlpha = 0.4;
+            drawBall(demoBallX, demoBallY);
+            ctx.globalAlpha = 1;
+
+            // Demo center line
+            ctx.globalAlpha = 0.15;
+            drawCenterLine();
+            ctx.globalAlpha = 1;
+
+            // High scores panel
+            var panelX = W / 2 - 160, panelY = 110, panelW = 320, panelH = 280;
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+            ctx.fillRect(panelX, panelY, panelW, panelH);
+            ctx.strokeStyle = '#ff4444';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(panelX, panelY, panelW, panelH);
+
+            ctx.fillStyle = '#ff4444';
+            ctx.font = 'bold 16px Courier';
+            ctx.textAlign = 'center';
+            ctx.fillText("--- HALL OF FAME ---", W / 2, panelY + 25);
+
+            ctx.fillStyle = '#666';
+            ctx.font = '11px Courier';
+            ctx.textAlign = 'left';
+            ctx.fillText("RNK", panelX + 15, panelY + 45);
+            ctx.fillText("NAME", panelX + 55, panelY + 45);
+            ctx.textAlign = 'right';
+            ctx.fillText("SCORE", panelX + panelW - 15, panelY + 45);
+
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(panelX + 10, panelY + 50);
+            ctx.lineTo(panelX + panelW - 10, panelY + 50);
+            ctx.stroke();
+
+            for (var i = 0; i < 10; i++) {
+                var rowY = panelY + 68 + i * 22;
+                if (i < highScores.length) {
+                    var h = highScores[i];
+                    var isTop3 = i < 3;
+                    ctx.fillStyle = isTop3 ? ['#ffd700', '#c0c0c0', '#cd7f32'][i] : '#aaa';
+                    ctx.font = isTop3 ? 'bold 13px Courier' : '13px Courier';
+                    ctx.textAlign = 'left';
+                    ctx.fillText((i + 1).toString().padStart(2, ' ') + '.', panelX + 15, rowY);
+                    ctx.fillText(h.n, panelX + 55, rowY);
+                    ctx.textAlign = 'right';
+                    ctx.fillText(h.s, panelX + panelW - 15, rowY);
+                } else {
+                    ctx.fillStyle = '#333';
+                    ctx.font = '13px Courier';
+                    ctx.textAlign = 'left';
+                    ctx.fillText((i + 1).toString().padStart(2, ' ') + '.', panelX + 15, rowY);
+                    ctx.fillText("---", panelX + 55, rowY);
+                    ctx.textAlign = 'right';
+                    ctx.fillText("---", panelX + panelW - 15, rowY);
+                }
+            }
+
+            // Difficulty selector
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#aaa';
+            ctx.font = 'bold 14px Courier';
+            ctx.fillText("DIFFICULTY", W / 2, 418);
+
+            var dBtnW = 100, dBtnH = 30, dBtnGap = 12;
+            var dTotalW = 3 * dBtnW + 2 * dBtnGap;
+            var dBtnStartX = (W - dTotalW) / 2;
+            var dBtnY = 428;
+            for (var d = 0; d < 3; d++) {
+                var bx = dBtnStartX + d * (dBtnW + dBtnGap);
+                var selected = d === difficulty;
+                ctx.fillStyle = selected ? DIFF_COLORS[d] : '#222';
+                ctx.fillRect(bx, dBtnY, dBtnW, dBtnH);
+                ctx.strokeStyle = DIFF_COLORS[d];
+                ctx.lineWidth = selected ? 2 : 1;
+                ctx.strokeRect(bx, dBtnY, dBtnW, dBtnH);
+                ctx.fillStyle = selected ? '#000' : DIFF_COLORS[d];
+                ctx.font = selected ? 'bold 12px Courier' : '12px Courier';
+                ctx.textAlign = 'center';
+                ctx.fillText(DIFF_NAMES[d], bx + dBtnW / 2, dBtnY + 20);
+            }
+
+            // Game info
+            ctx.textAlign = 'center';
+            ctx.font = '12px Courier';
+            ctx.fillStyle = '#888';
+            ctx.fillText("FIRST TO 11 WINS!", W / 2, 480);
+
+            // Bottom text
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 18px Courier';
+            ctx.fillText(state === 'START' ? "READY TO RALLY!" : "GAME OVER", W / 2, 520);
+            if (state === 'OVER') {
+                ctx.font = 'bold 14px Courier';
+                ctx.fillStyle = playerScore >= 11 ? '#ff4444' : '#ff6666';
+                ctx.fillText(playerScore >= 11 ? "YOU WIN!" : "CPU WINS!", W / 2, 540);
+            }
+            ctx.font = '12px Courier';
+            ctx.fillStyle = '#888';
+            ctx.fillText("SPACE: START | N: NEURAL OVERRIDE | P: PAUSE", W / 2, 562);
+            ctx.fillText("W/S OR ARROWS TO MOVE", W / 2, 580);
+        }
+
+        // === Difficulty click ===
+        canvas.addEventListener('click', function(e) {
+            if (state !== 'START' && state !== 'OVER') return;
+            ensureAudio();
+            playMusic('home');
+            var rect = canvas.getBoundingClientRect();
+            var scaleX = W / rect.width;
+            var scaleY = H / rect.height;
+            var mx = (e.clientX - rect.left) * scaleX;
+            var my = (e.clientY - rect.top) * scaleY;
+            var dBtnW = 100, dBtnH = 30, dBtnGap = 12;
+            var dTotalW = 3 * dBtnW + 2 * dBtnGap;
+            var dBtnStartX = (W - dTotalW) / 2;
+            var dBtnY = 428;
+            for (var d = 0; d < 3; d++) {
+                var bx2 = dBtnStartX + d * (dBtnW + dBtnGap);
+                if (mx >= bx2 && mx <= bx2 + dBtnW && my >= dBtnY && my <= dBtnY + dBtnH) {
+                    difficulty = d;
+                }
+            }
+        });
+
+        // === Controls ===
+        btn.onclick = function() {
+            ensureAudio();
+            playerScore = 0; cpuScore = 0; level = 1;
+            paused = false;
+            keys = {};
+            floatingTexts = []; particles = [];
+            if (gameOverTimeout) { clearTimeout(gameOverTimeout); gameOverTimeout = null; }
+            initGame();
+            state = 'PLAY';
+            lastTime = performance.now();
+            gameTime = 0;
+            playMusic('game');
+            canvas.focus();
+            updateHUD();
+        };
+
+        aiBtn.onclick = function() {
+            aiMode = !aiMode;
+            if (!aiMode) keys = {};
+            aiBtn.innerText = aiMode ? "NEURAL OVERRIDE: ON" : "NEURAL OVERRIDE: OFF";
+            aiBtn.className = aiMode ? "ai-active" : "";
+            canvas.focus();
+        };
+
+        pauseBtn.onclick = function() {
+            if (state !== 'PLAY') return;
+            paused = !paused;
+            pauseBtn.className = paused ? "pause-active" : "";
+            pauseBtn.innerText = paused ? "RESUME" : "PAUSE";
+            if (!paused) lastTime = performance.now();
+        };
+
+        window.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                if (paused) pauseBtn.click();
+                else if (state === 'PLAY') pauseBtn.click();
+                return;
+            }
+            if (state === 'START' || state === 'OVER') {
+                if (e.key === ' ') { e.preventDefault(); btn.click(); return; }
+                if (e.key === 'e' || e.key === 'E') { difficulty = 0; return; }
+                if (e.key === 'm' || e.key === 'M') { difficulty = 1; return; }
+                if (e.key === 'h' || e.key === 'H') { difficulty = 2; return; }
+                if (e.key === 'n' || e.key === 'N') { aiBtn.click(); return; }
+                if (e.key === 'p' || e.key === 'P') { pauseBtn.click(); return; }
+                return;
+            }
+            if (e.key === 'n' || e.key === 'N') { aiBtn.click(); return; }
+            if (e.key === 'p' || e.key === 'P') { pauseBtn.click(); return; }
+            if (state !== 'PLAY' || paused || aiMode) return;
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'w' || e.key === 'W' || e.key === 's' || e.key === 'S') {
+                e.preventDefault();
+                keys[e.key] = true;
+            }
+        });
+
+        window.addEventListener('keyup', function(e) {
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'w' || e.key === 'W' || e.key === 's' || e.key === 'S') {
+                keys[e.key] = false;
+            }
+        });
+
+        // === Touch ===
+        var touchStartY = 0;
+        canvas.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+            touchStartY = e.touches[0].clientY;
+            if (state === 'START' || state === 'OVER') {
+                ensureAudio();
+                playMusic('home');
+                var rect = canvas.getBoundingClientRect();
+                var scaleX = W / rect.width;
+                var scaleY = H / rect.height;
+                var mx = (e.touches[0].clientX - rect.left) * scaleX;
+                var my = (e.touches[0].clientY - rect.top) * scaleY;
+                var dBtnW = 100, dBtnH = 30, dBtnGap = 12;
+                var dTotalW = 3 * dBtnW + 2 * dBtnGap;
+                var dBtnStartX2 = (W - dTotalW) / 2;
+                var dBtnY = 428;
+                for (var d = 0; d < 3; d++) {
+                    var bx3 = dBtnStartX2 + d * (dBtnW + dBtnGap);
+                    if (mx >= bx3 && mx <= bx3 + dBtnW && my >= dBtnY && my <= dBtnY + dBtnH) {
+                        difficulty = d;
+                    }
+                }
+            }
+        }, { passive: false });
+        canvas.addEventListener('touchmove', function(e) {
+            e.preventDefault();
+            if (state !== 'PLAY' || paused || aiMode) return;
+            var dy = e.touches[0].clientY - touchStartY;
+            touchStartY = e.touches[0].clientY;
+            player.y += dy * 1.5 * (H / canvas.getBoundingClientRect().height);
+            player.y = Math.max(playerPaddleH / 2, Math.min(H - playerPaddleH / 2, player.y));
+        }, { passive: false });
+
+        // D-pad
+        var dUp = document.getElementById('d-up');
+        var dDown = document.getElementById('d-down');
+        if (dUp) {
+            dUp.addEventListener('touchstart', function(e) { e.preventDefault(); if (state !== 'PLAY' || paused || aiMode) return; keys['ArrowUp'] = true; });
+            dUp.addEventListener('touchend', function(e) { e.preventDefault(); keys['ArrowUp'] = false; });
+        }
+        if (dDown) {
+            dDown.addEventListener('touchstart', function(e) { e.preventDefault(); if (state !== 'PLAY' || paused || aiMode) return; keys['ArrowDown'] = true; });
+            dDown.addEventListener('touchend', function(e) { e.preventDefault(); keys['ArrowDown'] = false; });
+        }
+
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                stopMusic();
+            } else {
+                if (state === 'START' || state === 'OVER') playMusic('home');
+                else if (state === 'PLAY' && !paused) playMusic('game');
+            }
+        });
+
+        // Start home music
+        function startHomeMusic() {
+            ensureAudio();
+            if (state === 'START' || state === 'OVER') playMusic('home');
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume().then(function() {
+                    if (state === 'START' || state === 'OVER') playMusic('home');
+                });
+            }
+            document.removeEventListener('click', startHomeMusic);
+            document.removeEventListener('keydown', startHomeMusic);
+            document.removeEventListener('touchstart', startHomeMusic);
+        }
+        startHomeMusic();
+        document.addEventListener('click', startHomeMusic);
+        document.addEventListener('keydown', startHomeMusic);
+        document.addEventListener('touchstart', startHomeMusic);
+
+        requestAnimationFrame(loop);
+    })();
+    </script>
+</body>
+</html>

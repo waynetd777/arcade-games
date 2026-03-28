@@ -1,6 +1,6 @@
 # Retro Arcade Games
 
-A collection of 7 classic arcade games built entirely with HTML5 Canvas and vanilla JavaScript. No frameworks, no dependencies — just open `index.html` in a browser and play.
+A collection of 9 classic arcade games built entirely with HTML5 Canvas and vanilla JavaScript. No frameworks, no dependencies — just open `index.html` in a browser and play.
 
 ## Games
 
@@ -13,6 +13,8 @@ A collection of 7 classic arcade games built entirely with HTML5 Canvas and vani
 | **Tetris** | Stack falling blocks, clear lines |
 | **Breakout** | Smash bricks with a bouncing ball |
 | **Snake** | Grow your snake, don't hit the walls |
+| **Pong** | Classic paddle battle — first to 11 wins |
+| **Centipede** | Blast the centipede through mushroom fields |
 
 ## Features
 

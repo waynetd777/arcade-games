@@ -466,12 +466,12 @@
 
             if (aiMode) runAI(dt);
 
-            // Player movement
+            // Player movement (left paddle): W/S in 2P, arrows or W/S in 1P
             if (!aiMode) {
                 var playerSpeed = 380;
                 if (twoPlayer) {
-                    if (keys['ArrowUp']) player.y -= playerSpeed * dt;
-                    if (keys['ArrowDown']) player.y += playerSpeed * dt;
+                    if (keys['w'] || keys['W']) player.y -= playerSpeed * dt;
+                    if (keys['s'] || keys['S']) player.y += playerSpeed * dt;
                 } else {
                     if (keys['ArrowUp'] || keys['w'] || keys['W']) player.y -= playerSpeed * dt;
                     if (keys['ArrowDown'] || keys['s'] || keys['S']) player.y += playerSpeed * dt;
@@ -479,7 +479,7 @@
                 player.y = Math.max(playerPaddleH / 2, Math.min(H - playerPaddleH / 2, player.y));
             }
 
-            // CPU / Player 2 movement
+            // CPU / Player 2 movement (right paddle): arrows in 2P, CPU AI in 1P
             if (twoPlayer && !aiMode) {
                 var p2Speed = 380;
                 if (keys['p2Up']) cpu.y -= p2Speed * dt;
@@ -813,7 +813,7 @@
             ctx.fillStyle = '#888';
             ctx.fillText("SPACE: START | P: PAUSE | A: AI | S: SOUND | ESC: MENU", W / 2, 562);
             if (twoPlayer) {
-                ctx.fillText("P1: \u2191\u2193  P2: W/S", W / 2, 580);
+                ctx.fillText("P1: W/S  P2: \u2191\u2193", W / 2, 580);
             } else {
                 ctx.fillText("W/S OR ARROWS TO MOVE", W / 2, 580);
             }
@@ -918,10 +918,12 @@
             if ((e.key === 's' || e.key === 'S') && !twoPlayer) { muteBtn.click(); return; }
             if (e.key === 'p' || e.key === 'P') { pauseBtn.click(); return; }
             if (state !== 'PLAY' || paused) return;
-            // P2 controls (W/S)
+            // In 2P: arrows = P2 (right paddle), W/S = P1 (left paddle)
             if (twoPlayer) {
-                if (e.key === 'w' || e.key === 'W') { e.preventDefault(); keys['p2Up'] = true; return; }
-                if (e.key === 's' || e.key === 'S') { e.preventDefault(); keys['p2Down'] = true; return; }
+                if (e.key === 'ArrowUp') { e.preventDefault(); keys['p2Up'] = true; return; }
+                if (e.key === 'ArrowDown') { e.preventDefault(); keys['p2Down'] = true; return; }
+                if (e.key === 'w' || e.key === 'W') { e.preventDefault(); keys['w'] = true; keys['W'] = true; return; }
+                if (e.key === 's' || e.key === 'S') { e.preventDefault(); keys['s'] = true; keys['S'] = true; return; }
             }
             if (aiMode) return;
             if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
@@ -939,14 +941,14 @@
         window.addEventListener('keyup', function(e) {
             if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
                 keys[e.key] = false;
+                keys['p2Up'] = e.key === 'ArrowUp' ? false : keys['p2Up'];
+                keys['p2Down'] = e.key === 'ArrowDown' ? false : keys['p2Down'];
             }
             if (e.key === 'w' || e.key === 'W') {
-                keys[e.key] = false;
-                keys['p2Up'] = false;
+                keys[e.key] = false; keys['w'] = false; keys['W'] = false;
             }
             if (e.key === 's' || e.key === 'S') {
-                keys[e.key] = false;
-                keys['p2Down'] = false;
+                keys[e.key] = false; keys['s'] = false; keys['S'] = false;
             }
         });
 

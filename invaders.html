@@ -1174,7 +1174,7 @@
             ctx.fillText(state === 'START' ? "DEFEND EARTH!" : "GAME OVER", W / 2, 530);
             ctx.font = '12px Courier';
             ctx.fillStyle = '#888';
-            ctx.fillText("SPACE: START | N: AI | P: PAUSE", W / 2, 552);
+            ctx.fillText("SPACE: START | A: AI | P: PAUSE", W / 2, 552);
             ctx.fillText("ARROWS TO MOVE | SPACE TO FIRE", W / 2, 570);
         }
 
@@ -1244,11 +1244,11 @@
                 if (e.key === 'e' || e.key === 'E') { difficulty = 0; return; }
                 if (e.key === 'm' || e.key === 'M') { difficulty = 1; return; }
                 if (e.key === 'h' || e.key === 'H') { difficulty = 2; return; }
-                if (e.key === 'n' || e.key === 'N') { aiBtn.click(); return; }
+                if (e.key === 'a' || e.key === 'A') { aiBtn.click(); return; }
                 if (e.key === 'p' || e.key === 'P') { pauseBtn.click(); return; }
                 return;
             }
-            if (e.key === 'n' || e.key === 'N') { aiBtn.click(); return; }
+            if (e.key === 'a' || e.key === 'A') { aiBtn.click(); return; }
             if (e.key === 'p' || e.key === 'P') { pauseBtn.click(); return; }
             if (state !== 'PLAY' || paused || aiMode) return;
             if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === ' ') {

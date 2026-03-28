@@ -166,10 +166,12 @@
         }
 
         /* Mute button */
-        .mute-btn { position: fixed; top: 15px; right: 15px; z-index: 10; padding: 8px 16px; font-family: 'Courier New', Courier, monospace; font-size: 14px; font-weight: bold; background: #222; color: #0ff; border: 2px solid #0ff; border-radius: 4px; cursor: pointer; text-transform: uppercase; transition: 0.2s; }
-        .mute-btn:hover { background: #0ff; color: #000; }
-        .mute-btn.off { color: #666; border-color: #666; }
-        .mute-btn.off:hover { background: #666; color: #000; }
+        .mute-btn { position: relative; z-index: 10; padding: 8px 14px; background: #222; color: #0ff; border: 2px solid #0ff; border-radius: 4px; cursor: pointer; transition: 0.2s; line-height: 0; margin-bottom: 20px; }
+        .mute-btn:hover { background: #0ff; }
+        .mute-btn:hover svg { fill: #000; }
+        .mute-btn.off { border-color: #666; }
+        .mute-btn.off:hover { background: #666; }
+        .mute-btn svg { width: 22px; height: 22px; fill: currentColor; }
 
         /* Responsive */
         @media (max-width: 640px) {
@@ -181,11 +183,11 @@
     </style>
 </head>
 <body>
-    <button id="mute-btn" class="mute-btn">♪ ON</button>
     <canvas id="starfield"></canvas>
     <div class="content">
         <div class="title" style="display:flex;align-items:center;justify-content:center;gap:0.5em;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" style="width:1.1em;height:1.1em;flex-shrink:0;transform:translateY(0.08em)"><rect width="32" height="32" rx="4" fill="#111"/><rect x="4" y="3" width="24" height="18" rx="2" fill="#000" stroke="#00e5ff" stroke-width="1.5"/><rect x="8" y="6" width="16" height="12" rx="1" fill="#001a2e"/><circle cx="10" cy="10" r="1.5" fill="#4ae04a"/><circle cx="14" cy="8" r="1.5" fill="#ffff00"/><circle cx="18" cy="11" r="1.5" fill="#ff4444"/><circle cx="22" cy="9" r="1.5" fill="#00e5ff"/><rect x="8" y="24" width="4" height="5" rx="1" fill="#ff4444"/><rect x="14" y="24" width="4" height="5" rx="1" fill="#4ae04a"/><circle cx="27" cy="26" r="2.5" fill="#ffaa00"/></svg><span style="margin-right:-12px">RETRO ARCADE</span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" style="width:1.1em;height:1.1em;flex-shrink:0;transform:translateY(0.08em)"><rect width="32" height="32" rx="4" fill="#111"/><rect x="4" y="3" width="24" height="18" rx="2" fill="#000" stroke="#00e5ff" stroke-width="1.5"/><rect x="8" y="6" width="16" height="12" rx="1" fill="#001a2e"/><circle cx="10" cy="10" r="1.5" fill="#4ae04a"/><circle cx="14" cy="8" r="1.5" fill="#ffff00"/><circle cx="18" cy="11" r="1.5" fill="#ff4444"/><circle cx="22" cy="9" r="1.5" fill="#00e5ff"/><rect x="8" y="24" width="4" height="5" rx="1" fill="#ff4444"/><rect x="14" y="24" width="4" height="5" rx="1" fill="#4ae04a"/><circle cx="27" cy="26" r="2.5" fill="#ffaa00"/></svg></div>
         <div class="subtitle">SELECT A GAME TO PLAY</div>
+        <button id="mute-btn" class="mute-btn"><svg viewBox="0 0 24 24"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><path d="M14,9.5 Q17,12 14,14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M16,7.5 Q21,12 16,16.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
 
         <div class="grid">
             <a href="frogger.html" class="card" style="--glow: #4ae04a;">
@@ -246,7 +248,9 @@
         let muted = localStorage.getItem('arcade_muted') === 'true';
         let musicInterval = null, currentTrack = null;
         const muteBtn = document.getElementById('mute-btn');
-        if (muted) { muteBtn.innerText = '♪ OFF'; muteBtn.classList.add('off'); }
+        const _speakerOn = '<svg viewBox="0 0 24 24"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><path d="M14,9.5 Q17,12 14,14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M16,7.5 Q21,12 16,16.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+        const _speakerOff = '<svg viewBox="0 0 24 24"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><line x1="15" y1="9" x2="21" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="21" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+        if (muted) { muteBtn.innerHTML = _speakerOff; muteBtn.classList.add('off'); }
 
         function ensureAudio() { if (!audioCtx) audioCtx = new AudioCtx(); }
 
@@ -306,7 +310,7 @@
         muteBtn.onclick = () => {
             muted = !muted;
             localStorage.setItem('arcade_muted', muted);
-            muteBtn.innerText = muted ? '♪ OFF' : '♪ ON';
+            muteBtn.innerHTML = muted ? _speakerOff : _speakerOn;
             muteBtn.classList.toggle('off', muted);
             if (muted) stopMusic();
             else { currentTrack = null; startMusic(); }

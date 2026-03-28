@@ -1,6 +1,8 @@
-# Retro Arcade Games
+# Wayne's Retro Arcade
 
 A collection of 9 classic arcade games built entirely with HTML5 Canvas and vanilla JavaScript. No frameworks, no dependencies — just open `index.html` in a browser and play.
+
+**Live:** [waynetd777.github.io/arcade-games](https://waynetd777.github.io/arcade-games/)
 
 ## Games
 
@@ -20,14 +22,17 @@ A collection of 9 classic arcade games built entirely with HTML5 Canvas and vani
 
 Every game includes:
 
-- **AI Mode (Neural Override)** — Watch the AI play any game with a single toggle
+- **AI Mode** — Watch the AI play any game with a single toggle
 - **3 Difficulty Levels** — Easy, Medium, Hard
 - **Progressive Levels** — Increasing challenge as you advance
-- **Chiptune Music** — Unique home and game tracks per game via Web Audio API
+- **Distinctive Chiptune Music** — Unique waveforms, tempos, and keys per game via Web Audio API
 - **Sound Effects** — All actions have audio feedback
+- **Global Mute** — Speaker icon toggle, synced across all games via localStorage
 - **High Scores** — Top 10 Hall of Fame saved to localStorage
+- **Responsive Design** — Scales to any screen size, works on phones and tablets
 - **Mobile Support** — Touch controls, swipe gestures, and on-screen d-pad
-- **Pause** — P key, Escape, or button
+- **Pause** — P key or button
+- **ESC to Menu** — Press Escape on the home/game-over screen to return to the arcade menu
 - **Retro Aesthetic** — Dark terminal style with neon glow effects
 
 ## Controls
@@ -37,15 +42,15 @@ Every game includes:
 | Arrow Keys | Move / Rotate |
 | Space | Start / Fire / Launch / Hard Drop |
 | P | Pause |
-| N | Toggle Neural Override (AI) |
+| N | Toggle AI |
 | E / M / H | Select difficulty (on menu) |
-| Escape | Pause |
+| Escape | Return to arcade menu (on home/game-over screen) |
 
 ## How to Play
 
-1. Open `index.html` in any modern browser
+1. Open `index.html` in any modern browser (or visit the live site)
 2. Pick a game from the arcade menu
-3. Select difficulty and press Space or click Start Mission
+3. Select difficulty and press Space or click Start
 
 ## Tech
 
@@ -54,4 +59,6 @@ Every game includes:
 - No build tools, no dependencies, no server required
 - Each game is a single self-contained HTML file
 - Frame-rate independent game loops
-- localStorage for high score persistence
+- localStorage for high score and mute persistence
+- Responsive CSS with mobile-first media queries
+- GitHub Pages deployment

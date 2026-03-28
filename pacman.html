@@ -1209,20 +1209,19 @@
         // Start home music on load
         function startHomeMusic() {
             ensureAudio();
-            if (state === 'START' || state === 'OVER') playMusic('home');
-            if (audioCtx && audioCtx.state === 'suspended') {
-                audioCtx.resume().then(() => {
-                    if (state === 'START' || state === 'OVER') playMusic('home');
-                });
+            function play() {
+                if (state === 'START' || state === 'OVER') { currentTrack = null; playMusic('home'); }
+                document.removeEventListener('click', startHomeMusic);
+                document.removeEventListener('keydown', startHomeMusic);
+                document.removeEventListener('touchstart', startHomeMusic);
             }
-            document.removeEventListener('click', startHomeMusic);
-            document.removeEventListener('keydown', startHomeMusic);
-            document.removeEventListener('touchstart', startHomeMusic);
+            if (audioCtx.state === 'suspended') { audioCtx.resume().then(play); }
+            else { play(); }
         }
-        startHomeMusic();
         document.addEventListener('click', startHomeMusic);
         document.addEventListener('keydown', startHomeMusic);
         document.addEventListener('touchstart', startHomeMusic);
+        startHomeMusic();
 
         requestAnimationFrame(loop);
     })();

@@ -1076,21 +1076,18 @@
         // Start home music — attempt on load, retry on first interaction if blocked
         function startHomeMusic() {
             ensureAudio();
-            if (state === 'START' || state === 'OVER') playMusic('home');
-            if (audioCtx && audioCtx.state === 'suspended') {
-                audioCtx.resume().then(() => {
-                    if (state === 'START' || state === 'OVER') playMusic('home');
-                });
+            function play() {
+                if (state === 'START' || state === 'OVER') { currentTrack = null; playMusic('home'); }
+                document.removeEventListener('click', startHomeMusic);
+                document.removeEventListener('keydown', startHomeMusic);
+                document.removeEventListener('touchstart', startHomeMusic);
             }
-            document.removeEventListener('click', startHomeMusic);
-            document.removeEventListener('keydown', startHomeMusic);
-            document.removeEventListener('touchstart', startHomeMusic);
+            if (audioCtx.state === 'suspended') { audioCtx.resume().then(play); }
+            else { play(); }
         }
-        // Fallback for browsers that block autoplay
         document.addEventListener('click', startHomeMusic);
         document.addEventListener('keydown', startHomeMusic);
         document.addEventListener('touchstart', startHomeMusic);
-        // Try immediately (after listeners are registered so removeEventListener works)
         startHomeMusic();
 
         // Stop music when tab is backgrounded, resume appropriate track when visible

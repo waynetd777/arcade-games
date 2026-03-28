@@ -1048,7 +1048,7 @@
             ctx.fillText(state === 'START' ? "READY TO CHOMP?" : "GAME OVER", CANVAS_W / 2, 490);
             ctx.font = '12px Courier';
             ctx.fillStyle = '#888';
-            ctx.fillText("SPACE: START | A: AI | P: PAUSE", CANVAS_W / 2, 512);
+            ctx.fillText("SPACE: START | P: PAUSE | A: AI | S: SOUND | ESC: MENU", CANVAS_W / 2, 512);
             ctx.fillText("ARROW KEYS / SWIPE TO MOVE", CANVAS_W / 2, 530);
 
             // Ghost legend
@@ -1131,10 +1131,8 @@
             if ((state === 'START' || state === 'OVER') && (e.key === 'h' || e.key === 'H')) {
                 difficulty = 2; return;
             }
-            if (e.key === 'a' || e.key === 'A') {
-                aiBtn.click();
-                return;
-            }
+            if (e.key === 'a' || e.key === 'A') { aiBtn.click(); return; }
+            if (e.key === 's' || e.key === 'S') { muteBtn.click(); return; }
             if (e.key === 'p' || e.key === 'P') {
                 pauseBtn.click();
                 return;

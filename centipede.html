@@ -3,6 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#00e5ff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Centipede Deluxe</title>
     <style>
         body { background: #050505; color: #ffc107; font-family: 'Courier New', Courier, monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; min-height: 100dvh; margin: 0; padding: 10px; box-sizing: border-box; overflow: auto; user-select: none; touch-action: manipulation; }
@@ -26,9 +30,11 @@
         .dpad .fire-btn { width: 90px; background: #220000; color: #ff3333; border-color: #ff3333; }
         .dpad .fire-btn:active { background: #ff3333; color: #000; }
         @media (max-width: 580px) { .stats { font-size: 14px; gap: 10px; } .controls { display: flex; gap: 4px; margin-top: 8px; width: 100%; flex-wrap: nowrap; } .controls button, .controls a { padding: 8px 2px !important; font-size: 11px !important; text-align: center; box-sizing: border-box; flex: 1; min-width: 0; } }
+        #transition-overlay { position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;opacity:1;pointer-events:none;background:repeating-linear-gradient(0deg,#000 0px,#000 2px,rgba(0,0,0,0.85) 2px,rgba(0,0,0,0.85) 4px);transition:opacity 0.4s; }
     </style>
 </head>
 <body>
+    <div id="transition-overlay"></div>
 
     <div class="stats">
         <div>SCORE: <span id="s">0</span></div>
@@ -56,6 +62,7 @@
         <button id="d-down">&#9660;</button>
     </div>
 
+    <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');</script>
     <script>
     (function() {
         const canvas = document.getElementById('c');
@@ -69,7 +76,8 @@
         const _spkOn = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><path d="M14,9.5 Q17,12 14,14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M16,7.5 Q21,12 16,16.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
         const _spkOff = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><line x1="15" y1="9" x2="21" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="21" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
         muteBtn.innerHTML = muted ? _spkOff : _spkOn;
-        muteBtn.onclick = () => { muted = !muted; localStorage.setItem('arcade_muted', muted); muteBtn.innerHTML = muted ? _spkOff : _spkOn; if (muted) stopMusic(); else { currentTrack = null; if (state === 'START' || state === 'OVER') playMusic('home'); else if (state === 'PLAY' && !paused) playMusic('game'); } };
+        muteBtn.onclick = () => { haptic(30); muted = !muted; localStorage.setItem('arcade_muted', muted); muteBtn.innerHTML = muted ? _spkOff : _spkOn; if (muted) stopMusic(); else { currentTrack = null; if (state === 'START' || state === 'OVER') playMusic('home'); else if (state === 'PLAY' && !paused) playMusic('game'); } };
+        function haptic(ms) { try { if (navigator.vibrate) navigator.vibrate(ms || 50); } catch(e) {} }
 
         const W = 560, H = 600;
         canvas.width = W;
@@ -153,28 +161,31 @@
             osc.onended = function() { osc.disconnect(); gain.disconnect(); };
         }
 
-        function sfxShoot() { playTone(660, 0.06, 'square', 0.07); }
-        function sfxMushroomHit() { playTone(300, 0.08, 'triangle', 0.06); }
+        function sfxShoot() { playTone(880, 0.03, 'square', 0.07); playTone(1320, 0.02, 'square', 0.05); }
+        function sfxMushroomHit() { playTone(350, 0.05, 'square', 0.07); playTone(220, 0.04, 'square', 0.05); }
         function sfxSegmentHit() {
-            playTone(500, 0.1, 'sawtooth', 0.1);
-            playTone(250, 0.15, 'square', 0.06);
+            playTone(660, 0.05, 'square', 0.1);
+            playTone(440, 0.04, 'square', 0.08);
+            setTimeout(function() { playTone(330, 0.04, 'square', 0.06); }, 40);
         }
-        function sfxSpider() { playTone(150, 0.05, 'sawtooth', 0.05); }
+        function sfxSpider() { playTone(185, 0.03, 'square', 0.05); playTone(220, 0.03, 'square', 0.04); }
         function sfxSpiderHit() {
-            playTone(400, 0.12, 'sawtooth', 0.1);
-            playTone(600, 0.1, 'square', 0.08);
+            playTone(550, 0.06, 'square', 0.1);
+            setTimeout(function() { playTone(770, 0.05, 'square', 0.08); }, 30);
+            setTimeout(function() { playTone(1100, 0.04, 'square', 0.06); }, 60);
         }
-        function sfxFlea() { playTone(900, 0.04, 'square', 0.04); }
+        function sfxFlea() { playTone(1100, 0.02, 'square', 0.05); playTone(880, 0.02, 'square', 0.04); }
         function sfxPlayerHit() {
-            [300, 200, 150, 100].forEach(function(f, i) { setTimeout(function() { playTone(f, 0.2, 'sawtooth', 0.12); }, i * 60); });
+            [440, 330, 220, 165, 110].forEach(function(f, i) { setTimeout(function() { playTone(f, 0.1, 'square', 0.11); }, i * 40); });
         }
         function sfxLevelClear() {
-            [523, 659, 784, 1047, 1319].forEach(function(f, i) { setTimeout(function() { playTone(f, 0.2, 'triangle', 0.12); }, i * 100); });
+            [440, 523, 660, 784, 880, 1047, 1320].forEach(function(f, i) { setTimeout(function() { playTone(f, 0.1, 'square', 0.1); }, i * 60); });
         }
         function sfxGameOver() {
-            [400, 350, 300, 200].forEach(function(f, i) { setTimeout(function() { playTone(f, 0.3, 'sawtooth', 0.1); }, i * 150); });
+            [523, 494, 440, 392, 330, 294, 262].forEach(function(f, i) { setTimeout(function() { playTone(f, 0.15, 'square', 0.1); }, i * 90); });
+            setTimeout(function() { playTone(131, 0.3, 'square', 0.08); }, 650);
         }
-        function sfxScorpion() { playTone(120, 0.06, 'sawtooth', 0.04); }
+        function sfxScorpion() { playTone(147, 0.03, 'square', 0.05); playTone(175, 0.03, 'square', 0.04); }
 
         // === Music Engine ===
         let musicInterval = null;
@@ -1432,6 +1443,7 @@
 
         // === Controls ===
         btn.onclick = function() {
+            haptic(30);
             ensureAudio();
             if (gameOverTimeoutId) { clearTimeout(gameOverTimeoutId); gameOverTimeoutId = null; }
             score = 0; lives = 3; level = 1;
@@ -1448,6 +1460,7 @@
         };
 
         aiBtn.onclick = function() {
+            haptic(30);
             aiMode = !aiMode;
             if (!aiMode) keys = {};
             aiBtn.innerText = aiMode ? "AI: ON" : "AI: OFF";
@@ -1456,6 +1469,7 @@
         };
 
         pauseBtn.onclick = function() {
+            haptic(30);
             if (state !== 'PLAY') return;
             paused = !paused;
             pauseBtn.className = paused ? "pause-active" : "";
@@ -1555,7 +1569,7 @@
         var dFire = document.getElementById('d-fire');
         function dpadBind(el, key) {
             if (!el) return;
-            el.addEventListener('touchstart', function(e) { e.preventDefault(); if (state !== 'PLAY' || paused || aiMode) return; keys[key] = true; });
+            el.addEventListener('touchstart', function(e) { e.preventDefault(); haptic(50); if (state !== 'PLAY' || paused || aiMode) return; keys[key] = true; });
             el.addEventListener('touchend', function(e) { e.preventDefault(); keys[key] = false; });
         }
         dpadBind(dLeft, 'ArrowLeft');
@@ -1563,7 +1577,7 @@
         dpadBind(dUp, 'ArrowUp');
         dpadBind(dDown, 'ArrowDown');
         if (dFire) {
-            dFire.addEventListener('touchstart', function(e) { e.preventDefault(); if (state !== 'PLAY' || paused || aiMode) return; keys[' '] = true; });
+            dFire.addEventListener('touchstart', function(e) { e.preventDefault(); haptic(50); if (state !== 'PLAY' || paused || aiMode) return; keys[' '] = true; });
             dFire.addEventListener('touchend', function(e) { e.preventDefault(); keys[' '] = false; });
         }
 
@@ -1592,6 +1606,9 @@
         document.addEventListener('keydown', startHomeMusic);
         document.addEventListener('touchstart', startHomeMusic);
         startHomeMusic();
+
+        var _tOv = document.getElementById('transition-overlay');
+        if (_tOv) { setTimeout(function(){ _tOv.style.opacity='0'; setTimeout(function(){ _tOv.remove(); }, 500); }, 50); }
 
         requestAnimationFrame(loop);
     })();

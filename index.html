@@ -3,6 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#00e5ff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Wayne's Retro Arcade</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%23111'/%3E%3Crect x='4' y='3' width='24' height='18' rx='2' fill='%23000' stroke='%2300e5ff' stroke-width='1.5'/%3E%3Crect x='8' y='6' width='16' height='12' rx='1' fill='%23001a2e'/%3E%3Ccircle cx='10' cy='10' r='1.5' fill='%234ae04a'/%3E%3Ccircle cx='14' cy='8' r='1.5' fill='%23ffff00'/%3E%3Ccircle cx='18' cy='11' r='1.5' fill='%23ff4444'/%3E%3Ccircle cx='22' cy='9' r='1.5' fill='%2300e5ff'/%3E%3Crect x='8' y='24' width='4' height='5' rx='1' fill='%23ff4444'/%3E%3Crect x='14' y='24' width='4' height='5' rx='1' fill='%234ae04a'/%3E%3Ccircle cx='27' cy='26' r='2.5' fill='%23ffaa00'/%3E%3C/svg%3E">
     <style>
@@ -164,6 +168,34 @@
             border-top: 1px solid #333;
             width: 100%;
         }
+        .qr-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        #qr-canvas {
+            image-rendering: pixelated;
+            width: 100px;
+            height: 100px;
+            border-radius: 6px;
+        }
+        .qr-label {
+            font-size: 10px;
+            letter-spacing: 2px;
+            color: #666;
+            margin-top: 8px;
+            text-transform: uppercase;
+        }
+
+        /* Particle overlay */
+        #particle-canvas {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 2;
+            pointer-events: none;
+        }
 
         /* Mute button */
         .mute-btn { position: relative; z-index: 10; padding: 8px 14px; background: #222; color: #0ff; border: 2px solid #0ff; border-radius: 4px; cursor: pointer; transition: 0.2s; line-height: 0; margin-bottom: 20px; }
@@ -171,6 +203,8 @@
         .mute-btn.off { color: #666; border-color: #666; }
         .mute-btn.off:hover { background: #333; }
         .mute-btn svg { width: 22px; height: 22px; fill: currentColor; }
+
+        #transition-overlay { position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;opacity:0;pointer-events:none;background:repeating-linear-gradient(0deg,#000 0px,#000 2px,rgba(0,0,0,0.85) 2px,rgba(0,0,0,0.85) 4px);transition:opacity 0.4s; }
 
         /* Responsive */
         @media (max-width: 640px) {
@@ -182,7 +216,9 @@
     </style>
 </head>
 <body>
+    <div id="transition-overlay"></div>
     <canvas id="starfield"></canvas>
+    <canvas id="particle-canvas"></canvas>
     <div class="content">
         <div class="title" style="display:flex;align-items:center;justify-content:center;gap:0.5em;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" style="width:1.1em;height:1.1em;flex-shrink:0;transform:translateY(0.08em)"><rect width="32" height="32" rx="4" fill="#111"/><rect x="4" y="3" width="24" height="18" rx="2" fill="#000" stroke="#00e5ff" stroke-width="1.5"/><rect x="8" y="6" width="16" height="12" rx="1" fill="#001a2e"/><circle cx="10" cy="10" r="1.5" fill="#4ae04a"/><circle cx="14" cy="8" r="1.5" fill="#ffff00"/><circle cx="18" cy="11" r="1.5" fill="#ff4444"/><circle cx="22" cy="9" r="1.5" fill="#00e5ff"/><rect x="8" y="24" width="4" height="5" rx="1" fill="#ff4444"/><rect x="14" y="24" width="4" height="5" rx="1" fill="#4ae04a"/><circle cx="27" cy="26" r="2.5" fill="#ffaa00"/></svg><span style="margin-right:-12px">WAYNE'S RETRO ARCADE</span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" style="width:1.1em;height:1.1em;flex-shrink:0;transform:translateY(0.08em)"><rect width="32" height="32" rx="4" fill="#111"/><rect x="4" y="3" width="24" height="18" rx="2" fill="#000" stroke="#00e5ff" stroke-width="1.5"/><rect x="8" y="6" width="16" height="12" rx="1" fill="#001a2e"/><circle cx="10" cy="10" r="1.5" fill="#4ae04a"/><circle cx="14" cy="8" r="1.5" fill="#ffff00"/><circle cx="18" cy="11" r="1.5" fill="#ff4444"/><circle cx="22" cy="9" r="1.5" fill="#00e5ff"/><rect x="8" y="24" width="4" height="5" rx="1" fill="#ff4444"/><rect x="14" y="24" width="4" height="5" rx="1" fill="#4ae04a"/><circle cx="27" cy="26" r="2.5" fill="#ffaa00"/></svg></div>
         <div class="subtitle">SELECT A GAME TO PLAY</div>
@@ -236,9 +272,16 @@
             </a>
         </div>
 
-        <div class="footer">9 CLASSIC ARCADE GAMES &nbsp;|&nbsp; BUILT WITH HTML5 CANVAS</div>
+        <div class="footer">
+            <div class="qr-section">
+                <canvas id="qr-canvas" width="120" height="120"></canvas>
+                <div class="qr-label">SCAN TO PLAY ON PHONE</div>
+            </div>
+            9 CLASSIC ARCADE GAMES &nbsp;|&nbsp; BUILT WITH HTML5 CANVAS
+        </div>
     </div>
 
+    <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');</script>
     <script>
     (function() {
         // === Audio engine ===
@@ -375,6 +418,519 @@
         window.addEventListener('resize', resize);
         init();
         draw();
+    })();
+    </script>
+
+    <!-- QR Code Generator (minimal inline, zero deps) -->
+    <script>
+    (function() {
+        // Minimal QR Code encoder for alphanumeric/byte mode, Version 2-4, ECC L
+        // Encodes URL onto #qr-canvas with white modules on dark bg
+        var url = 'https://waynetd777.github.io/arcade-games/';
+
+        // Pre-computed QR for the URL using byte mode
+        // We use a compact QR library approach: Reed-Solomon + masking
+        function generateQR(text) {
+            // Minimal QR encoder
+            var size, modules, reserved;
+
+            // Galois field GF(256) with primitive polynomial 0x11d
+            var EXP = new Uint8Array(256), LOG = new Uint8Array(256);
+            (function() {
+                var v = 1;
+                for (var i = 0; i < 255; i++) {
+                    EXP[i] = v;
+                    LOG[v] = i;
+                    v = (v << 1) ^ (v >= 128 ? 0x11d : 0);
+                }
+                EXP[255] = EXP[0];
+            })();
+
+            function gfMul(a, b) {
+                return a && b ? EXP[(LOG[a] + LOG[b]) % 255] : 0;
+            }
+
+            function polyMul(a, b) {
+                var r = new Uint8Array(a.length + b.length - 1);
+                for (var i = 0; i < a.length; i++)
+                    for (var j = 0; j < b.length; j++)
+                        r[i + j] ^= gfMul(a[i], b[j]);
+                return r;
+            }
+
+            function polyRemainder(data, gen) {
+                var r = new Uint8Array(data.length + gen.length - 1);
+                r.set(data);
+                for (var i = 0; i < data.length; i++) {
+                    if (r[i]) {
+                        for (var j = 0; j < gen.length; j++)
+                            r[i + j] ^= gfMul(gen[j], r[i]);
+                    }
+                }
+                return r.slice(data.length);
+            }
+
+            function rsGenerator(n) {
+                var g = new Uint8Array([1]);
+                for (var i = 0; i < n; i++)
+                    g = polyMul(g, new Uint8Array([1, EXP[i]]));
+                return g;
+            }
+
+            // Determine version needed
+            var dataBytes = text.length;
+            var version, totalData, totalCodewords, ecPerBlock, numBlocks, ecLen;
+
+            // Version capacity for byte mode, ECC Level L
+            var versions = [
+                // [version, totalCodewords, ecPerBlock, numBlocks]
+                [1, 19, 7, 1],
+                [2, 34, 10, 1],
+                [3, 55, 15, 1],
+                [4, 80, 20, 1],
+                [5, 108, 26, 1],
+                [6, 136, 18, 2],
+            ];
+
+            for (var vi = 0; vi < versions.length; vi++) {
+                var v = versions[vi];
+                // Byte mode overhead: 4 (mode) + 8 (count for v1-9) = 12 bits => 2 bytes overhead approx
+                var capacity = v[1] - Math.ceil((4 + 8) / 8);
+                // More precise: each data codeword block
+                var totalDC = v[1] - v[2] * v[3];
+                // Actually: total codewords - EC codewords = data codewords
+                if (totalDC - 2 >= dataBytes) { // -2 for mode indicator + length byte
+                    version = v[0];
+                    totalCodewords = v[1]; // total data + ec codewords
+                    ecLen = v[2];
+                    numBlocks = v[3];
+                    totalData = totalDC;
+                    break;
+                }
+            }
+
+            if (!version) { console.error('QR: text too long'); return null; }
+
+            size = version * 4 + 17;
+            modules = [];
+            reserved = [];
+            for (var i = 0; i < size; i++) {
+                modules[i] = new Uint8Array(size);
+                reserved[i] = new Uint8Array(size);
+            }
+
+            // Place finder patterns
+            function setModule(r, c, val) {
+                if (r >= 0 && r < size && c >= 0 && c < size) {
+                    modules[r][c] = val ? 1 : 0;
+                }
+            }
+            function reserveModule(r, c) {
+                if (r >= 0 && r < size && c >= 0 && c < size) {
+                    reserved[r][c] = 1;
+                }
+            }
+
+            function placeFinder(row, col) {
+                for (var dr = -1; dr <= 7; dr++) {
+                    for (var dc = -1; dc <= 7; dc++) {
+                        var r = row + dr, c = col + dc;
+                        if (r < 0 || r >= size || c < 0 || c >= size) continue;
+                        var inOuter = dr >= 0 && dr <= 6 && dc >= 0 && dc <= 6;
+                        var inInner = dr >= 2 && dr <= 4 && dc >= 2 && dc <= 4;
+                        var onBorder = dr === 0 || dr === 6 || dc === 0 || dc === 6;
+                        setModule(r, c, inInner || (inOuter && onBorder) ? 1 : 0);
+                        reserveModule(r, c);
+                    }
+                }
+            }
+
+            placeFinder(0, 0);
+            placeFinder(0, size - 7);
+            placeFinder(size - 7, 0);
+
+            // Timing patterns
+            for (var i = 8; i < size - 8; i++) {
+                setModule(6, i, i % 2 === 0 ? 1 : 0);
+                reserveModule(6, i);
+                setModule(i, 6, i % 2 === 0 ? 1 : 0);
+                reserveModule(i, 6);
+            }
+
+            // Alignment patterns (version >= 2)
+            if (version >= 2) {
+                var alignPos = [6, version * 4 + 10]; // simplified for v2-6
+                if (version >= 3) alignPos = [6, Math.floor((version * 4 + 10 + 6) / 2 / 2) * 2, version * 4 + 10];
+                if (version >= 3) {
+                    // Use standard alignment positions
+                    var step = Math.ceil((version * 4 + 10 - 6) / 2) * 2;
+                    if (step % 2 !== 0) step++;
+                    alignPos = [];
+                    for (var p = version * 4 + 10; p > 6; p -= step) alignPos.unshift(p);
+                    alignPos.unshift(6);
+                }
+
+                for (var ai = 0; ai < alignPos.length; ai++) {
+                    for (var aj = 0; aj < alignPos.length; aj++) {
+                        var ar = alignPos[ai], ac = alignPos[aj];
+                        // Skip if overlaps finder
+                        if (reserved[ar][ac]) continue;
+                        for (var dr = -2; dr <= 2; dr++) {
+                            for (var dc = -2; dc <= 2; dc++) {
+                                var val = (Math.abs(dr) === 2 || Math.abs(dc) === 2 || (dr === 0 && dc === 0)) ? 1 : 0;
+                                setModule(ar + dr, ac + dc, val);
+                                reserveModule(ar + dr, ac + dc);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Reserve format info areas
+            for (var i = 0; i < 8; i++) {
+                reserveModule(8, i); reserveModule(8, size - 1 - i);
+                reserveModule(i, 8); reserveModule(size - 1 - i, 8);
+            }
+            reserveModule(8, 8);
+            // Dark module
+            setModule(size - 8, 8, 1);
+            reserveModule(size - 8, 8);
+
+            // Encode data
+            var bits = [];
+            function pushBits(val, len) {
+                for (var i = len - 1; i >= 0; i--) bits.push((val >> i) & 1);
+            }
+
+            // Byte mode indicator
+            pushBits(0b0100, 4);
+            // Character count (8 bits for versions 1-9)
+            pushBits(text.length, 8);
+            // Data
+            for (var i = 0; i < text.length; i++) pushBits(text.charCodeAt(i), 8);
+            // Terminator
+            var totalDataBits = totalData * 8;
+            var termLen = Math.min(4, totalDataBits - bits.length);
+            pushBits(0, termLen);
+            // Pad to byte
+            while (bits.length % 8) bits.push(0);
+            // Pad codewords
+            var padBytes = [0xEC, 0x11];
+            var pi = 0;
+            while (bits.length < totalDataBits) {
+                pushBits(padBytes[pi % 2], 8);
+                pi++;
+            }
+
+            // Convert to bytes
+            var dataCodewords = [];
+            for (var i = 0; i < bits.length; i += 8) {
+                var b = 0;
+                for (var j = 0; j < 8; j++) b = (b << 1) | (bits[i + j] || 0);
+                dataCodewords.push(b);
+            }
+
+            // Reed-Solomon EC
+            var gen = rsGenerator(ecLen);
+            var dcPerBlock = Math.floor(totalData / numBlocks);
+            var blocksData = [], blocksEC = [];
+            var offset = 0;
+            for (var b = 0; b < numBlocks; b++) {
+                var blockLen = dcPerBlock + (b < totalData % numBlocks ? 1 : 0);
+                var block = new Uint8Array(dataCodewords.slice(offset, offset + blockLen));
+                offset += blockLen;
+                blocksData.push(block);
+                blocksEC.push(polyRemainder(block, gen));
+            }
+
+            // Interleave
+            var codewords = [];
+            var maxDC = Math.max.apply(null, blocksData.map(function(b) { return b.length; }));
+            for (var i = 0; i < maxDC; i++)
+                for (var b = 0; b < numBlocks; b++)
+                    if (i < blocksData[b].length) codewords.push(blocksData[b][i]);
+            for (var i = 0; i < ecLen; i++)
+                for (var b = 0; b < numBlocks; b++)
+                    codewords.push(blocksEC[b][i]);
+
+            // Place data bits
+            var allBits = [];
+            for (var i = 0; i < codewords.length; i++)
+                for (var j = 7; j >= 0; j--) allBits.push((codewords[i] >> j) & 1);
+
+            var bitIdx = 0;
+            for (var col = size - 1; col >= 0; col -= 2) {
+                if (col === 6) col = 5; // skip timing column
+                for (var row = 0; row < size; row++) {
+                    for (var c = 0; c < 2; c++) {
+                        var cc = col - c;
+                        var rr = ((Math.floor((size - 1 - col + (col < 6 ? 1 : 0)) / 2)) % 2 === 0)
+                            ? size - 1 - row : row;
+                        if (!reserved[rr][cc]) {
+                            modules[rr][cc] = bitIdx < allBits.length ? allBits[bitIdx] : 0;
+                            bitIdx++;
+                        }
+                    }
+                }
+            }
+
+            // Apply mask (mask 0: (r+c)%2==0) and write format info
+            function applyMask(maskFn) {
+                for (var r = 0; r < size; r++)
+                    for (var c = 0; c < size; c++)
+                        if (!reserved[r][c] && maskFn(r, c))
+                            modules[r][c] ^= 1;
+            }
+
+            // Try all 8 masks, pick best (lowest penalty)
+            var bestMask = 0, bestPenalty = Infinity;
+            var savedModules = modules.map(function(row) { return new Uint8Array(row); });
+
+            for (var mask = 0; mask < 8; mask++) {
+                // Restore
+                modules = savedModules.map(function(row) { return new Uint8Array(row); });
+                var maskFns = [
+                    function(r,c){return(r+c)%2===0;},
+                    function(r,c){return r%2===0;},
+                    function(r,c){return c%3===0;},
+                    function(r,c){return(r+c)%3===0;},
+                    function(r,c){return(Math.floor(r/2)+Math.floor(c/3))%2===0;},
+                    function(r,c){return(r*c)%2+(r*c)%3===0;},
+                    function(r,c){return((r*c)%2+(r*c)%3)%2===0;},
+                    function(r,c){return((r+c)%2+(r*c)%3)%2===0;}
+                ];
+                applyMask(maskFns[mask]);
+
+                // Write format info for ECC L (01) and this mask
+                var formatBits = (0b01 << 3) | mask; // 5 bits
+                var rem = formatBits;
+                for (var i = 0; i < 10; i++) rem = (rem << 1) ^ ((rem >> 9) ? 0x537 : 0);
+                var formatInfo = ((formatBits << 10) | rem) ^ 0x5412;
+
+                var fmtPositions1 = [
+                    [8,0],[8,1],[8,2],[8,3],[8,4],[8,5],[8,7],[8,8],
+                    [7,8],[5,8],[4,8],[3,8],[2,8],[1,8],[0,8]
+                ];
+                var fmtPositions2 = [
+                    [size-1,8],[size-2,8],[size-3,8],[size-4,8],[size-5,8],[size-6,8],[size-7,8],
+                    [8,size-8],[8,size-7],[8,size-6],[8,size-5],[8,size-4],[8,size-3],[8,size-2],[8,size-1]
+                ];
+                for (var i = 0; i < 15; i++) {
+                    var bit = (formatInfo >> i) & 1;
+                    modules[fmtPositions1[i][0]][fmtPositions1[i][1]] = bit;
+                    modules[fmtPositions2[i][0]][fmtPositions2[i][1]] = bit;
+                }
+
+                // Simple penalty: count runs
+                var penalty = 0;
+                for (var r = 0; r < size; r++) {
+                    var count = 1;
+                    for (var c = 1; c < size; c++) {
+                        if (modules[r][c] === modules[r][c-1]) { count++; }
+                        else { if (count >= 5) penalty += count - 2; count = 1; }
+                    }
+                    if (count >= 5) penalty += count - 2;
+                }
+                for (var c = 0; c < size; c++) {
+                    var count = 1;
+                    for (var r = 1; r < size; r++) {
+                        if (modules[r][c] === modules[r-1][c]) { count++; }
+                        else { if (count >= 5) penalty += count - 2; count = 1; }
+                    }
+                    if (count >= 5) penalty += count - 2;
+                }
+
+                if (penalty < bestPenalty) { bestPenalty = penalty; bestMask = mask; }
+            }
+
+            // Apply best mask
+            modules = savedModules.map(function(row) { return new Uint8Array(row); });
+            var maskFns = [
+                function(r,c){return(r+c)%2===0;},
+                function(r,c){return r%2===0;},
+                function(r,c){return c%3===0;},
+                function(r,c){return(r+c)%3===0;},
+                function(r,c){return(Math.floor(r/2)+Math.floor(c/3))%2===0;},
+                function(r,c){return(r*c)%2+(r*c)%3===0;},
+                function(r,c){return((r*c)%2+(r*c)%3)%2===0;},
+                function(r,c){return((r+c)%2+(r*c)%3)%2===0;}
+            ];
+            applyMask(maskFns[bestMask]);
+
+            // Write final format info
+            var formatBits = (0b01 << 3) | bestMask;
+            var rem = formatBits;
+            for (var i = 0; i < 10; i++) rem = (rem << 1) ^ ((rem >> 9) ? 0x537 : 0);
+            var formatInfo = ((formatBits << 10) | rem) ^ 0x5412;
+
+            var fmtPositions1 = [
+                [8,0],[8,1],[8,2],[8,3],[8,4],[8,5],[8,7],[8,8],
+                [7,8],[5,8],[4,8],[3,8],[2,8],[1,8],[0,8]
+            ];
+            var fmtPositions2 = [
+                [size-1,8],[size-2,8],[size-3,8],[size-4,8],[size-5,8],[size-6,8],[size-7,8],
+                [8,size-8],[8,size-7],[8,size-6],[8,size-5],[8,size-4],[8,size-3],[8,size-2],[8,size-1]
+            ];
+            for (var i = 0; i < 15; i++) {
+                var bit = (formatInfo >> i) & 1;
+                modules[fmtPositions1[i][0]][fmtPositions1[i][1]] = bit;
+                modules[fmtPositions2[i][0]][fmtPositions2[i][1]] = bit;
+            }
+
+            return { size: size, modules: modules };
+        }
+
+        var qr = generateQR(url);
+        if (qr) {
+            var canvas = document.getElementById('qr-canvas');
+            var ctx = canvas.getContext('2d');
+            var cellSize = Math.floor(120 / (qr.size + 8)); // quiet zone of 4
+            var offset = Math.floor((120 - cellSize * qr.size) / 2);
+
+            // Dark background
+            ctx.fillStyle = '#111';
+            ctx.fillRect(0, 0, 120, 120);
+
+            // Draw modules (white on dark)
+            for (var r = 0; r < qr.size; r++) {
+                for (var c = 0; c < qr.size; c++) {
+                    ctx.fillStyle = qr.modules[r][c] ? '#ccc' : '#1a1a1a';
+                    ctx.fillRect(offset + c * cellSize, offset + r * cellSize, cellSize, cellSize);
+                }
+            }
+        }
+    })();
+    </script>
+
+    <!-- Particle effects on card hover -->
+    <script>
+    (function() {
+        var canvas = document.getElementById('particle-canvas');
+        var ctx = canvas.getContext('2d');
+        var particles = [];
+        var animating = false;
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        function hexToRgb(hex) {
+            hex = hex.replace('#', '');
+            if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+            return {
+                r: parseInt(hex.substring(0,2), 16),
+                g: parseInt(hex.substring(2,4), 16),
+                b: parseInt(hex.substring(4,6), 16)
+            };
+        }
+
+        function spawnParticles(card) {
+            var rect = card.getBoundingClientRect();
+            var style = getComputedStyle(card);
+            var glowColor = style.getPropertyValue('--glow').trim() || '#0ff';
+            var rgb = hexToRgb(glowColor);
+            var count = 15 + Math.floor(Math.random() * 6); // 15-20
+
+            for (var i = 0; i < count; i++) {
+                // Random position along card border
+                var perimeter = 2 * (rect.width + rect.height);
+                var p = Math.random() * perimeter;
+                var x, y;
+                if (p < rect.width) {
+                    x = rect.left + p; y = rect.top;
+                } else if (p < rect.width + rect.height) {
+                    x = rect.right; y = rect.top + (p - rect.width);
+                } else if (p < 2 * rect.width + rect.height) {
+                    x = rect.right - (p - rect.width - rect.height); y = rect.bottom;
+                } else {
+                    x = rect.left; y = rect.bottom - (p - 2 * rect.width - rect.height);
+                }
+
+                // Outward velocity from card center
+                var cx = rect.left + rect.width / 2;
+                var cy = rect.top + rect.height / 2;
+                var angle = Math.atan2(y - cy, x - cx) + (Math.random() - 0.5) * 1.0;
+                var speed = 40 + Math.random() * 60;
+
+                particles.push({
+                    x: x, y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    r: 2 + Math.random(),
+                    color: rgb,
+                    life: 0.5 + Math.random() * 0.3,
+                    age: 0
+                });
+            }
+
+            if (!animating) {
+                animating = true;
+                lastTime = performance.now();
+                requestAnimationFrame(animate);
+            }
+        }
+
+        var lastTime = 0;
+        function animate(now) {
+            var dt = Math.min((now - lastTime) / 1000, 0.05);
+            lastTime = now;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (var i = particles.length - 1; i >= 0; i--) {
+                var p = particles[i];
+                p.age += dt;
+                if (p.age >= p.life) {
+                    particles.splice(i, 1);
+                    continue;
+                }
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
+                // Slow down
+                p.vx *= 0.98;
+                p.vy *= 0.98;
+
+                var alpha = 1 - (p.age / p.life);
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = 'rgb(' + p.color.r + ',' + p.color.g + ',' + p.color.b + ')';
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+
+            if (particles.length > 0) {
+                requestAnimationFrame(animate);
+            } else {
+                animating = false;
+            }
+        }
+
+        // Attach events to cards
+        var cards = document.querySelectorAll('.card');
+        var isTouchDevice = 'ontouchstart' in window;
+
+        cards.forEach(function(card) {
+            if (isTouchDevice) {
+                card.addEventListener('touchstart', function() { spawnParticles(card); }, { passive: true });
+            } else {
+                card.addEventListener('mouseenter', function() { spawnParticles(card); });
+            }
+        });
+
+        // Scanline transition on card clicks
+        var _tOv = document.getElementById('transition-overlay');
+        cards.forEach(function(card) {
+            card.addEventListener('click', function(e) {
+                e.preventDefault();
+                var href = card.getAttribute('href');
+                if (_tOv) _tOv.style.opacity = '1';
+                setTimeout(function() { window.location.href = href; }, 400);
+            });
+        });
     })();
     </script>
 </body>

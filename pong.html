@@ -3,6 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#00e5ff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Pong Deluxe</title>
     <style>
         body { background: #050505; color: #ff4444; font-family: 'Courier New', Courier, monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; min-height: 100dvh; margin: 0; padding: 10px; box-sizing: border-box; overflow: auto; user-select: none; touch-action: manipulation; }
@@ -18,19 +22,22 @@
         button:active { transform: translateY(3px); box-shadow: none; }
         .ai-active { background: #00ccff !important; color: #000 !important; box-shadow: 0 0 20px #00ccff !important; }
         .pause-active { background: #ffaa00 !important; color: #000 !important; box-shadow: 0 0 20px #ffaa00 !important; }
+        .mode-active { background: #ff44ff !important; color: #000 !important; box-shadow: 0 0 20px #ff44ff !important; }
         .dpad { display: none; margin-top: 10px; }
         @media (pointer: coarse) { .dpad { display: flex; } }
         .dpad { gap: 10px; justify-content: center; align-items: center; }
         .dpad button { padding: 0; width: 70px; height: 60px; font-size: 24px; background: #222; color: #ff4444; border: 2px solid #ff4444; border-radius: 8px; }
         .dpad button:active { background: #ff4444; color: #000; }
         @media (max-width: 580px) { .stats { font-size: 14px; gap: 10px; } .controls { display: flex; gap: 4px; margin-top: 8px; width: 100%; flex-wrap: nowrap; } .controls button, .controls a { padding: 8px 2px !important; font-size: 11px !important; text-align: center; box-sizing: border-box; flex: 1; min-width: 0; } }
+        #transition-overlay { position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;opacity:1;pointer-events:none;background:repeating-linear-gradient(0deg,#000 0px,#000 2px,rgba(0,0,0,0.85) 2px,rgba(0,0,0,0.85) 4px);transition:opacity 0.4s; }
     </style>
 </head>
 <body>
+    <div id="transition-overlay"></div>
 
     <div class="stats">
-        <div>SCORE: <span id="s">0</span></div>
-        <div>SCORE: <span id="s2">0</span></div>
+        <div><span id="s-label">P1:</span> <span id="s">0</span></div>
+        <div><span id="s2-label">CPU:</span> <span id="s2">0</span></div>
         <div>LVL: <span id="v">1</span></div>
     </div>
 
@@ -41,6 +48,7 @@
     <div class="controls">
         <button id="b">START</button>
         <button id="pause-btn">PAUSE</button>
+        <button id="mode-btn" style="background:#222;color:#ff44ff;border:2px solid #ff44ff;box-shadow:0 0 10px rgba(255,68,255,0.3);">1P vs CPU</button>
         <button id="ai-btn">AI: OFF</button>
         <button id="mute-btn" style="background:#222;color:#0ff;border:2px solid #0ff;line-height:0;padding:6px;"><svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><path d="M14,9.5 Q17,12 14,14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M16,7.5 Q21,12 16,16.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
         <a href="index.html" style="padding: 12px 25px; font-size: 16px; font-family: 'Courier New', Courier, monospace; font-weight: bold; cursor: pointer; border: none; border-radius: 4px; text-transform: uppercase; background: #222; color: #fff; border: 2px solid #fff; text-decoration: none; display: inline-block; transition: 0.2s;">MENU</a>
@@ -51,6 +59,7 @@
         <button id="d-down">&#9660;</button>
     </div>
 
+    <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');</script>
     <script>
     (function() {
         const canvas = document.getElementById('c');
@@ -58,19 +67,21 @@
         const btn = document.getElementById('b');
         const aiBtn = document.getElementById('ai-btn');
         const pauseBtn = document.getElementById('pause-btn');
+        const modeBtn = document.getElementById('mode-btn');
         let muted = localStorage.getItem('arcade_muted') === 'true';
         const _mob = window.innerWidth <= 580;
         const muteBtn = document.getElementById('mute-btn');
         const _spkOn = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><path d="M14,9.5 Q17,12 14,14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M16,7.5 Q21,12 16,16.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
         const _spkOff = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><line x1="15" y1="9" x2="21" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="21" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
         muteBtn.innerHTML = muted ? _spkOff : _spkOn;
-        muteBtn.onclick = () => { muted = !muted; localStorage.setItem('arcade_muted', muted); muteBtn.innerHTML = muted ? _spkOff : _spkOn; if (muted) stopMusic(); else { currentTrack = null; if (state === 'START' || state === 'OVER') playMusic('home'); else if (state === 'PLAY' && !paused) playMusic('game'); } };
+        muteBtn.onclick = () => { haptic(30); muted = !muted; localStorage.setItem('arcade_muted', muted); muteBtn.innerHTML = muted ? _spkOff : _spkOn; if (muted) stopMusic(); else { currentTrack = null; if (state === 'START' || state === 'OVER') playMusic('home'); else if (state === 'PLAY' && !paused) playMusic('game'); } };
+        function haptic(ms) { try { if (navigator.vibrate) navigator.vibrate(ms || 50); } catch(e) {} }
 
         const W = 560, H = 600;
         canvas.width = W;
         canvas.height = H;
 
-        let state = 'START', aiMode = false, paused = false;
+        let state = 'START', aiMode = false, paused = false, twoPlayer = false;
         let playerScore = 0, cpuScore = 0, level = 1, lastTime = performance.now(), gameTime = 0;
         let floatingTexts = [], particles = [];
         let difficulty = 1;
@@ -144,19 +155,19 @@
             osc.onended = function() { osc.disconnect(); gain.disconnect(); };
         }
 
-        function sfxPaddleHit() { playTone(440, 0.08, 'square', 0.1); playTone(660, 0.06, 'square', 0.06); }
-        function sfxWallHit() { playTone(220, 0.06, 'triangle', 0.08); }
+        function sfxPaddleHit() { playTone(523, 0.06, 'triangle', 0.09); }
+        function sfxWallHit() { playTone(330, 0.05, 'triangle', 0.07); }
         function sfxScore() {
-            [523, 659, 784, 1047].forEach(function(f, i) { setTimeout(function() { playTone(f, 0.12, 'square', 0.08); }, i * 60); });
+            [523, 659, 784].forEach(function(f, i) { setTimeout(function() { playTone(f, 0.1, 'triangle', 0.09); }, i * 70); });
         }
         function sfxCpuScore() {
-            [300, 250, 200, 150].forEach(function(f, i) { setTimeout(function() { playTone(f, 0.15, 'sawtooth', 0.08); }, i * 80); });
+            [330, 294, 262].forEach(function(f, i) { setTimeout(function() { playTone(f, 0.12, 'triangle', 0.08); }, i * 90); });
         }
         function sfxLevelUp() {
-            [392, 494, 587, 698, 784, 880].forEach(function(f, i) { setTimeout(function() { playTone(f, 0.15, 'triangle', 0.1); }, i * 80); });
+            [392, 494, 587, 784, 988].forEach(function(f, i) { setTimeout(function() { playTone(f, 0.14, 'triangle', 0.1); }, i * 85); });
         }
         function sfxGameOver() {
-            [400, 350, 300, 250, 200].forEach(function(f, i) { setTimeout(function() { playTone(f, 0.25, 'sawtooth', 0.1); }, i * 120); });
+            [494, 440, 392, 330, 294, 262].forEach(function(f, i) { setTimeout(function() { playTone(f, 0.22, 'triangle', 0.09); }, i * 130); });
         }
 
         // === Music Engine ===
@@ -458,13 +469,25 @@
             // Player movement
             if (!aiMode) {
                 var playerSpeed = 380;
-                if (keys['ArrowUp'] || keys['w'] || keys['W']) player.y -= playerSpeed * dt;
-                if (keys['ArrowDown'] || keys['s'] || keys['S']) player.y += playerSpeed * dt;
+                if (twoPlayer) {
+                    if (keys['ArrowUp']) player.y -= playerSpeed * dt;
+                    if (keys['ArrowDown']) player.y += playerSpeed * dt;
+                } else {
+                    if (keys['ArrowUp'] || keys['w'] || keys['W']) player.y -= playerSpeed * dt;
+                    if (keys['ArrowDown'] || keys['s'] || keys['S']) player.y += playerSpeed * dt;
+                }
                 player.y = Math.max(playerPaddleH / 2, Math.min(H - playerPaddleH / 2, player.y));
             }
 
-            // CPU movement
-            updateCPU(dt);
+            // CPU / Player 2 movement
+            if (twoPlayer && !aiMode) {
+                var p2Speed = 380;
+                if (keys['p2Up']) cpu.y -= p2Speed * dt;
+                if (keys['p2Down']) cpu.y += p2Speed * dt;
+                cpu.y = Math.max(cpuPaddleH / 2, Math.min(H - cpuPaddleH / 2, cpu.y));
+            } else {
+                updateCPU(dt);
+            }
 
             // Ball movement
             if (serveTimer <= 0) {
@@ -780,12 +803,20 @@
             if (state === 'OVER') {
                 ctx.font = 'bold 14px Courier';
                 ctx.fillStyle = playerScore >= 11 ? '#ff4444' : '#ff6666';
-                ctx.fillText(playerScore >= 11 ? "YOU WIN!" : "CPU WINS!", W / 2, 540);
+                if (twoPlayer) {
+                    ctx.fillText(playerScore >= 11 ? "P1 WINS!" : "P2 WINS!", W / 2, 540);
+                } else {
+                    ctx.fillText(playerScore >= 11 ? "YOU WIN!" : "CPU WINS!", W / 2, 540);
+                }
             }
             ctx.font = '12px Courier';
             ctx.fillStyle = '#888';
             ctx.fillText("SPACE: START | P: PAUSE | A: AI | S: SOUND | ESC: MENU", W / 2, 562);
-            ctx.fillText("W/S OR ARROWS TO MOVE", W / 2, 580);
+            if (twoPlayer) {
+                ctx.fillText("P1: \u2191\u2193  P2: W/S", W / 2, 580);
+            } else {
+                ctx.fillText("W/S OR ARROWS TO MOVE", W / 2, 580);
+            }
         }
 
         // === Difficulty click ===
@@ -812,6 +843,7 @@
 
         // === Controls ===
         btn.onclick = function() {
+            haptic(30);
             ensureAudio();
             playerScore = 0; cpuScore = 0; level = 1;
             paused = false;
@@ -827,15 +859,37 @@
             updateHUD();
         };
 
+        function updateModeLabels() {
+            document.getElementById('s-label').innerText = twoPlayer ? 'P1:' : 'P1:';
+            document.getElementById('s2-label').innerText = twoPlayer ? 'P2:' : 'CPU:';
+        }
+
+        modeBtn.onclick = function() {
+            haptic(30);
+            twoPlayer = !twoPlayer;
+            modeBtn.innerText = twoPlayer ? (_mob ? '2P' : '2P MODE') : (_mob ? '1PvCPU' : '1P vs CPU');
+            modeBtn.className = twoPlayer ? 'mode-active' : '';
+            if (twoPlayer) {
+                aiMode = false;
+                aiBtn.innerText = _mob ? 'AI' : 'AI: OFF';
+                aiBtn.className = '';
+            }
+            updateModeLabels();
+            canvas.focus();
+        };
+
         aiBtn.onclick = function() {
+            haptic(30);
+            if (twoPlayer) return;
             aiMode = !aiMode;
             if (!aiMode) keys = {};
-            aiBtn.innerText = aiMode ? "AI: ON" : "AI: OFF";
+            aiBtn.innerText = aiMode ? (_mob ? 'AI' : 'AI: ON') : (_mob ? 'AI' : 'AI: OFF');
             aiBtn.className = aiMode ? "ai-active" : "";
             canvas.focus();
         };
 
         pauseBtn.onclick = function() {
+            haptic(30);
             if (state !== 'PLAY') return;
             paused = !paused;
             pauseBtn.className = paused ? "pause-active" : "";
@@ -861,18 +915,38 @@
                 return;
             }
             if (e.key === 'a' || e.key === 'A') { aiBtn.click(); return; }
-                if (e.key === 's' || e.key === 'S') { muteBtn.click(); return; }
+            if ((e.key === 's' || e.key === 'S') && !twoPlayer) { muteBtn.click(); return; }
             if (e.key === 'p' || e.key === 'P') { pauseBtn.click(); return; }
-            if (state !== 'PLAY' || paused || aiMode) return;
-            if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'w' || e.key === 'W' || e.key === 's' || e.key === 'S') {
+            if (state !== 'PLAY' || paused) return;
+            // P2 controls (W/S)
+            if (twoPlayer) {
+                if (e.key === 'w' || e.key === 'W') { e.preventDefault(); keys['p2Up'] = true; return; }
+                if (e.key === 's' || e.key === 'S') { e.preventDefault(); keys['p2Down'] = true; return; }
+            }
+            if (aiMode) return;
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
                 e.preventDefault();
                 keys[e.key] = true;
+            }
+            if (!twoPlayer) {
+                if (e.key === 'w' || e.key === 'W' || e.key === 's' || e.key === 'S') {
+                    e.preventDefault();
+                    keys[e.key] = true;
+                }
             }
         });
 
         window.addEventListener('keyup', function(e) {
-            if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'w' || e.key === 'W' || e.key === 's' || e.key === 'S') {
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
                 keys[e.key] = false;
+            }
+            if (e.key === 'w' || e.key === 'W') {
+                keys[e.key] = false;
+                keys['p2Up'] = false;
+            }
+            if (e.key === 's' || e.key === 'S') {
+                keys[e.key] = false;
+                keys['p2Down'] = false;
             }
         });
 
@@ -914,12 +988,12 @@
         var dUp = document.getElementById('d-up');
         var dDown = document.getElementById('d-down');
         if (dUp) {
-            dUp.addEventListener('touchstart', function(e) { e.preventDefault(); if (state !== 'PLAY' || paused || aiMode) return; keys['ArrowUp'] = true; });
+            dUp.addEventListener('touchstart', function(e) { e.preventDefault(); haptic(50); if (state !== 'PLAY' || paused || aiMode) return; keys['ArrowUp'] = true; });
             dUp.addEventListener('touchend', function(e) { e.preventDefault(); keys['ArrowUp'] = false; });
             dUp.addEventListener('touchcancel', function(e) { e.preventDefault(); keys['ArrowUp'] = false; });
         }
         if (dDown) {
-            dDown.addEventListener('touchstart', function(e) { e.preventDefault(); if (state !== 'PLAY' || paused || aiMode) return; keys['ArrowDown'] = true; });
+            dDown.addEventListener('touchstart', function(e) { e.preventDefault(); haptic(50); if (state !== 'PLAY' || paused || aiMode) return; keys['ArrowDown'] = true; });
             dDown.addEventListener('touchend', function(e) { e.preventDefault(); keys['ArrowDown'] = false; });
             dDown.addEventListener('touchcancel', function(e) { e.preventDefault(); keys['ArrowDown'] = false; });
         }
@@ -949,6 +1023,9 @@
         document.addEventListener('keydown', startHomeMusic);
         document.addEventListener('touchstart', startHomeMusic);
         startHomeMusic();
+
+        var _tOv = document.getElementById('transition-overlay');
+        if (_tOv) { setTimeout(function(){ _tOv.style.opacity='0'; setTimeout(function(){ _tOv.remove(); }, 500); }, 50); }
 
         requestAnimationFrame(loop);
     })();

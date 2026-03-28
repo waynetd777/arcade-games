@@ -431,7 +431,7 @@
             var reader = new FileReader();
             reader.onload = function(){ img.src = reader.result; };
             reader.readAsDataURL(b);
-        }).catch(function(){ img.src = qrUrl; });
+        }).catch(function(){ img.style.display = 'none'; });
     })();
     </script>
 

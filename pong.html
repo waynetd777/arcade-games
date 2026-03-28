@@ -1013,7 +1013,7 @@
         function startHomeMusic() {
             ensureAudio();
             function play() {
-                if (state === 'START' || state === 'OVER') { currentTrack = null; playMusic('home'); }
+                if (!muted && (state === 'START' || state === 'OVER')) { currentTrack = null; playMusic('home'); }
                 document.removeEventListener('click', startHomeMusic);
                 document.removeEventListener('keydown', startHomeMusic);
                 document.removeEventListener('touchstart', startHomeMusic);

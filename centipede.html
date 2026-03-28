@@ -283,7 +283,8 @@
                     dir: -1, // -1 = left, 1 = right
                     isHead: i === 0,
                     dropTarget: -1,
-                    poisonDrop: false
+                    poisonDrop: false,
+                    ascending: false
                 });
             }
             centipedes.push(chain);
@@ -320,6 +321,14 @@
                     if (mushrooms[r][c] < 0) mushrooms[r][c] = 4; // un-poison
                 }
             }
+            // Reset centipede and enemies
+            initCentipede();
+            spider = null;
+            flea = null;
+            scorpion = null;
+            spiderTimer = 3 + Math.random() * 3;
+            fleaTimer = 4 + Math.random() * 4;
+            scorpionTimer = 5 + Math.random() * 5;
         }
 
         // === Particles ===
@@ -671,6 +680,7 @@
                         // Check for poisoned mushroom
                         if (mushrooms[gr][gc] < 0) {
                             head.poisonDrop = true;
+                            continue; // skip normal drop logic this frame
                         }
                     }
 
@@ -681,13 +691,23 @@
                         } else {
                             head.x -= head.dir * step;
                         }
-                        // Drop down one row
-                        head.y += TILE;
+                        // Move one row up or down depending on ascending flag
+                        if (head.ascending) {
+                            head.y -= TILE;
+                        } else {
+                            head.y += TILE;
+                        }
                         head.dir *= -1;
 
-                        // If below field, wrap to top
+                        // If below field, switch to ascending
                         if (head.y > (ROWS - 1) * TILE + TILE / 2) {
+                            head.y = (ROWS - 1) * TILE + TILE / 2;
+                            head.ascending = true;
+                        }
+                        // If above field while ascending, switch back to descending
+                        if (head.y < TILE / 2) {
                             head.y = TILE / 2;
+                            head.ascending = false;
                         }
                     }
                 }
@@ -832,14 +852,27 @@
             if (aiMode) runAI(dt);
 
             // === Player movement ===
-            var playerSpeed = (220 + difficulty * 30) * DIFF_SPEED[difficulty];
+            var playerSpeed = 220 * DIFF_SPEED[difficulty];
+            var oldPx = player.x, oldPy = player.y;
             if (keys['ArrowLeft']) player.x -= playerSpeed * dt;
             if (keys['ArrowRight']) player.x += playerSpeed * dt;
-            if (keys['ArrowUp']) player.y -= playerSpeed * dt;
-            if (keys['ArrowDown']) player.y += playerSpeed * dt;
             // Clamp to player zone
             player.x = Math.max(TILE / 2, Math.min(W - TILE / 2, player.x));
+            // Check mushroom collision for horizontal movement
+            var pCol = gridCol(player.x);
+            var pRow = gridRow(player.y);
+            if (pCol >= 0 && pCol < COLS && pRow >= 0 && pRow < ROWS && mushrooms[pRow][pCol] !== 0) {
+                player.x = oldPx;
+            }
+            if (keys['ArrowUp']) player.y -= playerSpeed * dt;
+            if (keys['ArrowDown']) player.y += playerSpeed * dt;
             player.y = Math.max(H - PLAYER_ZONE_ROWS * TILE, Math.min(H - TILE / 2, player.y));
+            // Check mushroom collision for vertical movement
+            pCol = gridCol(player.x);
+            pRow = gridRow(player.y);
+            if (pCol >= 0 && pCol < COLS && pRow >= 0 && pRow < ROWS && mushrooms[pRow][pCol] !== 0) {
+                player.y = oldPy;
+            }
 
             // === Player firing ===
             fireTimer -= dt;
@@ -911,13 +944,15 @@
                 flea = {
                     x: Math.random() * (W - TILE * 2) + TILE,
                     y: -10,
-                    hp: 2
+                    hp: 2,
+                    soundTimer: 0
                 };
                 fleaTimer = 6 + Math.random() * 8;
             }
             if (flea) {
                 flea.y += 200 * DIFF_SPEED[difficulty] * dt;
-                sfxFlea();
+                flea.soundTimer -= dt;
+                if (flea.soundTimer <= 0) { sfxFlea(); flea.soundTimer = 0.15; }
                 // Leave mushrooms behind
                 var fr = gridRow(flea.y);
                 var fc = gridCol(flea.x);
@@ -1449,10 +1484,12 @@
 
         // === Touch ===
         var touchStartX = 0, touchStartY = 0;
+        var touchTotalMove = 0;
         canvas.addEventListener('touchstart', function(e) {
             e.preventDefault();
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
+            touchTotalMove = 0;
             if (state === 'START' || state === 'OVER') {
                 ensureAudio();
                 playMusic('home');
@@ -1472,7 +1509,6 @@
                     }
                 }
             }
-            if (state === 'PLAY' && !paused && !aiMode) keys[' '] = true;
         }, { passive: false });
         canvas.addEventListener('touchmove', function(e) {
             e.preventDefault();
@@ -1480,6 +1516,7 @@
             var scale = W / canvas.getBoundingClientRect().width;
             var dx = (e.touches[0].clientX - touchStartX) * 1.5 * scale;
             var dy = (e.touches[0].clientY - touchStartY) * 1.5 * scale;
+            touchTotalMove += Math.abs(e.touches[0].clientX - touchStartX) + Math.abs(e.touches[0].clientY - touchStartY);
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
             player.x += dx;
@@ -1487,7 +1524,13 @@
             player.x = Math.max(TILE / 2, Math.min(W - TILE / 2, player.x));
             player.y = Math.max(H - PLAYER_ZONE_ROWS * TILE, Math.min(H - TILE / 2, player.y));
         }, { passive: false });
-        document.addEventListener('touchend', function() { keys[' '] = false; });
+        document.addEventListener('touchend', function() {
+            // Only fire on tap (minimal movement)
+            if (touchTotalMove < 10 && state === 'PLAY' && !paused && !aiMode) {
+                keys[' '] = true;
+                setTimeout(function() { keys[' '] = false; }, 100);
+            }
+        });
         document.addEventListener('touchcancel', function() { keys[' '] = false; });
 
         // D-pad

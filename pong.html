@@ -39,11 +39,11 @@
     </div>
 
     <div class="controls">
-        <button id="b">START MISSION</button>
-        <button id="ai-btn">NEURAL OVERRIDE: OFF</button>
+        <button id="b">START</button>
         <button id="pause-btn">PAUSE</button>
-        <a href="index.html" style="padding: 12px 25px; font-size: 16px; font-family: 'Courier New', Courier, monospace; font-weight: bold; cursor: pointer; border: none; border-radius: 4px; text-transform: uppercase; background: #222; color: #888; border: 2px solid #555; text-decoration: none; display: inline-block; transition: 0.2s;">MENU</a>
+        <button id="ai-btn">AI: OFF</button>
         <button id="mute-btn" style="background:#222;color:#0ff;border:2px solid #0ff;line-height:0;padding:6px;"><svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><path d="M14,9.5 Q17,12 14,14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M16,7.5 Q21,12 16,16.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+        <a href="index.html" style="padding: 12px 25px; font-size: 16px; font-family: 'Courier New', Courier, monospace; font-weight: bold; cursor: pointer; border: none; border-radius: 4px; text-transform: uppercase; background: #222; color: #0ff; border: 2px solid #0ff; text-decoration: none; display: inline-block; transition: 0.2s;">MENU</a>
     </div>
 
     <div class="dpad">
@@ -60,7 +60,6 @@
         const pauseBtn = document.getElementById('pause-btn');
         let muted = localStorage.getItem('arcade_muted') === 'true';
         const _mob = window.innerWidth <= 580;
-        if (_mob) { btn.innerText = 'START'; aiBtn.innerText = 'AI: OFF'; }
         const muteBtn = document.getElementById('mute-btn');
         const _spkOn = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><path d="M14,9.5 Q17,12 14,14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M16,7.5 Q21,12 16,16.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
         const _spkOff = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><line x1="15" y1="9" x2="21" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="21" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
@@ -831,7 +830,7 @@
         aiBtn.onclick = function() {
             aiMode = !aiMode;
             if (!aiMode) keys = {};
-            aiBtn.innerText = aiMode ? (_mob ? "AI: ON" : "NEURAL OVERRIDE: ON") : (_mob ? "AI: OFF" : "NEURAL OVERRIDE: OFF");
+            aiBtn.innerText = aiMode ? "AI: ON" : "AI: OFF";
             aiBtn.className = aiMode ? "ai-active" : "";
             canvas.focus();
         };

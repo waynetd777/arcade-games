@@ -345,7 +345,9 @@
                 var timeToReach = Math.max(0.01, (ball.x - (PADDLE_MARGIN + PADDLE_W / 2 + 8)) / Math.abs(ball.vx));
                 targetY = ball.y + ball.vy * timeToReach;
                 // Bounce prediction
-                while (targetY < 0 || targetY > H) {
+                var bounces = 0;
+                while ((targetY < 0 || targetY > H) && bounces < 20) {
+                    bounces++;
                     if (targetY < 0) targetY = -targetY;
                     if (targetY > H) targetY = 2 * H - targetY;
                 }
@@ -368,7 +370,9 @@
                 if (ball.vx > 0) {
                     var timeToReach = Math.max(0.01, ((W - PADDLE_MARGIN - PADDLE_W / 2 - 8) - ball.x) / Math.abs(ball.vx + 0.001));
                     targetY = ball.y + ball.vy * timeToReach;
-                    while (targetY < 0 || targetY > H) {
+                    var bounces = 0;
+                    while ((targetY < 0 || targetY > H) && bounces < 20) {
+                        bounces++;
                         if (targetY < 0) targetY = -targetY;
                         if (targetY > H) targetY = 2 * H - targetY;
                     }
@@ -441,10 +445,12 @@
             if (aiMode) runAI(dt);
 
             // Player movement
-            var playerSpeed = 380;
-            if (keys['ArrowUp'] || keys['w'] || keys['W']) player.y -= playerSpeed * dt;
-            if (keys['ArrowDown'] || keys['s'] || keys['S']) player.y += playerSpeed * dt;
-            player.y = Math.max(playerPaddleH / 2, Math.min(H - playerPaddleH / 2, player.y));
+            if (!aiMode) {
+                var playerSpeed = 380;
+                if (keys['ArrowUp'] || keys['w'] || keys['W']) player.y -= playerSpeed * dt;
+                if (keys['ArrowDown'] || keys['s'] || keys['S']) player.y += playerSpeed * dt;
+                player.y = Math.max(playerPaddleH / 2, Math.min(H - playerPaddleH / 2, player.y));
+            }
 
             // CPU movement
             updateCPU(dt);

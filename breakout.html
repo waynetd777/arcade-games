@@ -297,6 +297,8 @@
         }
 
         function initLevel() {
+            floatingTexts = [];
+            particles = [];
             paddle.x = W / 2;
             paddle.w = DIFF_PADDLE[difficulty];
             ballSpeed = DIFF_BALL_SPEED[difficulty] + (level - 1) * 15;
@@ -327,6 +329,7 @@
             wideTimer = 0;
             deathTimer = 0;
             levelStartTimer = 1.0;
+            keys = {};
         }
 
         // === Particles ===
@@ -542,6 +545,7 @@
                 ctx.globalAlpha = 1;
                 updateHUD();
                 requestAnimationFrame(loop);
+                keys = {};
                 return;
             }
 
@@ -575,7 +579,7 @@
                         if (gameOverTimeoutId) clearTimeout(gameOverTimeoutId);
                         gameOverTimeoutId = setTimeout(function() {
                             if (state !== 'OVER') return;
-                            if (!aiMode && score >= 100 && (highScores.length < 10 || score > highScores[highScores.length - 1].s)) {
+                            if (!aiMode && score >= 100 && (highScores.length < 10 || score >= highScores[highScores.length - 1].s)) {
                                 stopMusic();
                                 var n = prompt("LEGENDARY SCORE! Enter Initials:", "ACE");
                                 if (n) {

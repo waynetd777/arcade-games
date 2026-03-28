@@ -433,6 +433,12 @@
             ctx.shadowBlur = 0;
         }
 
+        function wrappedDist(x1, y1, x2, y2) {
+            var dx = Math.abs(x1 - x2); if (dx > W / 2) dx = W - dx;
+            var dy = Math.abs(y1 - y2); if (dy > H / 2) dy = H - dy;
+            return Math.hypot(dx, dy);
+        }
+
         function wrap(obj) {
             if (obj.x < -50) obj.x += W + 100;
             if (obj.x > W + 50) obj.x -= W + 100;
@@ -457,15 +463,17 @@
         function runAI(dt) {
             // Find nearest asteroid threat
             var nearestAst = null, nearestDist = Infinity;
+            var nearestThreatX = ship.x, nearestThreatY = ship.y, nearestThreatDist = Infinity;
             asteroids.forEach(function(a) {
-                var dist = Math.hypot(a.x - ship.x, a.y - ship.y);
+                var dist = wrappedDist(a.x, a.y, ship.x, ship.y);
                 if (dist < nearestDist) { nearestDist = dist; nearestAst = a; }
+                if (dist < nearestThreatDist) { nearestThreatDist = dist; nearestThreatX = a.x; nearestThreatY = a.y; }
             });
 
             // Also check UFO
             var targetX = null, targetY = null;
             if (ufo) {
-                var ufoDist = Math.hypot(ufo.x - ship.x, ufo.y - ship.y);
+                var ufoDist = wrappedDist(ufo.x, ufo.y, ship.x, ship.y);
                 if (ufoDist < nearestDist || nearestDist > 200) {
                     targetX = ufo.x;
                     targetY = ufo.y;
@@ -479,8 +487,11 @@
             // Check for incoming ufo bullets
             var dodge = false;
             ufoBullets.forEach(function(b) {
-                var dist = Math.hypot(b.x - ship.x, b.y - ship.y);
-                if (dist < 80) dodge = true;
+                var dist = wrappedDist(b.x, b.y, ship.x, ship.y);
+                if (dist < 80) {
+                    dodge = true;
+                    if (dist < nearestThreatDist) { nearestThreatDist = dist; nearestThreatX = b.x; nearestThreatY = b.y; }
+                }
             });
 
             // Also dodge close asteroids
@@ -491,9 +502,9 @@
             keys['ArrowRight'] = false;
             keys[' '] = false;
 
-            if (dodge && nearestDist < 120) {
+            if (dodge && nearestThreatDist < 120) {
                 // Thrust away from nearest threat
-                var awayAngle = Math.atan2(ship.y - (nearestAst ? nearestAst.y : ship.y), ship.x - (nearestAst ? nearestAst.x : ship.x));
+                var awayAngle = Math.atan2(ship.y - nearestThreatY, ship.x - nearestThreatX);
                 var angleDiff = awayAngle - ship.angle;
                 while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
                 while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
@@ -747,7 +758,7 @@
             ufoBullets = ufoBullets.filter(function(b) { return b.life > 0; });
 
             // === Level clear ===
-            if (deathTimer <= 0 && asteroids.length === 0 && !ufo) {
+            if (deathTimer <= 0 && asteroids.length === 0 && !ufo && ufoBullets.length === 0) {
                 level++;
                 sfxLevelClear();
                 floatingTexts.push({ x: W / 2, y: H / 2, t: "WAVE CLEAR!", life: 1.5, c: '#4ae04a' });
@@ -763,7 +774,7 @@
                 if (!b) return;
                 asteroids.forEach(function(a, ai) {
                     if (!a || !bullets[bi]) return;
-                    var dist = Math.hypot(b.x - a.x, b.y - a.y);
+                    var dist = wrappedDist(b.x, b.y, a.x, a.y);
                     if (dist < a.radius) {
                         var pts = AST_POINTS[a.size] * level;
                         score += pts;
@@ -792,7 +803,7 @@
             if (ufo) {
                 bullets.forEach(function(b, bi) {
                     if (!ufo || !b) return;
-                    if (Math.hypot(b.x - ufo.x, b.y - ufo.y) < 18) {
+                    if (wrappedDist(b.x, b.y, ufo.x, ufo.y) < 18) {
                         var pts = [200, 500, 1000][Math.floor(Math.random() * 3)] * level;
                         score += pts;
                         spawnExplosion(ufo.x, ufo.y, '#ff0000', 20);
@@ -810,7 +821,7 @@
                 asteroids.forEach(function(a) {
                     if (!a) return;
                     if (deathTimer > 0) return;
-                    var dist = Math.hypot(a.x - ship.x, a.y - ship.y);
+                    var dist = wrappedDist(a.x, a.y, ship.x, ship.y);
                     if (dist < a.radius + 10) {
                         lives--;
                         deathTimer = 1.0;
@@ -824,7 +835,7 @@
             if (deathTimer <= 0 && invulnTimer <= 0) {
                 ufoBullets.forEach(function(b, bi) {
                     if (deathTimer > 0) return;
-                    if (b && Math.hypot(b.x - ship.x, b.y - ship.y) < 12) {
+                    if (b && wrappedDist(b.x, b.y, ship.x, ship.y) < 12) {
                         lives--;
                         deathTimer = 1.0;
                         spawnExplosion(ship.x, ship.y, aiMode ? '#00ccff' : '#4ae04a', 25);
@@ -837,7 +848,7 @@
 
             // UFO vs ship
             if (ufo && deathTimer <= 0 && invulnTimer <= 0) {
-                if (Math.hypot(ufo.x - ship.x, ufo.y - ship.y) < 22) {
+                if (wrappedDist(ufo.x, ufo.y, ship.x, ship.y) < 22) {
                     lives--;
                     deathTimer = 1.0;
                     spawnExplosion(ship.x, ship.y, aiMode ? '#00ccff' : '#4ae04a', 25);

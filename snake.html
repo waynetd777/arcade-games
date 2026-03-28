@@ -97,6 +97,20 @@
         let bonusFood = null;
         let bonusTimer = 0;
 
+        // Special items system
+        let specialItems = []; // active items on the grid
+        let specialTimers = {}; // spawn timers per type
+        const ITEM_TYPES = {
+            cherry:     { points: 20, color: '#ff2266', glow: '#ff2266', life: 10, spawnMin: 8,  spawnMax: 15, label: 'CHERRY' },
+            strawberry: { points: 30, color: '#ff4488', glow: '#ff4488', life: 8,  spawnMin: 15, spawnMax: 25, label: 'STRAWBERRY' },
+            diamond:    { points: 100, color: '#00ffff', glow: '#00ffff', life: 4,  spawnMin: 25, spawnMax: 40, label: 'DIAMOND' },
+            lightning:  { points: 10, color: '#ffee00', glow: '#ffee00', life: 7,  spawnMin: 20, spawnMax: 35, label: '2x SCORE', effect: 'multiplier', duration: 6 },
+            shield:     { points: 10, color: '#4488ff', glow: '#4488ff', life: 6,  spawnMin: 30, spawnMax: 45, label: 'SHIELD', effect: 'shield', duration: 5 }
+        };
+
+        // Active powerup effects
+        let activeEffects = {}; // { multiplier: timeLeft, shield: timeLeft }
+
         // Walls
         let walls = [];
 
@@ -130,6 +144,7 @@
                 if (!isWall(cx, cy) && !isSnake(cx, cy)) {
                     if (food && food.x === cx && food.y === cy) { attempts++; continue; }
                     if (bonusFood && bonusFood.x === cx && bonusFood.y === cy) { attempts++; continue; }
+                    if (specialItems.some(function(si) { return si.x === cx && si.y === cy; })) { attempts++; continue; }
                     return {x: cx, y: cy};
                 }
                 attempts++;
@@ -139,7 +154,8 @@
                 for (var sx = 0; sx < COLS; sx++) {
                     if (!isWall(sx, sy) && !isSnake(sx, sy) &&
                         !(food && food.x === sx && food.y === sy) &&
-                        !(bonusFood && bonusFood.x === sx && bonusFood.y === sy)) {
+                        !(bonusFood && bonusFood.x === sx && bonusFood.y === sy) &&
+                        !specialItems.some(function(si) { return si.x === sx && si.y === sy; })) {
                         return {x: sx, y: sy};
                     }
                 }
@@ -207,6 +223,33 @@
             bonusFood = {x: pos.x, y: pos.y, life: 6.0};
         }
 
+        function resetSpecialTimers() {
+            Object.keys(ITEM_TYPES).forEach(function(type) {
+                var t = ITEM_TYPES[type];
+                specialTimers[type] = t.spawnMin + Math.random() * (t.spawnMax - t.spawnMin);
+            });
+            specialItems = [];
+            activeEffects = {};
+        }
+
+        function spawnSpecialItem(type) {
+            // Only one of each type at a time
+            if (specialItems.some(function(si) { return si.type === type; })) return;
+            var pos = randomFreeCell();
+            // Also avoid other special items
+            var blocked = specialItems.some(function(si) { return si.x === pos.x && si.y === pos.y; });
+            if (blocked) return;
+            specialItems.push({ type: type, x: pos.x, y: pos.y, life: ITEM_TYPES[type].life });
+        }
+
+        function getScoreMultiplier() {
+            return activeEffects.multiplier && activeEffects.multiplier > 0 ? 2 : 1;
+        }
+
+        function hasShield() {
+            return activeEffects.shield && activeEffects.shield > 0;
+        }
+
         function generateWalls() {
             walls = [];
             if (level < 3) return;
@@ -245,6 +288,7 @@
             deathTimer = 0;
             bonusFood = null;
             bonusTimer = 8 + Math.random() * 10;
+            resetSpecialTimers();
             generateWalls();
             spawnFood();
             ensureFoodReachable();
@@ -327,6 +371,24 @@
         function sfxBonusEat() {
             [784, 988, 1175, 1319].forEach(function(f, i) {
                 setTimeout(function() { playTone(f, 0.12, 'triangle', 0.1); }, i * 50);
+            });
+        }
+        function sfxCherry() {
+            playTone(587, 0.08, 'square', 0.1);
+            setTimeout(function() { playTone(740, 0.1, 'square', 0.09); }, 50);
+        }
+        function sfxStrawberry() {
+            playTone(659, 0.08, 'triangle', 0.1);
+            setTimeout(function() { playTone(880, 0.12, 'triangle', 0.09); }, 60);
+        }
+        function sfxDiamond() {
+            [1047, 1319, 1568, 1760].forEach(function(f, i) {
+                setTimeout(function() { playTone(f, 0.15, 'sine', 0.08); }, i * 40);
+            });
+        }
+        function sfxPowerup() {
+            [523, 659, 784, 1047, 1319, 1568].forEach(function(f, i) {
+                setTimeout(function() { playTone(f, 0.1, 'square', 0.07); }, i * 35);
             });
         }
         function sfxLevelUp() {
@@ -426,8 +488,17 @@
             if (deathTimer > 0) return;
             var head = snake[0];
             var target = food;
-            // Prefer bonus if available
-            if (bonusFood) target = bonusFood;
+            // Prefer high-value items
+            var bestPriority = 0;
+            specialItems.forEach(function(si) {
+                var prio = 0;
+                if (si.type === 'diamond') prio = 5;
+                else if (si.type === 'lightning' || si.type === 'shield') prio = 4;
+                else if (si.type === 'strawberry') prio = 2;
+                else if (si.type === 'cherry') prio = 1;
+                if (prio > bestPriority) { target = si; bestPriority = prio; }
+            });
+            if (bonusFood && bestPriority < 3) target = bonusFood;
 
             // BFS pathfinding
             var visited = {};
@@ -601,8 +672,9 @@
         }
 
         function drawSnake() {
-            var snakeColor = aiMode ? '#00ccff' : '#4ae04a';
-            var headColor = aiMode ? '#00eeff' : '#6eff6e';
+            var shielded = hasShield();
+            var snakeColor = shielded ? '#4488ff' : (aiMode ? '#00ccff' : '#4ae04a');
+            var headColor = shielded ? '#66aaff' : (aiMode ? '#00eeff' : '#6eff6e');
             for (var i = snake.length - 1; i >= 0; i--) {
                 var seg = snake[i];
                 var px = OFFSET_X + seg.x * CELL;
@@ -643,6 +715,33 @@
 
                 ctx.shadowBlur = 0;
                 ctx.globalAlpha = 1;
+            }
+
+            // Shield bubble effect
+            if (shielded && snake.length > 0 && deathTimer <= 0) {
+                var sh = snake[0];
+                var spx = OFFSET_X + sh.x * CELL + CELL / 2;
+                var spy = OFFSET_Y + sh.y * CELL + CELL / 2;
+                ctx.strokeStyle = 'rgba(68, 136, 255, ' + (0.4 + 0.3 * Math.sin(gameTime * 8)) + ')';
+                ctx.lineWidth = 2;
+                ctx.shadowBlur = 8; ctx.shadowColor = '#4488ff';
+                ctx.beginPath();
+                ctx.arc(spx, spy, 13, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            }
+
+            // 2x multiplier glow
+            if (getScoreMultiplier() > 1 && snake.length > 0 && deathTimer <= 0) {
+                for (var mi = 0; mi < snake.length; mi += 3) {
+                    var ms = snake[mi];
+                    var mpx = OFFSET_X + ms.x * CELL + CELL / 2;
+                    var mpy = OFFSET_Y + ms.y * CELL + CELL / 2;
+                    ctx.fillStyle = 'rgba(255, 238, 0, ' + (0.15 + 0.1 * Math.sin(gameTime * 10 + mi)) + ')';
+                    ctx.beginPath();
+                    ctx.arc(mpx, mpy, 12, 0, Math.PI * 2);
+                    ctx.fill();
+                }
             }
         }
 
@@ -698,6 +797,133 @@
             ctx.closePath();
             ctx.fill();
             ctx.shadowBlur = 0;
+        }
+
+        function drawSpecialItems() {
+            specialItems.forEach(function(item) {
+                var px = OFFSET_X + item.x * CELL + CELL / 2;
+                var py = OFFSET_Y + item.y * CELL + CELL / 2;
+                var t = ITEM_TYPES[item.type];
+                var pulse = 1 + 0.15 * Math.sin(gameTime * 8);
+                // Blink when about to expire
+                var blink = item.life < 2 ? (Math.floor(gameTime * 6) % 2 === 0) : true;
+                if (!blink) return;
+
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = t.glow;
+
+                if (item.type === 'cherry') {
+                    // Two red circles with stems
+                    var r = 5 * pulse;
+                    ctx.fillStyle = '#ff2266';
+                    ctx.beginPath(); ctx.arc(px - 3, py + 2, r, 0, Math.PI * 2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(px + 4, py + 2, r, 0, Math.PI * 2); ctx.fill();
+                    ctx.shadowBlur = 0;
+                    ctx.strokeStyle = '#2a6e0a';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.moveTo(px - 3, py - 3); ctx.quadraticCurveTo(px, py - 10 * pulse, px + 4, py - 3); ctx.stroke();
+                    // Leaf
+                    ctx.fillStyle = '#2a6e0a';
+                    ctx.beginPath(); ctx.ellipse(px + 1, py - 8 * pulse, 3, 1.5, 0.3, 0, Math.PI * 2); ctx.fill();
+                }
+                else if (item.type === 'strawberry') {
+                    // Strawberry shape
+                    ctx.fillStyle = '#ff4488';
+                    ctx.beginPath();
+                    ctx.moveTo(px, py - 7 * pulse);
+                    ctx.quadraticCurveTo(px + 8 * pulse, py - 2, px, py + 8 * pulse);
+                    ctx.quadraticCurveTo(px - 8 * pulse, py - 2, px, py - 7 * pulse);
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                    // Seeds
+                    ctx.fillStyle = '#ffee88';
+                    for (var s = 0; s < 3; s++) {
+                        ctx.beginPath();
+                        ctx.arc(px + (s - 1) * 3, py + s * 2, 1, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    // Leaves
+                    ctx.fillStyle = '#2a6e0a';
+                    ctx.beginPath(); ctx.ellipse(px - 3, py - 7 * pulse, 4, 2, -0.4, 0, Math.PI * 2); ctx.fill();
+                    ctx.beginPath(); ctx.ellipse(px + 3, py - 7 * pulse, 4, 2, 0.4, 0, Math.PI * 2); ctx.fill();
+                }
+                else if (item.type === 'diamond') {
+                    // Rotating diamond
+                    var angle = gameTime * 3;
+                    ctx.fillStyle = '#00ffff';
+                    ctx.save();
+                    ctx.translate(px, py);
+                    ctx.rotate(angle);
+                    var sz = 7 * pulse;
+                    ctx.beginPath();
+                    ctx.moveTo(0, -sz); ctx.lineTo(sz, 0); ctx.lineTo(0, sz); ctx.lineTo(-sz, 0);
+                    ctx.closePath();
+                    ctx.fill();
+                    // Inner shine
+                    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+                    ctx.beginPath();
+                    ctx.moveTo(0, -sz * 0.5); ctx.lineTo(sz * 0.5, 0); ctx.lineTo(0, sz * 0.5); ctx.lineTo(-sz * 0.5, 0);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.restore();
+                }
+                else if (item.type === 'lightning') {
+                    // Lightning bolt
+                    ctx.fillStyle = '#ffee00';
+                    ctx.save();
+                    ctx.translate(px, py);
+                    var s = pulse;
+                    ctx.beginPath();
+                    ctx.moveTo(-2 * s, -8 * s); ctx.lineTo(3 * s, -2 * s); ctx.lineTo(0, -1 * s);
+                    ctx.lineTo(4 * s, 8 * s); ctx.lineTo(-1 * s, 1 * s); ctx.lineTo(1 * s, 2 * s);
+                    ctx.lineTo(-4 * s, -8 * s);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.restore();
+                }
+                else if (item.type === 'shield') {
+                    // Shield icon
+                    ctx.fillStyle = '#4488ff';
+                    ctx.save();
+                    ctx.translate(px, py);
+                    var s = pulse;
+                    ctx.beginPath();
+                    ctx.moveTo(0, -8 * s);
+                    ctx.quadraticCurveTo(8 * s, -6 * s, 7 * s, 0);
+                    ctx.quadraticCurveTo(6 * s, 6 * s, 0, 9 * s);
+                    ctx.quadraticCurveTo(-6 * s, 6 * s, -7 * s, 0);
+                    ctx.quadraticCurveTo(-8 * s, -6 * s, 0, -8 * s);
+                    ctx.fill();
+                    // Inner cross/star
+                    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+                    ctx.fillRect(-1, -4 * s, 2, 6 * s);
+                    ctx.fillRect(-3 * s, -1, 6 * s, 2);
+                    ctx.restore();
+                }
+                ctx.shadowBlur = 0;
+            });
+        }
+
+        function drawActiveEffects() {
+            var y = OFFSET_Y + GRID_H + 18;
+            var x = OFFSET_X;
+            ctx.font = 'bold 11px Courier';
+            ctx.textAlign = 'left';
+            if (activeEffects.multiplier && activeEffects.multiplier > 0) {
+                ctx.fillStyle = '#ffee00';
+                ctx.shadowBlur = 5; ctx.shadowColor = '#ffee00';
+                var bar = Math.ceil(activeEffects.multiplier);
+                ctx.fillText('2x SCORE ' + '|'.repeat(bar), x, y);
+                ctx.shadowBlur = 0;
+                x += 130;
+            }
+            if (activeEffects.shield && activeEffects.shield > 0) {
+                ctx.fillStyle = '#4488ff';
+                ctx.shadowBlur = 5; ctx.shadowColor = '#4488ff';
+                var bar = Math.ceil(activeEffects.shield);
+                ctx.fillText('SHIELD ' + '|'.repeat(bar), x, y);
+                ctx.shadowBlur = 0;
+            }
         }
 
         function updateHUD() {
@@ -843,40 +1069,50 @@
             else if (difficulty === 1) ctx.fillText("SIDE WALLS WRAP | TOP/BOTTOM DEADLY", W / 2, 468);
             else ctx.fillText("ALL WALLS DEADLY | MAX SPEED", W / 2, 468);
 
-            // Score info
+            // Score info - items grid
             ctx.fillStyle = '#888';
-            ctx.font = '12px Courier';
-            ctx.fillText("SCORE TABLE:", W / 2, 492);
-            // Apple
-            ctx.fillStyle = '#ff3333';
-            ctx.shadowBlur = 4;
-            ctx.shadowColor = '#ff3333';
-            ctx.beginPath();
-            ctx.arc(W / 2 - 60, 510, 5, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = '#aaa';
-            ctx.fillText("= 10", W / 2 - 35, 514);
-            // Bonus
-            ctx.fillStyle = '#ffd700';
-            ctx.shadowBlur = 4;
-            ctx.shadowColor = '#ffd700';
-            ctx.beginPath();
-            ctx.arc(W / 2 + 30, 510, 5, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = '#aaa';
-            ctx.fillText("= 50", W / 2 + 55, 514);
+            ctx.font = '11px Courier';
+            ctx.textAlign = 'center';
+            ctx.fillText("COLLECTIBLES:", W / 2, 490);
+
+            var itemsRow1 = [
+                { color: '#ff3333', glow: '#ff3333', label: '10', x: -120 },
+                { color: '#ff2266', glow: '#ff2266', label: '20', x: -50 },
+                { color: '#ff4488', glow: '#ff4488', label: '30', x: 20 },
+                { color: '#ffd700', glow: '#ffd700', label: '50', x: 90 }
+            ];
+            var itemsRow2 = [
+                { color: '#00ffff', glow: '#00ffff', label: '100', x: -90 },
+                { color: '#ffee00', glow: '#ffee00', label: '2x', x: -10 },
+                { color: '#4488ff', glow: '#4488ff', label: 'INV', x: 70 }
+            ];
+
+            itemsRow1.forEach(function(item) {
+                ctx.fillStyle = item.color;
+                ctx.shadowBlur = 4; ctx.shadowColor = item.glow;
+                ctx.beginPath(); ctx.arc(W / 2 + item.x, 506, 4, 0, Math.PI * 2); ctx.fill();
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = '#aaa'; ctx.font = '10px Courier';
+                ctx.fillText(item.label, W / 2 + item.x + 22, 510);
+            });
+            itemsRow2.forEach(function(item) {
+                ctx.fillStyle = item.color;
+                ctx.shadowBlur = 4; ctx.shadowColor = item.glow;
+                ctx.beginPath(); ctx.arc(W / 2 + item.x, 524, 4, 0, Math.PI * 2); ctx.fill();
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = '#aaa'; ctx.font = '10px Courier';
+                ctx.fillText(item.label, W / 2 + item.x + 22, 528);
+            });
 
             // Bottom text
             ctx.textAlign = 'center';
             ctx.fillStyle = '#fff';
             ctx.font = 'bold 18px Courier';
-            ctx.fillText(state === 'START' ? "EAT TO GROW!" : "GAME OVER", W / 2, 545);
+            ctx.fillText(state === 'START' ? "EAT TO GROW!" : "GAME OVER", W / 2, 555);
             ctx.font = '12px Courier';
             ctx.fillStyle = '#888';
-            ctx.fillText("SPACE: START | N: NEURAL OVERRIDE | P: PAUSE", W / 2, 567);
-            ctx.fillText("ARROW KEYS TO MOVE", W / 2, 585);
+            ctx.fillText("SPACE: START | N: NEURAL OVERRIDE | P: PAUSE", W / 2, 575);
+            ctx.fillText("ARROW KEYS TO MOVE", W / 2, 592);
         }
 
         // === Difficulty click ===
@@ -925,6 +1161,7 @@
                 drawSnake();
                 drawFood();
                 drawBonusFood();
+                drawSpecialItems();
                 ctx.fillStyle = 'rgba(0,0,0,0.7)';
                 ctx.fillRect(0, 0, W, H);
                 ctx.textAlign = 'center';
@@ -947,6 +1184,7 @@
                 drawBorder();
                 drawWalls();
                 drawFood();
+                drawSpecialItems();
                 drawSnake();
 
                 // Particles
@@ -1040,15 +1278,17 @@
                 }
 
                 // Check self collision (excluding tail since it will move)
-                for (var si = 0; si < snake.length - 1; si++) {
-                    if (snake[si].x === nx && snake[si].y === ny) {
-                        var hp = cellToPixel(head.x, head.y);
-                        spawnExplosion(hp.x + CELL / 2, hp.y + CELL / 2, aiMode ? '#00ccff' : '#4ae04a', 30);
-                        sfxDie();
-                        deathTimer = 1.0;
-                        updateHUD();
-                        requestAnimationFrame(loop);
-                        return;
+                if (!hasShield()) {
+                    for (var si = 0; si < snake.length - 1; si++) {
+                        if (snake[si].x === nx && snake[si].y === ny) {
+                            var hp = cellToPixel(head.x, head.y);
+                            spawnExplosion(hp.x + CELL / 2, hp.y + CELL / 2, aiMode ? '#00ccff' : '#4ae04a', 30);
+                            sfxDie();
+                            deathTimer = 1.0;
+                            updateHUD();
+                            requestAnimationFrame(loop);
+                            return;
+                        }
                     }
                 }
 
@@ -1058,12 +1298,13 @@
 
                 // Check food
                 if (food && nx === food.x && ny === food.y) {
-                    score += 10 * level;
+                    score += 10 * level * getScoreMultiplier();
                     foodEaten++;
                     ate = true;
                     var fp = cellToPixel(food.x, food.y);
                     spawnSparkle(fp.x + CELL / 2, fp.y + CELL / 2, '#ff3333', 8);
-                    floatingTexts.push({x: fp.x + CELL / 2, y: fp.y, t: '+' + (10 * level), life: 0.8, c: '#ff3333'});
+                    var foodPts = 10 * level * getScoreMultiplier();
+                    floatingTexts.push({x: fp.x + CELL / 2, y: fp.y, t: '+' + foodPts, life: 0.8, c: '#ff3333'});
                     sfxEat();
                     spawnFood();
 
@@ -1083,13 +1324,39 @@
 
                 // Check bonus food
                 if (bonusFood && nx === bonusFood.x && ny === bonusFood.y) {
-                    score += 50 * level;
+                    var bonusPts = 50 * level * getScoreMultiplier();
+                    score += bonusPts;
                     ate = true;
                     var bp = cellToPixel(bonusFood.x, bonusFood.y);
                     spawnSparkle(bp.x + CELL / 2, bp.y + CELL / 2, '#ffd700', 15);
-                    floatingTexts.push({x: bp.x + CELL / 2, y: bp.y, t: '+' + (50 * level), life: 1.0, c: '#ffd700'});
+                    floatingTexts.push({x: bp.x + CELL / 2, y: bp.y, t: '+' + bonusPts, life: 1.0, c: '#ffd700'});
                     sfxBonusEat();
                     bonusFood = null;
+                }
+
+                // Check special items
+                for (var si = specialItems.length - 1; si >= 0; si--) {
+                    var item = specialItems[si];
+                    if (nx === item.x && ny === item.y) {
+                        var t = ITEM_TYPES[item.type];
+                        var pts = t.points * level * getScoreMultiplier();
+                        score += pts;
+                        ate = true;
+                        var ip = cellToPixel(item.x, item.y);
+                        spawnSparkle(ip.x + CELL / 2, ip.y + CELL / 2, t.color, 12);
+                        floatingTexts.push({x: ip.x + CELL / 2, y: ip.y, t: '+' + pts + ' ' + t.label, life: 1.2, c: t.color});
+                        // Play sound
+                        if (item.type === 'cherry') sfxCherry();
+                        else if (item.type === 'strawberry') sfxStrawberry();
+                        else if (item.type === 'diamond') sfxDiamond();
+                        else sfxPowerup();
+                        // Apply effect
+                        if (t.effect) {
+                            activeEffects[t.effect] = t.duration;
+                            floatingTexts.push({x: W / 2, y: H / 2 - 30, t: t.label + ' ACTIVE!', life: 1.5, c: t.color});
+                        }
+                        specialItems.splice(si, 1);
+                    }
                 }
 
                 if (!ate) {
@@ -1111,13 +1378,40 @@
                 }
             }
 
+            // Special item timers
+            Object.keys(ITEM_TYPES).forEach(function(type) {
+                if (specialTimers[type] !== undefined) {
+                    specialTimers[type] -= dt;
+                    if (specialTimers[type] <= 0) {
+                        spawnSpecialItem(type);
+                        var t = ITEM_TYPES[type];
+                        specialTimers[type] = t.spawnMin + Math.random() * (t.spawnMax - t.spawnMin);
+                    }
+                }
+            });
+            // Decay special item lifetimes
+            for (var si = specialItems.length - 1; si >= 0; si--) {
+                specialItems[si].life -= dt;
+                if (specialItems[si].life <= 0) specialItems.splice(si, 1);
+            }
+
+            // Decay active effects
+            Object.keys(activeEffects).forEach(function(eff) {
+                if (activeEffects[eff] > 0) {
+                    activeEffects[eff] -= dt;
+                    if (activeEffects[eff] <= 0) activeEffects[eff] = 0;
+                }
+            });
+
             // === Draw ===
             drawGrid();
             drawBorder();
             drawWalls();
             drawFood();
             drawBonusFood();
+            drawSpecialItems();
             drawSnake();
+            drawActiveEffects();
 
             // Particles
             particles.forEach(function(p) {

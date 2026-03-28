@@ -58,6 +58,7 @@
         const btn = document.getElementById('b');
         const aiBtn = document.getElementById('ai-btn');
         const pauseBtn = document.getElementById('pause-btn');
+        let muted = localStorage.getItem('arcade_muted') === 'true';
         const _mob = window.innerWidth <= 580;
         if (_mob) { btn.innerText = 'START'; aiBtn.innerText = 'AI: OFF'; }
         const muteBtn = document.getElementById('mute-btn');
@@ -122,7 +123,6 @@
         // === Sound Engine ===
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         let audioCtx = null;
-        let muted = localStorage.getItem('arcade_muted') === 'true';
         function ensureAudio() { if (!audioCtx) audioCtx = new AudioCtx(); }
 
         function playTone(freq, duration, type, vol) {

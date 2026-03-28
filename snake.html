@@ -12,7 +12,7 @@
         canvas { display: block; background: #000; cursor: crosshair; }
         .controls { display: flex; gap: 15px; margin-top: 15px; z-index: 10; flex-wrap: wrap; justify-content: center; }
         button { padding: 12px 25px; font-size: 16px; font-family: inherit; font-weight: bold; cursor: pointer; border: none; border-radius: 4px; transition: 0.2s; text-transform: uppercase; }
-        #b { background: linear-gradient(180deg, #4ae04a, #2eb32e); color: #000; box-shadow: 0 4px 0 #1e7a1e; }
+        #b { background: linear-gradient(180deg, #aaff00, #88cc00); color: #000; box-shadow: 0 4px 0 #5c8a00; }
         #ai-btn { background: #222; color: #00ccff; border: 2px solid #00ccff; box-shadow: 0 0 10px rgba(0, 204, 255, 0.3); }
         #pause-btn { background: #222; color: #ffaa00; border: 2px solid #ffaa00; box-shadow: 0 0 10px rgba(255, 170, 0, 0.3); }
         button:active { transform: translateY(3px); box-shadow: none; }
@@ -386,9 +386,11 @@
                 for (var d = 0; d < dirs.length; d++) {
                     var nx = cur.x + dirs[d].x;
                     var ny = cur.y + dirs[d].y;
-                    // Handle wrapping on Easy
-                    if (difficulty === 0) {
+                    // Wrap passable edges: Easy=all, Medium=sides only
+                    if (difficulty <= 1 && (nx < 0 || nx >= COLS)) {
                         nx = ((nx % COLS) + COLS) % COLS;
+                    }
+                    if (difficulty === 0 && (ny < 0 || ny >= ROWS)) {
                         ny = ((ny % ROWS) + ROWS) % ROWS;
                     }
                     if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) continue;
@@ -435,13 +437,13 @@
         function drawGrid() {
             ctx.strokeStyle = 'rgba(74, 224, 74, 0.06)';
             ctx.lineWidth = 0.5;
-            for (var x = 0; x <= COLS; x++) {
+            for (var x = 1; x < COLS; x++) {
                 ctx.beginPath();
                 ctx.moveTo(OFFSET_X + x * CELL, OFFSET_Y);
                 ctx.lineTo(OFFSET_X + x * CELL, OFFSET_Y + GRID_H);
                 ctx.stroke();
             }
-            for (var y = 0; y <= ROWS; y++) {
+            for (var y = 1; y < ROWS; y++) {
                 ctx.beginPath();
                 ctx.moveTo(OFFSET_X, OFFSET_Y + y * CELL);
                 ctx.lineTo(OFFSET_X + GRID_W, OFFSET_Y + y * CELL);
@@ -449,13 +451,63 @@
             }
         }
 
-        function drawBorder() {
-            ctx.strokeStyle = '#4ae04a';
-            ctx.lineWidth = 2;
-            ctx.shadowBlur = 8;
-            ctx.shadowColor = '#4ae04a';
-            ctx.strokeRect(OFFSET_X - 1, OFFSET_Y - 1, GRID_W + 2, GRID_H + 2);
+        function drawBorderEdge(x1, y1, x2, y2, passable) {
+            if (passable) {
+                ctx.strokeStyle = 'rgba(74, 224, 74, 0.25)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([8, 6]);
+            } else {
+                ctx.strokeStyle = '#ff3333';
+                ctx.lineWidth = 3;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#ff3333';
+            }
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+            ctx.setLineDash([]);
             ctx.shadowBlur = 0;
+        }
+
+        function drawBorder() {
+            var x = OFFSET_X - 1, y = OFFSET_Y - 1;
+            var w = GRID_W + 2, h = GRID_H + 2;
+            // Easy: all passable. Medium: sides passable, top/bottom deadly. Hard: all deadly.
+            var sidesPass = difficulty <= 1;  // Easy + Medium
+            var topBotPass = difficulty === 0; // Easy only
+
+            // Top
+            drawBorderEdge(x, y, x + w, y, topBotPass);
+            // Bottom
+            drawBorderEdge(x, y + h, x + w, y + h, topBotPass);
+            // Left
+            drawBorderEdge(x, y, x, y + h, sidesPass);
+            // Right
+            drawBorderEdge(x + w, y, x + w, y + h, sidesPass);
+
+            // Arrow hints on passable edges
+            ctx.fillStyle = 'rgba(74, 224, 74, 0.2)';
+            ctx.font = '14px Courier';
+            ctx.textAlign = 'center';
+            var mx = OFFSET_X + GRID_W / 2;
+            var my = OFFSET_Y + GRID_H / 2;
+            if (topBotPass) {
+                ctx.fillText('\u2194', mx, OFFSET_Y - 4);
+                ctx.fillText('\u2194', mx, OFFSET_Y + GRID_H + 14);
+            }
+            if (sidesPass) {
+                ctx.save();
+                ctx.translate(OFFSET_X - 6, my);
+                ctx.rotate(-Math.PI / 2);
+                ctx.fillText('\u2194', 0, 0);
+                ctx.restore();
+                ctx.save();
+                ctx.translate(OFFSET_X + GRID_W + 8, my);
+                ctx.rotate(-Math.PI / 2);
+                ctx.fillText('\u2194', 0, 0);
+                ctx.restore();
+            }
         }
 
         function drawWalls() {
@@ -721,9 +773,9 @@
             ctx.textAlign = 'center';
             ctx.font = '12px Courier';
             ctx.fillStyle = '#888';
-            if (difficulty === 0) ctx.fillText("WRAP-AROUND EDGES | NO WALL DEATH", W / 2, 468);
-            else if (difficulty === 1) ctx.fillText("WALL DEATH | MODERATE SPEED", W / 2, 468);
-            else ctx.fillText("WALL DEATH | MAXIMUM SPEED", W / 2, 468);
+            if (difficulty === 0) ctx.fillText("ALL WALLS WRAP | SLOW SPEED", W / 2, 468);
+            else if (difficulty === 1) ctx.fillText("SIDE WALLS WRAP | TOP/BOTTOM DEADLY", W / 2, 468);
+            else ctx.fillText("ALL WALLS DEADLY | MAX SPEED", W / 2, 468);
 
             // Score info
             ctx.fillStyle = '#888';
@@ -888,14 +940,18 @@
                 var nx = head.x + dir.x;
                 var ny = head.y + dir.y;
 
-                // Wrap on Easy
-                if (difficulty === 0) {
+                // Wrap passable edges: Easy=all, Medium=sides only, Hard=none
+                var sidesWrap = difficulty <= 1;
+                var topBotWrap = difficulty === 0;
+                if (sidesWrap && (nx < 0 || nx >= COLS)) {
                     nx = ((nx % COLS) + COLS) % COLS;
+                }
+                if (topBotWrap && (ny < 0 || ny >= ROWS)) {
                     ny = ((ny % ROWS) + ROWS) % ROWS;
                 }
 
-                // Check wall collision
-                if (difficulty > 0 && (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS)) {
+                // Check wall collision on non-wrappable edges
+                if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) {
                     // Die
                     var hp = cellToPixel(head.x, head.y);
                     spawnExplosion(hp.x + CELL / 2, hp.y + CELL / 2, aiMode ? '#00ccff' : '#4ae04a', 30);

@@ -900,10 +900,10 @@
             var titleSize = Math.round(48 * titlePulse);
 
             ctx.textAlign = 'center';
-            ctx.fillStyle = '#e04a4a';
+            ctx.fillStyle = '#ff8c00';
             ctx.font = 'bold ' + titleSize + 'px Courier';
             ctx.shadowBlur = titleGlow;
-            ctx.shadowColor = '#e04a4a';
+            ctx.shadowColor = '#ffaa00';
             ctx.fillText("BREAKOUT", W / 2, 68);
             ctx.shadowBlur = 0;
 
@@ -911,11 +911,11 @@
             var panelX = W / 2 - 160, panelY = 100, panelW = 320, panelH = 280;
             ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
             ctx.fillRect(panelX, panelY, panelW, panelH);
-            ctx.strokeStyle = '#e04a4a';
+            ctx.strokeStyle = '#ff8c00';
             ctx.lineWidth = 2;
             ctx.strokeRect(panelX, panelY, panelW, panelH);
 
-            ctx.fillStyle = '#e04a4a';
+            ctx.fillStyle = '#ff8c00';
             ctx.font = 'bold 16px Courier';
             ctx.textAlign = 'center';
             ctx.fillText("--- HALL OF FAME ---", W / 2, panelY + 25);

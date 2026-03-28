@@ -4,6 +4,12 @@ A collection of 9 classic arcade games built entirely with HTML5 Canvas and vani
 
 **Live:** [waynetd777.github.io/arcade-games](https://waynetd777.github.io/arcade-games/)
 
+<p align="center">
+  <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&bgcolor=111111&color=cccccc&data=https%3A%2F%2Fwaynetd777.github.io%2Farcade-games%2F" alt="QR Code — Scan to play" width="200">
+  <br>
+  <sub>Scan to play on your phone</sub>
+</p>
+
 ## Games
 
 | Game | Description |

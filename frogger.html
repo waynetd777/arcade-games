@@ -47,6 +47,7 @@
         <button id="ai-btn">NEURAL OVERRIDE: OFF</button>
         <button id="pause-btn">PAUSE</button>
         <a href="index.html" style="padding: 12px 25px; font-size: 16px; font-family: 'Courier New', Courier, monospace; font-weight: bold; cursor: pointer; border: none; border-radius: 4px; text-transform: uppercase; background: #222; color: #888; border: 2px solid #555; text-decoration: none; display: inline-block; transition: 0.2s;">MENU</a>
+        <button id="mute-btn" style="background:#222;color:#0ff;border:2px solid #0ff;">♪ ON</button>
     </div>
 
     <div class="dpad">
@@ -70,6 +71,9 @@
         const pauseBtn = document.getElementById('pause-btn');
         const _mob = window.innerWidth <= 580;
         if (_mob) { btn.innerText = 'START'; aiBtn.innerText = 'AI: OFF'; }
+        const muteBtn = document.getElementById('mute-btn');
+        muteBtn.innerText = muted ? '♪ OFF' : '♪ ON';
+        muteBtn.onclick = () => { muted = !muted; localStorage.setItem('arcade_muted', muted); muteBtn.innerText = muted ? '♪ OFF' : '♪ ON'; if (muted) stopMusic(); else { currentTrack = null; if (state === 'START' || state === 'OVER') playMusic('home'); else if (state === 'PLAY' && !paused) playMusic('game'); } };
         const GRID = 40;
         const W = 560, H = 600;
         const GAME_W = 480, GAME_H = 560;
@@ -144,9 +148,11 @@
         // === Sound Engine ===
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         let audioCtx = null;
+        let muted = localStorage.getItem('arcade_muted') === 'true';
         function ensureAudio() { if (!audioCtx) audioCtx = new AudioCtx(); }
 
         function playTone(freq, duration, type = 'square', vol = 0.15) {
+            if (muted) return;
             ensureAudio();
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
@@ -190,6 +196,7 @@
             if (currentTrack === track) return;
             stopMusic();
             currentTrack = track;
+            if (muted) return;
             ensureAudio();
 
             // Home screen: bouncy, upbeat chiptune

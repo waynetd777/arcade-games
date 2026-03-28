@@ -168,6 +168,12 @@
                     var key = nx + ',' + ny;
                     if (visited[key]) continue;
                     if (isWall(nx, ny)) continue;
+                    // Skip snake body except tail (which will move)
+                    var isBody = false;
+                    for (var si = 0; si < snake.length - 1; si++) {
+                        if (snake[si].x === nx && snake[si].y === ny) { isBody = true; break; }
+                    }
+                    if (isBody) continue;
                     visited[key] = true;
                     queue.push({x: nx, y: ny});
                 }
@@ -182,6 +188,11 @@
                     return;
                 }
                 generateWalls();
+                spawnFood();
+            }
+            // Guaranteed fallback: clear all walls and respawn food
+            if (!food || snake.length === 0 || !isReachable(snake[0].x, snake[0].y, food.x, food.y)) {
+                walls = [];
                 spawnFood();
             }
         }
@@ -1063,7 +1074,6 @@
                         floatingTexts.push({x: W / 2, y: H / 2, t: 'LEVEL UP!', life: 1.5, c: '#4ae04a'});
                         sfxLevelUp();
                         generateWalls();
-                        spawnFood();
                         if (bonusFood && isWall(bonusFood.x, bonusFood.y)) {
                             bonusFood = null;
                         }
@@ -1152,7 +1162,7 @@
         };
 
         pauseBtn.onclick = function() {
-            if (state !== 'PLAY') return;
+            if (state !== 'PLAY' || deathTimer > 0) return;
             paused = !paused;
             pauseBtn.className = paused ? "pause-active" : "";
             pauseBtn.innerText = paused ? "RESUME" : "PAUSE";

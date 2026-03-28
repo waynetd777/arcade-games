@@ -526,6 +526,7 @@
         }
 
         function runAI(dt) {
+            if (state !== 'PLAY') return;
             if (!aiTarget) {
                 aiTarget = findBestMove();
                 aiMoveTimer = 0;
@@ -1030,6 +1031,7 @@
                 lockTimer += dt;
                 if (lockTimer >= 0.5) {
                     lockPiece();
+                    if (state !== 'PLAY') return;
                 }
             } else {
                 lockTimer = 0;
@@ -1048,7 +1050,7 @@
                     dasTimer = 0;
                 }
                 if (dasTimer > 0.15 && dasDir !== 0) {
-                    dasTimer -= 0.05; // repeat interval
+                    dasTimer = 0; // repeat every 0.15s consistently
                     const newCol = pieceCol + dasDir;
                     if (isValidPosition(pieceRow, newCol, currentRotation)) {
                         pieceCol = newCol;

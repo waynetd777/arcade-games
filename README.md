@@ -49,7 +49,8 @@ Every game includes:
 | P | Pause |
 | A | Toggle AI |
 | S | Toggle Sound |
-| W / S | Player 2 controls (Pong 2P mode) |
+| W / S | Player 1 — left paddle (Pong 2P mode) |
+| Arrow Keys | Player 2 — right paddle (Pong 2P mode) |
 | E / M / H | Select difficulty (on menu) |
 | Escape | Return to arcade menu (on home/game-over screen) |
 

@@ -42,7 +42,7 @@ Every game includes:
 | Arrow Keys | Move / Rotate |
 | Space | Start / Fire / Launch / Hard Drop |
 | P | Pause |
-| N | Toggle AI |
+| A | Toggle AI |
 | E / M / H | Select difficulty (on menu) |
 | Escape | Return to arcade menu (on home/game-over screen) |
 

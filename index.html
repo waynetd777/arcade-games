@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retro Arcade</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #050505;
+            color: #ccc;
+            font-family: 'Courier New', Courier, monospace;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-x: hidden;
+        }
+        #starfield {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+        .content {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 960px;
+            padding: 40px 20px 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Title */
+        .title {
+            font-size: 52px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 12px;
+            text-align: center;
+            color: #fff;
+            text-shadow:
+                0 0 10px #fff,
+                0 0 20px #fff,
+                0 0 40px #0ff,
+                0 0 80px #0ff,
+                0 0 120px #0ff;
+            animation: pulse-glow 2.5s ease-in-out infinite;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            font-size: 14px;
+            letter-spacing: 6px;
+            color: #666;
+            margin-bottom: 50px;
+            text-align: center;
+        }
+        @keyframes pulse-glow {
+            0%, 100% {
+                text-shadow:
+                    0 0 10px #fff,
+                    0 0 20px #fff,
+                    0 0 40px #0ff,
+                    0 0 80px #0ff,
+                    0 0 120px #0ff;
+            }
+            50% {
+                text-shadow:
+                    0 0 5px #fff,
+                    0 0 10px #fff,
+                    0 0 20px #0ff,
+                    0 0 40px #0ff,
+                    0 0 60px #0ff;
+            }
+        }
+
+        /* Game Grid */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+            gap: 24px;
+            width: 100%;
+            margin-bottom: 60px;
+        }
+
+        /* Cards */
+        .card {
+            background: #0a0a0a;
+            border: 2px solid #222;
+            border-radius: 10px;
+            padding: 30px 24px 24px;
+            text-decoration: none;
+            display: flex;
+            flex-direction: column;
+            transition: border-color 0.3s, box-shadow 0.3s, transform 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: var(--glow);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .card:hover {
+            border-color: var(--glow);
+            box-shadow: 0 0 30px color-mix(in srgb, var(--glow) 25%, transparent);
+            transform: translateY(-4px);
+        }
+        .card:hover::before {
+            opacity: 1;
+        }
+        .card-name {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--glow);
+            text-shadow: 0 0 15px color-mix(in srgb, var(--glow) 50%, transparent);
+            margin-bottom: 10px;
+            letter-spacing: 3px;
+        }
+        .card-desc {
+            font-size: 13px;
+            color: #777;
+            line-height: 1.5;
+            margin-bottom: 20px;
+            flex-grow: 1;
+        }
+        .card-play {
+            display: inline-block;
+            padding: 10px 0;
+            font-size: 15px;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            text-align: center;
+            color: var(--glow);
+            border: 2px solid var(--glow);
+            border-radius: 4px;
+            background: transparent;
+            text-decoration: none;
+            transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+        }
+        .card:hover .card-play {
+            background: var(--glow);
+            color: #000;
+            box-shadow: 0 0 20px color-mix(in srgb, var(--glow) 40%, transparent);
+        }
+
+        /* Footer */
+        .footer {
+            font-size: 12px;
+            letter-spacing: 3px;
+            color: #444;
+            text-align: center;
+            padding: 30px 0;
+            border-top: 1px solid #1a1a1a;
+            width: 100%;
+        }
+
+        /* Responsive */
+        @media (max-width: 640px) {
+            .title { font-size: 32px; letter-spacing: 6px; }
+            .subtitle { font-size: 11px; letter-spacing: 4px; }
+            .grid { grid-template-columns: 1fr; gap: 16px; }
+            .card { padding: 22px 18px 18px; }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="starfield"></canvas>
+    <div class="content">
+        <div class="title">RETRO ARCADE</div>
+        <div class="subtitle">SELECT A GAME TO PLAY</div>
+
+        <div class="grid">
+            <a href="frogger.html" class="card" style="--glow: #4ae04a;">
+                <div class="card-name">FROGGER</div>
+                <div class="card-desc">Cross roads and rivers to reach home</div>
+                <div class="card-play">&#9654; PLAY</div>
+            </a>
+            <a href="pacman.html" class="card" style="--glow: #ffe040;">
+                <div class="card-name">PAC-MAN</div>
+                <div class="card-desc">Eat dots, avoid ghosts, chomp power pellets</div>
+                <div class="card-play">&#9654; PLAY</div>
+            </a>
+            <a href="invaders.html" class="card" style="--glow: #4ae04a;">
+                <div class="card-name">SPACE INVADERS</div>
+                <div class="card-desc">Defend Earth from alien invasion</div>
+                <div class="card-play">&#9654; PLAY</div>
+            </a>
+            <a href="asteroids.html" class="card" style="--glow: #4ae04a;">
+                <div class="card-name">ASTEROIDS</div>
+                <div class="card-desc">Navigate and blast through asteroid fields</div>
+                <div class="card-play">&#9654; PLAY</div>
+            </a>
+            <a href="tetris.html" class="card" style="--glow: #00e5ff;">
+                <div class="card-name">TETRIS</div>
+                <div class="card-desc">Stack falling blocks, clear lines</div>
+                <div class="card-play">&#9654; PLAY</div>
+            </a>
+            <a href="breakout.html" class="card" style="--glow: #ff8c00;">
+                <div class="card-name">BREAKOUT</div>
+                <div class="card-desc">Smash bricks with a bouncing ball</div>
+                <div class="card-play">&#9654; PLAY</div>
+            </a>
+            <a href="snake.html" class="card" style="--glow: #4ae04a;">
+                <div class="card-name">SNAKE</div>
+                <div class="card-desc">Grow your snake, don't hit the walls</div>
+                <div class="card-play">&#9654; PLAY</div>
+            </a>
+        </div>
+
+        <div class="footer">7 CLASSIC ARCADE GAMES &nbsp;|&nbsp; BUILT WITH HTML5 CANVAS</div>
+    </div>
+
+    <script>
+    (function() {
+        const c = document.getElementById('starfield');
+        const ctx = c.getContext('2d');
+        let stars = [];
+        function resize() {
+            c.width = window.innerWidth;
+            c.height = window.innerHeight;
+        }
+        function init() {
+            resize();
+            stars = [];
+            for (let i = 0; i < 150; i++) {
+                stars.push({
+                    x: Math.random() * c.width,
+                    y: Math.random() * c.height,
+                    r: Math.random() * 1.5 + 0.3,
+                    a: Math.random(),
+                    da: (Math.random() - 0.5) * 0.02
+                });
+            }
+        }
+        function draw() {
+            ctx.clearRect(0, 0, c.width, c.height);
+            for (const s of stars) {
+                s.a += s.da;
+                if (s.a > 1 || s.a < 0.1) s.da *= -1;
+                ctx.globalAlpha = s.a;
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+            requestAnimationFrame(draw);
+        }
+        window.addEventListener('resize', resize);
+        init();
+        draw();
+    })();
+    </script>
+</body>
+</html>

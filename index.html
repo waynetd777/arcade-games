@@ -324,15 +324,18 @@
 
         // Start music on first interaction (browser autoplay policy)
         function onInteract() {
-            startMusic();
-            document.removeEventListener('click', onInteract);
-            document.removeEventListener('keydown', onInteract);
-            document.removeEventListener('touchstart', onInteract);
+            ensureAudio();
+            audioCtx.resume().then(() => {
+                playMusic();
+                document.removeEventListener('click', onInteract);
+                document.removeEventListener('keydown', onInteract);
+                document.removeEventListener('touchstart', onInteract);
+            });
         }
         document.addEventListener('click', onInteract);
         document.addEventListener('keydown', onInteract);
         document.addEventListener('touchstart', onInteract);
-        startMusic(); // try immediately
+        onInteract(); // try immediately
 
         // === Starfield ===
         const c = document.getElementById('starfield');

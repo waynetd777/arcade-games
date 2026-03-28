@@ -784,7 +784,7 @@
             }
             ctx.font = '12px Courier';
             ctx.fillStyle = '#888';
-            ctx.fillText("SPACE: START | A: AI | P: PAUSE", W / 2, 562);
+            ctx.fillText("SPACE: START | P: PAUSE | A: AI | S: SOUND | ESC: MENU", W / 2, 562);
             ctx.fillText("W/S OR ARROWS TO MOVE", W / 2, 580);
         }
 
@@ -856,10 +856,12 @@
                 if (e.key === 'm' || e.key === 'M') { difficulty = 1; return; }
                 if (e.key === 'h' || e.key === 'H') { difficulty = 2; return; }
                 if (e.key === 'a' || e.key === 'A') { aiBtn.click(); return; }
+                if (e.key === 's' || e.key === 'S') { muteBtn.click(); return; }
                 if (e.key === 'p' || e.key === 'P') { pauseBtn.click(); return; }
                 return;
             }
             if (e.key === 'a' || e.key === 'A') { aiBtn.click(); return; }
+                if (e.key === 's' || e.key === 'S') { muteBtn.click(); return; }
             if (e.key === 'p' || e.key === 'P') { pauseBtn.click(); return; }
             if (state !== 'PLAY' || paused || aiMode) return;
             if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'w' || e.key === 'W' || e.key === 's' || e.key === 'S') {

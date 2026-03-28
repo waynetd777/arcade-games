@@ -43,6 +43,7 @@ Every game includes:
 | Space | Start / Fire / Launch / Hard Drop |
 | P | Pause |
 | A | Toggle AI |
+| S | Toggle Sound |
 | E / M / H | Select difficulty (on menu) |
 | Escape | Return to arcade menu (on home/game-over screen) |
 

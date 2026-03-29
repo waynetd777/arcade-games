@@ -303,8 +303,8 @@
         //   Prince height: 36px (~1 tile). Needs 2 clear rows to walk.
 
         function generateLevel(lvl) {
-            let mapW = 50 + lvl * 5;
-            if (mapW > 80) mapW = 80;
+            let mapW = 70 + lvl * 8;
+            if (mapW > 120) mapW = 120;
             const mapH = 15;
             const map = [];
             for (let r = 0; r < mapH; r++) {
@@ -341,7 +341,7 @@
 
             // Define zigzag waypoints: alternate between high (row 3-4) and low (row 12-13)
             // Each waypoint is a target row the path must reach
-            const numZigs = 3 + Math.min(lvl, 3);
+            const numZigs = 2 + Math.min(lvl, 2);
             const waypoints = [];
             for (let i = 0; i < numZigs; i++) {
                 if (i % 2 === 0) {
@@ -389,12 +389,9 @@
                     col += placeTiles(curRow, col, 3 + Math.floor(Math.random() * 2));
 
                     while (curRow > targetRow && col < mapW - 6) {
-                        const step = Math.min(2, curRow - targetRow);
-                        // Horizontal gap before the next platform — must be wide enough
-                        // that the prince's jump arc clears the edge of the upper platform.
-                        // Running jump covers ~4 tiles horizontally, so a 4-tile gap lets
-                        // the prince land on top rather than hitting the underside.
-                        col += 4;
+                        // 1-row steps with 3-col gaps — easy running jumps
+                        const step = 1;
+                        col += 3;
                         curRow -= step;
                         // Platform at new height, offset to the right
                         const platLen = 3 + Math.floor(Math.random() * 2);
@@ -1839,14 +1836,18 @@
             if (fighting) { aiStuckTimer = 0; return; }
 
             // === Find target: next path tile we haven't reached ===
+            // Advance past tiles we're close to horizontally on the same floor.
+            // ALSO advance if we've reached the X of a ground-floor tile and the
+            // next tile is a step-up — we need to target the upper tile to jump to it.
             while (aiPathIdx < path.length - 1) {
                 const p = path[aiPathIdx];
                 const px = p.c * TILE + TILE / 2;
                 const sameLvl = Math.abs(p.r - pFeetRow) <= 1;
-                const passed = sameLvl && Math.abs(px - pcx) < TILE * 0.8;
+                const closeX = Math.abs(px - pcx) < TILE * 0.8;
                 const next = path[Math.min(aiPathIdx + 1, path.length - 1)];
-                const nextSameRow = next.r === p.r;
-                if (passed && nextSameRow) {
+
+                if (sameLvl && closeX) {
+                    // Always advance past tiles we're standing on
                     aiPathIdx++;
                 } else {
                     break;
@@ -1869,7 +1870,7 @@
             aiLastX = prince.x;
             aiLastY = prince.y;
 
-            if (aiStuckTimer > 3.0) {
+            if (aiStuckTimer > 2.0) {
                 aiPathIdx = Math.min(aiPathIdx + 2, path.length - 1);
                 aiStuckTimer = 0;
                 return;

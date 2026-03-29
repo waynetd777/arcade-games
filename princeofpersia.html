@@ -1774,189 +1774,138 @@
             camY += (targetY - camY) * 0.1;
         }
 
-        // === AI / Cheat Mode ===
-        // Follows the path array using realistic movement.
-        // Key insight: consecutive path tiles define transitions. When tiles change
-        // row, the PREVIOUS tile's position is where we jump/fall FROM, and the
-        // NEXT tile is where we land. We never jump straight up — always a
-        // directional running jump from one platform toward the next.
+        // === AI Mode ===
+        // Uses the REAL physics engine — just presses keys like a player.
+        // Follows the path array by targeting the next path tile and pressing
+        // arrow keys + space. The prince obeys all collision, gravity, and
+        // platform rules because updatePrince() runs normally.
 
         let aiPathIdx = 0;
-        const AI_RUN_SPEED = 150;
-        const AI_JUMP_VEL = -420;
-        let aiState = 'walk'; // 'walk', 'jump', 'fall'
-        let aiVY = 0;
-        let aiJumpTargetY = 0; // Y to land at during jump/fall
-        let aiJumpDir = 1;     // horizontal direction during jump
-        let aiAttackCooldown = 0;
-
-        function aiGetTargetPos(idx) {
-            if (idx >= path.length) {
-                if (exitDoor) return { x: exitDoor.c * TILE + TILE / 2 - prince.w / 2, y: (exitDoor.r) * TILE + TILE - prince.h, r: exitDoor.r };
-                return { x: prince.x, y: prince.y, r: 0 };
-            }
-            const p = path[idx];
-            return { x: p.c * TILE + TILE / 2 - prince.w / 2, y: (p.r - 1) * TILE + TILE - prince.h, r: p.r };
-        }
+        let aiStuckTimer = 0;
+        let aiLastX = 0;
+        let aiLastY = 0;
 
         function runAI(dt) {
             if (prince.dead || path.length === 0) return;
-            if (aiAttackCooldown > 0) aiAttackCooldown -= dt;
 
-            // === Fight guards nearby ===
+            const pcx = prince.x + prince.w / 2;
+            const pFeetRow = Math.floor((prince.y + prince.h) / TILE);
+
+            // Clear keys each frame
+            keys['ArrowLeft'] = false;
+            keys['ArrowRight'] = false;
+            keys[' '] = false;
+            keys['ArrowDown'] = false;
+            keys['z'] = false;
+
+            // === Combat: attack nearby guards on same floor ===
+            let fighting = false;
             guards.forEach(function(g) {
-                if (g.dead || aiAttackCooldown > 0) return;
-                const dist = Math.abs(g.x - prince.x) + Math.abs(g.y - prince.y);
-                if (dist < TILE * 2.5 && Math.abs((g.y + g.h) - (prince.y + prince.h)) < TILE) {
-                    g.hp--;
-                    g.hurtTimer = 0.3;
-                    sfxSword();
-                    prince.attacking = true;
-                    prince.attackTimer = 0.3;
+                if (g.dead || fighting) return;
+                const sameFloor = Math.abs((g.y + g.h) - (prince.y + prince.h)) < TILE * 1.5;
+                if (!sameFloor) return;
+                const d = Math.abs(g.x - prince.x);
+                if (d < 80) {
+                    fighting = true;
                     prince.facingRight = g.x > prince.x;
-                    score += 50;
-                    floatingTexts.push({x: g.x + g.w / 2, y: g.y - 10, t: '+50', life: 0.8, c: '#ff6666'});
-                    if (g.hp <= 0) {
-                        g.dead = true;
-                        g.deathAnim = 0;
-                        score += 200;
-                        floatingTexts.push({x: g.x + g.w / 2, y: g.y - 20, t: '+200', life: 1.0, c: '#ffd700'});
-                        spawnExplosion(g.x + g.w / 2, g.y + g.h / 2, '#ff4444', 20);
+                    if (d > 35) {
+                        keys[g.x > prince.x ? 'ArrowRight' : 'ArrowLeft'] = true;
+                    } else if (g.attackTimer > 0.1) {
+                        keys['ArrowDown'] = true;
+                    } else if (Math.random() < 0.06) {
+                        keys['z'] = true;
                     }
-                    aiAttackCooldown = 0.4;
                 }
             });
+            if (fighting) { aiStuckTimer = 0; return; }
 
-            // === In-flight states (jump/fall) — just animate the arc ===
-            if (aiState === 'jump' || aiState === 'fall') {
-                aiVY += GRAVITY * dt;
-                if (aiVY > 600) aiVY = 600;
-                prince.y += aiVY * dt;
-                prince.x += aiJumpDir * AI_RUN_SPEED * dt;
-                prince.facingRight = aiJumpDir > 0;
-                prince.jumping = aiState === 'jump';
-                prince.onGround = false;
-                prince.vx = aiJumpDir * AI_RUN_SPEED;
-                prince.runTimer += dt;
-                prince.runFrame = prince.runTimer;
-
-                // Landed when we reach or pass the landing Y
-                if (aiVY > 0 && prince.y >= aiJumpTargetY) {
-                    prince.y = aiJumpTargetY;
-                    aiVY = 0;
-                    aiState = 'walk';
-                    prince.onGround = true;
-                    prince.jumping = false;
-                    sfxLand();
-                }
-
-                // Safety: if fallen way below target, snap
-                if (prince.y > aiJumpTargetY + TILE * 3) {
-                    prince.y = aiJumpTargetY;
-                    aiVY = 0;
-                    aiState = 'walk';
-                    prince.onGround = true;
-                }
-            } else {
-                // === Walk state ===
-                const cur = aiGetTargetPos(aiPathIdx);
-                const tdx = cur.x - prince.x;
-                const tdy = cur.y - prince.y;
-
-                // Reached current target?
-                if (Math.abs(tdx) < 4 && Math.abs(tdy) < 4) {
-                    prince.x = cur.x;
-                    prince.y = cur.y;
-                    prince.onGround = true;
-
-                    // Advance index, skipping same-row consecutive tiles
-                    if (aiPathIdx < path.length) {
-                        const curR = path[Math.min(aiPathIdx, path.length - 1)].r;
-                        aiPathIdx++;
-                        while (aiPathIdx < path.length - 1 && path[aiPathIdx].r === curR) {
-                            aiPathIdx++;
-                        }
-                    }
-                } else if (Math.abs(tdy) < 4 || (Math.abs(tdx) > TILE * 0.5 && tdy < 0)) {
-                    // Same level, OR target is above but we're not underneath yet:
-                    // Walk horizontally toward it
-                    const speed = AI_RUN_SPEED * dt;
-                    const step = Math.min(speed, Math.abs(tdx));
-                    prince.x += (tdx > 0 ? 1 : -1) * step;
-                    prince.facingRight = tdx > 0;
-                    prince.onGround = true;
-                    prince.vx = (tdx > 0 ? 1 : -1) * AI_RUN_SPEED;
-                    prince.runTimer += dt;
-                    prince.runFrame = prince.runTimer;
-
-                    // If target is above and we're now close horizontally, jump!
-                    if (tdy < -4 && Math.abs(tdx) <= TILE * 0.5) {
-                        aiState = 'jump';
-                        aiVY = AI_JUMP_VEL;
-                        aiJumpTargetY = cur.y;
-                        aiJumpDir = tdx >= 0 ? 1 : (tdx < -4 ? -1 : (prince.facingRight ? 1 : -1));
-                        prince.jumping = true;
-                        prince.onGround = false;
-                        sfxJump();
-                    }
-                } else if (tdy > 4) {
-                    // Target is below — walk toward its X, then fall
-                    if (Math.abs(tdx) > 4) {
-                        const speed = AI_RUN_SPEED * dt;
-                        prince.x += (tdx > 0 ? 1 : -1) * speed;
-                        prince.facingRight = tdx > 0;
-                        prince.vx = (tdx > 0 ? 1 : -1) * AI_RUN_SPEED;
-                        prince.runTimer += dt;
-                        prince.runFrame = prince.runTimer;
-                    } else {
-                        // Step off edge
-                        aiState = 'fall';
-                        aiVY = 20; // small initial downward velocity
-                        aiJumpTargetY = cur.y;
-                        aiJumpDir = tdx >= 0 ? 1 : -1;
-                        prince.onGround = false;
-                    }
+            // === Find target: next path tile we haven't reached ===
+            // Skip path tiles that are behind us (same row, already passed)
+            while (aiPathIdx < path.length - 1) {
+                const p = path[aiPathIdx];
+                const px = p.c * TILE + TILE / 2;
+                const sameLvl = Math.abs(p.r - pFeetRow) <= 1;
+                const passed = sameLvl && Math.abs(px - pcx) < TILE * 0.8;
+                // Also skip if the NEXT tile is same row and further ahead
+                const next = path[Math.min(aiPathIdx + 1, path.length - 1)];
+                const nextSameRow = next.r === p.r;
+                if (passed && nextSameRow) {
+                    aiPathIdx++;
                 } else {
-                    // Target is above and we're right under it — jump straight up
-                    aiState = 'jump';
-                    aiVY = AI_JUMP_VEL;
-                    aiJumpTargetY = cur.y;
-                    aiJumpDir = prince.facingRight ? 1 : -1;
-                    prince.jumping = true;
-                    prince.onGround = false;
-                    sfxJump();
+                    break;
                 }
             }
 
-            // === Collect potions ===
-            const princeCol = Math.floor((prince.x + prince.w / 2) / TILE);
-            const princeRow = Math.floor((prince.y + prince.h / 2) / TILE);
-            if (princeRow >= 0 && princeRow < levelMap.length &&
-                princeCol >= 0 && princeCol < levelMap[princeRow].length &&
-                levelMap[princeRow][princeCol] === 7) {
-                levelMap[princeRow][princeCol] = 0;
-                health = Math.min(health + 2, DIFF_HEALTH[difficulty]);
-                score += 200;
-                sfxPickup();
-                floatingTexts.push({x: prince.x + prince.w / 2, y: prince.y - 10, t: '+HEALTH', life: 1.0, c: '#ff3366'});
-                updateHUD();
+            // Target tile
+            const t = aiPathIdx < path.length ? path[aiPathIdx] : null;
+            if (!t) return;
+            const tx = t.c * TILE + TILE / 2;
+            const ty = (t.r - 1) * TILE; // top of the space above the floor tile
+            const dx = tx - pcx;
+
+            // === Stuck detection ===
+            const moved = Math.abs(prince.x - aiLastX) + Math.abs(prince.y - aiLastY);
+            if (moved < 1 && prince.onGround) {
+                aiStuckTimer += dt;
+            } else {
+                aiStuckTimer = Math.max(0, aiStuckTimer - dt * 2);
+            }
+            aiLastX = prince.x;
+            aiLastY = prince.y;
+
+            // If stuck too long, skip this path tile
+            if (aiStuckTimer > 3.0) {
+                aiPathIdx = Math.min(aiPathIdx + 2, path.length - 1);
+                aiStuckTimer = 0;
+                return;
             }
 
-            // === Exit check (since updatePrince is skipped in AI mode) ===
-            if (exitDoor) {
-                const princeTileR = Math.floor((prince.y + prince.h / 2) / TILE);
-                const princeTileC = Math.floor((prince.x + prince.w / 2) / TILE);
-                if (princeTileR === exitDoor.r && princeTileC === exitDoor.c && levelCompleteTimer <= 0) {
-                    levelCompleteTimer = 2.0;
-                    const timeBonus = Math.floor(timeLeft) * 10;
-                    score += 1000 + timeBonus;
-                    floatingTexts.push({x: camX + W / 2, y: camY + H / 2 - 40, t: 'LEVEL CLEAR! +' + (1000 + timeBonus), life: 2.0, c: '#c084fc'});
-                    sfxLevelClear();
-                    updateHUD();
+            // === Press direction key toward target ===
+            if (dx > 6) keys['ArrowRight'] = true;
+            else if (dx < -6) keys['ArrowLeft'] = true;
+
+            // === Jump when needed ===
+            if (prince.onGround) {
+                const moveDir = dx >= 0 ? 1 : -1;
+                const aheadCol = Math.floor((prince.x + moveDir * (prince.w + 6)) / TILE);
+                const feetRow = Math.floor((prince.y + prince.h + 2) / TILE);
+
+                // Target is above us — need to jump to reach it
+                if (t.r < pFeetRow && Math.abs(dx) < TILE * 4) {
+                    keys[' '] = true;
+                    // Ensure we're running in a direction for a running jump
+                    if (!keys['ArrowLeft'] && !keys['ArrowRight']) {
+                        keys[moveDir > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
+                    }
+                }
+
+                // Gap ahead — no floor where we're walking
+                if (!isSolid(feetRow, aheadCol) && !isFallingTile(feetRow, aheadCol) && Math.abs(dx) > TILE) {
+                    keys[' '] = true;
+                    if (!keys['ArrowLeft'] && !keys['ArrowRight']) {
+                        keys[moveDir > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
+                    }
+                }
+
+                // Spikes ahead
+                const bodyRow = Math.floor((prince.y + prince.h - 5) / TILE);
+                if (getTile(bodyRow, aheadCol) === 3) {
+                    keys[' '] = true;
+                    if (!keys['ArrowLeft'] && !keys['ArrowRight']) {
+                        keys[moveDir > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
+                    }
+                }
+
+                // Stuck and trying to jump? Make sure we have a direction
+                if (aiStuckTimer > 1.0) {
+                    keys[' '] = true;
+                    if (!keys['ArrowLeft'] && !keys['ArrowRight']) {
+                        keys[moveDir > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
+                    }
                 }
             }
 
-            // Invincible in AI mode
+            // Invincible in AI mode so it doesn't die to traps
             prince.invincible = 0.5;
         }
 
@@ -2125,7 +2074,7 @@
             }
 
             // Update
-            if (!aiMode) updatePrince(dt);
+            updatePrince(dt);
             updateGuards(dt);
             updateFallingTiles(dt);
             updateCamera();

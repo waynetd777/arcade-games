@@ -291,7 +291,7 @@
         }
 
         // === Level Generation ===
-        // Tile types: 0=empty, 1=floor, 2=wall, 3=spikes, 4=falling_floor, 5=guillotine, 6=exit, 7=potion, 8=gem
+        // Tile types: 0=empty, 1=floor, 2=wall, 3=spikes, 4=falling_floor, 5=guillotine, 6=exit, 7=potion, 8=gem, 9=treasure
         //
         // PATH-FIRST approach: we build a guaranteed traversable path from spawn to exit,
         // then place traps and enemies only where the path has validated clearance.
@@ -615,30 +615,36 @@
                 fallingPlaced++;
             }
 
-            // Guards: on path floors with headroom
-            let numGuards = 1 + Math.floor(lvl / 2) + Math.floor(difficulty / 2);
-            if (numGuards > 4) numGuards = 4;
+            // Guards: more guards, prioritize elevated paths (guarding the treasure)
+            let numGuards = 2 + lvl + difficulty;
+            if (numGuards > 8) numGuards = 8;
             let guardsPlaced = 0;
-            for (let pi = 0; pi < shuffledPath.length && guardsPlaced < numGuards; pi++) {
-                const p = shuffledPath[pi];
+            // Place guards on high paths first (sort by row ascending = highest first)
+            const guardPath = shuffledPath.slice().sort(function(a, b) { return a.r - b.r; });
+            for (let pi = 0; pi < guardPath.length && guardsPlaced < numGuards; pi++) {
+                const p = guardPath[pi];
                 const gc = p.c;
                 if (gc < 6 || gc > mapW - 6) continue;
                 const standRow = p.r - 1;
                 if (standRow < 1) continue;
                 if (map[standRow][gc] !== 0) continue;
+                // Verify solid floor directly under the guard
+                if (!isSolid(p.r, gc)) continue;
                 if (!clearAbove(standRow, gc, 2)) continue;
-                // Don't stack guards near each other
                 let tooClose = false;
                 for (let gi = 0; gi < guards.length; gi++) {
-                    if (Math.abs(guards[gi].x / TILE - gc) < 6) { tooClose = true; break; }
+                    if (Math.abs(guards[gi].x / TILE - gc) < 4) { tooClose = true; break; }
                 }
                 if (tooClose) continue;
+                // Guards on high paths are tougher
+                const elevated = p.r < mapH - 4;
+                const hpBonus = elevated ? 1 : 0;
                 guards.push({
                     x: gc * TILE + TILE / 2,
                     y: standRow * TILE + TILE - 36,
                     w: 20, h: 36,
-                    hp: DIFF_GUARD_HP[difficulty],
-                    maxHp: DIFF_GUARD_HP[difficulty],
+                    hp: DIFF_GUARD_HP[difficulty] + hpBonus,
+                    maxHp: DIFF_GUARD_HP[difficulty] + hpBonus,
                     facingRight: Math.random() < 0.5,
                     attackTimer: 0, blockTimer: 0,
                     hurtTimer: 0, dead: false,
@@ -654,31 +660,43 @@
                 guardsPlaced++;
             }
 
-            // Potions: placed on elevated path tiles (reward for climbing)
-            const numPotions = 2 + Math.floor(Math.random() * 2);
-            // Sort path by height (highest first) for potion placement
+            // Sort path by height for placing rewards on highest tiles first
             const highPath = path.slice().sort(function(a, b) { return a.r - b.r; });
+
+            // Potions: on elevated paths
+            const numPotions = 2 + Math.floor(lvl / 2) + Math.floor(Math.random() * 2);
             let potionsPlaced = 0;
             for (let hp = 0; hp < highPath.length && potionsPlaced < numPotions; hp++) {
                 const p = highPath[hp];
-                if (p.r >= mapH - 2) continue; // skip ground floor
-                if (map[p.r - 1][p.c] !== 0) continue; // space must be empty
+                if (p.r >= mapH - 2) continue;
+                if (map[p.r - 1][p.c] !== 0) continue;
                 if (p.c < 4 || p.c > mapW - 4) continue;
                 map[p.r - 1][p.c] = 7;
                 potionsPlaced++;
             }
 
-            // Gems (tile 8): bonus score collectibles on elevated paths
-            // Worth 500 points each — major incentive to take the high road
-            const numGems = 2 + lvl + Math.floor(Math.random() * 2);
+            // Gems: scattered along elevated sections (+500 each)
+            const numGems = 3 + lvl * 2 + Math.floor(Math.random() * 3);
             let gemsPlaced = 0;
             for (let hp = 0; hp < highPath.length && gemsPlaced < numGems; hp++) {
                 const p = highPath[hp];
-                if (p.r >= mapH - 3) continue; // only on elevated sections
+                if (p.r >= mapH - 3) continue;
                 if (map[p.r - 1][p.c] !== 0) continue;
                 if (p.c < 4 || p.c > mapW - 4) continue;
                 map[p.r - 1][p.c] = 8;
                 gemsPlaced++;
+            }
+
+            // Treasure chests (tile 9): rare, only at the very highest points (+2000)
+            const numTreasures = 1 + Math.floor(lvl / 3);
+            let treasurePlaced = 0;
+            for (let hp = 0; hp < highPath.length && treasurePlaced < numTreasures; hp++) {
+                const p = highPath[hp];
+                if (p.r >= 9) continue; // only on the highest sections (row 5-8)
+                if (map[p.r - 1][p.c] !== 0) continue;
+                if (p.c < 6 || p.c > mapW - 6) continue;
+                map[p.r - 1][p.c] = 9;
+                treasurePlaced++;
             }
 
             // Exit door — at the height where the path ends (randomized by waypoints)
@@ -993,6 +1011,37 @@
                         ctx.fill();
                         ctx.shadowBlur = 0;
                         ctx.restore();
+                    } else if (t === 9) {
+                        // Treasure chest — golden glowing chest
+                        const tcx = sx + TILE / 2;
+                        const tcy = sy + TILE - 8;
+                        const bob = Math.sin(gameTime * 2 + c) * 2;
+                        ctx.save();
+                        ctx.translate(tcx, tcy + bob);
+                        ctx.shadowBlur = 18;
+                        ctx.shadowColor = '#ffd700';
+                        // Chest body
+                        ctx.fillStyle = '#8B4513';
+                        ctx.fillRect(-10, -10, 20, 14);
+                        // Chest lid
+                        ctx.fillStyle = '#a0522d';
+                        ctx.fillRect(-11, -14, 22, 6);
+                        // Gold trim
+                        ctx.fillStyle = '#ffd700';
+                        ctx.fillRect(-11, -10, 22, 2);
+                        ctx.fillRect(-2, -14, 4, 18);
+                        // Lock
+                        ctx.fillStyle = '#ffaa00';
+                        ctx.fillRect(-3, -6, 6, 6);
+                        // Sparkle
+                        ctx.fillStyle = '#fff';
+                        const sparkle = Math.sin(gameTime * 5 + c * 2) > 0.7;
+                        if (sparkle) {
+                            ctx.fillRect(-8, -16, 2, 2);
+                            ctx.fillRect(7, -13, 2, 2);
+                        }
+                        ctx.shadowBlur = 0;
+                        ctx.restore();
                     }
                 }
             }
@@ -1187,9 +1236,9 @@
             ctx.fillStyle = '#c084fc';
             ctx.fillRect(-6, -40 + crouch, 12, 5);
             ctx.fillRect(-4, -41 + crouch, 8, 2);
-            // Eye
+            // Eye (on the front of the face)
             ctx.fillStyle = '#000';
-            ctx.fillRect(2, -35 + crouch, 2, 2);
+            ctx.fillRect(-4, -35 + crouch, 2, 2);
 
             ctx.restore(); // undo body lean/bob
             ctx.restore(); // undo main transform
@@ -1557,6 +1606,19 @@
                 haptic(60);
                 floatingTexts.push({x: prince.x + prince.w / 2, y: prince.y - 10, t: '+500 GEM!', life: 1.2, c: '#00ffcc'});
                 spawnExplosion(prince.x + prince.w / 2, prince.y + prince.h / 2, '#00ffcc', 15);
+                updateHUD();
+            }
+
+            // Treasure chest pickup — massive bonus at the highest points
+            if (getTile(princeTileR, princeTileC) === 9) {
+                levelMap[princeTileR][princeTileC] = 0;
+                score += 2000;
+                health = Math.min(health + 3, 10);
+                sfxPickup();
+                haptic(100);
+                floatingTexts.push({x: prince.x + prince.w / 2, y: prince.y - 20, t: '+2000 TREASURE!', life: 2.0, c: '#ffd700'});
+                spawnExplosion(prince.x + prince.w / 2, prince.y + prince.h / 2, '#ffd700', 25);
+                spawnExplosion(prince.x + prince.w / 2, prince.y, '#ffaa00', 20);
                 updateHUD();
             }
 

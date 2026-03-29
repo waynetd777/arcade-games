@@ -969,8 +969,8 @@
             const py = prince.y - camY;
             const dir = prince.facingRight ? 1 : -1;
 
-            // Flicker when invincible
-            if (prince.invincible > 0 && Math.floor(prince.invincible * 10) % 2 === 0) return;
+            // Flicker when invincible (but not in AI mode — always visible)
+            if (prince.invincible > 0 && !aiMode && Math.floor(prince.invincible * 10) % 2 === 0) return;
 
             ctx.save();
             ctx.translate(px + prince.w / 2, py + prince.h);

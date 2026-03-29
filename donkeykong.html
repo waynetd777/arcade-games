@@ -187,13 +187,12 @@
                 // Place 2-3 ladders per section
                 var numLadders = 2 + (lvl > 2 ? 1 : 0);
                 for (var li = 0; li < numLadders; li++) {
-                    var lx;
-                    if (numLadders === 2) {
-                        lx = (r % 2 === 0) ? p1.x + p1.w * 0.3 + li * p1.w * 0.4 : p1.x + p1.w * 0.25 + li * p1.w * 0.45;
-                    } else {
-                        lx = p1.x + p1.w * (0.2 + li * 0.3);
-                    }
-                    lx = Math.max(p1.x + 10, Math.min(lx, p1.x + p1.w - 30));
+                    // Randomize ladder positions across the platform width
+                    // Divide platform into sections and place each ladder in a random
+                    // position within its section to avoid clustering
+                    var sectionW = p1.w / (numLadders + 1);
+                    var lx = p1.x + sectionW * (li + 0.5) + (Math.random() - 0.5) * sectionW * 0.7;
+                    lx = Math.max(p1.x + 15, Math.min(lx, p1.x + p1.w - 35));
                     var y1top = getPlatformY(p2, lx);
                     var y1bot = getPlatformY(p1, lx);
                     var broken = (lvl > 1 && Math.random() < 0.2 * difficulty);

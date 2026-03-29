@@ -1988,6 +1988,9 @@
 
                 if (shouldJump) {
                     keys[' '] = true;
+                    // MUST hold a direction key while jumping for a running jump
+                    // (standing jumps barely go anywhere)
+                    keys[moveDir > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
                     aiJumpCooldown = 0.5;
                 }
             }

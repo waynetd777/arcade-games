@@ -1898,31 +1898,40 @@
                 const needsJumpUp = t.r < pFeetRow;
 
                 // === Jump-up detection: jump BEFORE walking under the ledge ===
-                // Look ahead in the movement direction: is there a platform
-                // above within the next few columns? If so, jump NOW while
-                // we still have headroom, don't walk further forward.
-                let upcomingLedge = false;
-                if (needsJumpUp) {
-                    // Scan 1-4 columns ahead for a solid tile 1-2 rows up
-                    for (let lookAhead = 1; lookAhead <= 4; lookAhead++) {
-                        const checkC = princeCol + moveDir * lookAhead;
-                        if (isSolid(pFeetRow - 1, checkC) || isSolid(pFeetRow - 2, checkC)) {
-                            upcomingLedge = true;
+                // When the target is above, check if we're about to walk under
+                // the target platform. If the target platform's column is only
+                // 2-4 tiles ahead AND there's clear sky above us now, jump!
+                const hasHeadroom = !isSolid(headRow - 1, princeCol) &&
+                                    !isSolid(headRow - 2, princeCol);
+
+                // Distance to the target platform in columns
+                const targetCol = t.c;
+                const colsToTarget = (targetCol - princeCol) * (moveDir > 0 ? 1 : -1);
+
+                // We should jump when:
+                // 1. Target is above us
+                // 2. We're 2-4 columns away from the target column (approaching the overhang)
+                // 3. We have headroom right now
+                // 4. There IS an overhang ahead (solid tile above in the next 1-2 cols)
+                let aboutToGoUnder = false;
+                if (needsJumpUp && colsToTarget > 0 && colsToTarget <= 4 && hasHeadroom) {
+                    // Check if the next 1-2 columns have a ceiling
+                    for (let la = 1; la <= 2; la++) {
+                        const cc = princeCol + moveDir * la;
+                        if (isSolid(headRow - 1, cc) || isSolid(pFeetRow - 1, cc)) {
+                            aboutToGoUnder = true;
                             break;
                         }
                     }
                 }
 
-                const hasHeadroom = !isSolid(headRow - 1, princeCol) &&
-                                    !isSolid(headRow - 2, princeCol);
-
-                if (needsJumpUp && upcomingLedge && hasHeadroom) {
-                    // Jump NOW — we're approaching a ledge with clear sky above
+                if (aboutToGoUnder) {
+                    // Jump NOW — approaching overhang with clear sky
                     keys[' '] = true;
                     aiJumpDir = moveDir;
                     keys[moveDir > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
-                } else if (needsJumpUp && wallAhead && !hasHeadroom) {
-                    // Already under the ledge — back up until we have headroom
+                } else if (needsJumpUp && !hasHeadroom) {
+                    // Already under the ledge — back up until headroom restored
                     keys[moveDir > 0 ? 'ArrowLeft' : 'ArrowRight'] = true;
                 } else {
                     // Normal: walk toward target

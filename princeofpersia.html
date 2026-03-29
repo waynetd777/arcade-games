@@ -1898,21 +1898,30 @@
                 const needsJumpUp = t.r < pFeetRow;
 
                 // === Backup-then-jump sequence ===
+                // Phase 1 (aiBackupTimer > 0, aiBackupDir set): walk backward
+                //   until we have 3+ tiles of running room AND no wall ahead
+                // Phase 2: run forward and jump
                 if (aiBackupTimer > 0) {
                     aiBackupTimer -= dt;
-                    // Phase 1: back up (first 0.4s)
-                    if (aiBackupTimer > 0.15) {
-                        keys[aiBackupDir > 0 ? 'ArrowLeft' : 'ArrowRight'] = true;
-                    } else {
-                        // Phase 2: run forward and jump!
+                    // Check: do we now have running room? (no wall in jump direction)
+                    const jumpCol = Math.floor((prince.x + aiBackupDir * (prince.w + 6)) / TILE);
+                    const jumpWall = isSolid(bodyRow, jumpCol) || isSolid(headRow, jumpCol);
+                    const hasRoom = !jumpWall && Math.abs(dx) > TILE * 2;
+
+                    if (hasRoom || aiBackupTimer <= 0) {
+                        // GO! Run toward target and jump
                         keys[aiBackupDir > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
                         keys[' '] = true;
                         aiJumpDir = aiBackupDir;
+                        aiBackupTimer = 0;
+                    } else {
+                        // Still backing up
+                        keys[aiBackupDir > 0 ? 'ArrowLeft' : 'ArrowRight'] = true;
                     }
                 }
                 // Start backup if wall ahead and need to jump up
-                else if (needsJumpUp && wallAhead && Math.abs(dx) < TILE * 2) {
-                    aiBackupTimer = 0.55; // 0.4s backup + 0.15s run+jump
+                else if (needsJumpUp && wallAhead && Math.abs(dx) < TILE * 3) {
+                    aiBackupTimer = 1.5; // max backup time (will stop early if room found)
                     aiBackupDir = moveDir;
                 }
                 // Normal movement

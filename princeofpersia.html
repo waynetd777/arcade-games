@@ -303,8 +303,8 @@
         //   Prince height: 36px (~1 tile). Needs 2 clear rows to walk.
 
         function generateLevel(lvl) {
-            let mapW = 40 + lvl * 5;
-            if (mapW > 70) mapW = 70;
+            let mapW = 50 + lvl * 5;
+            if (mapW > 80) mapW = 80;
             const mapH = 15;
             const map = [];
             for (let r = 0; r < mapH; r++) {
@@ -390,8 +390,11 @@
 
                     while (curRow > targetRow && col < mapW - 6) {
                         const step = Math.min(2, curRow - targetRow);
-                        // Horizontal gap before the next platform (gives jump arc room)
-                        col += 2;
+                        // Horizontal gap before the next platform — must be wide enough
+                        // that the prince's jump arc clears the edge of the upper platform.
+                        // Running jump covers ~4 tiles horizontally, so a 4-tile gap lets
+                        // the prince land on top rather than hitting the underside.
+                        col += 4;
                         curRow -= step;
                         // Platform at new height, offset to the right
                         const platLen = 3 + Math.floor(Math.random() * 2);

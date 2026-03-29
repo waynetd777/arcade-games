@@ -291,7 +291,7 @@
         }
 
         // === Level Generation ===
-        // Tile types: 0=empty, 1=floor, 2=wall, 3=spikes, 4=falling_floor, 5=guillotine, 6=exit, 7=potion
+        // Tile types: 0=empty, 1=floor, 2=wall, 3=spikes, 4=falling_floor, 5=guillotine, 6=exit, 7=potion, 8=gem
         //
         // PATH-FIRST approach: we build a guaranteed traversable path from spawn to exit,
         // then place traps and enemies only where the path has validated clearance.
@@ -651,16 +651,31 @@
                 guardsPlaced++;
             }
 
-            // Potions: on side platforms or path floors
-            const numPotions = 1 + Math.floor(Math.random() * 2);
-            for (let poi = 0; poi < numPotions; poi++) {
-                const pc2 = 4 + Math.floor(Math.random() * (mapW - 8));
-                for (let pr2 = 1; pr2 < mapH; pr2++) {
-                    if (map[pr2][pc2] === 1 && map[pr2 - 1][pc2] === 0) {
-                        map[pr2 - 1][pc2] = 7;
-                        break;
-                    }
-                }
+            // Potions: placed on elevated path tiles (reward for climbing)
+            const numPotions = 2 + Math.floor(Math.random() * 2);
+            // Sort path by height (highest first) for potion placement
+            const highPath = path.slice().sort(function(a, b) { return a.r - b.r; });
+            let potionsPlaced = 0;
+            for (let hp = 0; hp < highPath.length && potionsPlaced < numPotions; hp++) {
+                const p = highPath[hp];
+                if (p.r >= mapH - 2) continue; // skip ground floor
+                if (map[p.r - 1][p.c] !== 0) continue; // space must be empty
+                if (p.c < 4 || p.c > mapW - 4) continue;
+                map[p.r - 1][p.c] = 7;
+                potionsPlaced++;
+            }
+
+            // Gems (tile 8): bonus score collectibles on elevated paths
+            // Worth 500 points each — major incentive to take the high road
+            const numGems = 2 + lvl + Math.floor(Math.random() * 2);
+            let gemsPlaced = 0;
+            for (let hp = 0; hp < highPath.length && gemsPlaced < numGems; hp++) {
+                const p = highPath[hp];
+                if (p.r >= mapH - 3) continue; // only on elevated sections
+                if (map[p.r - 1][p.c] !== 0) continue;
+                if (p.c < 4 || p.c > mapW - 4) continue;
+                map[p.r - 1][p.c] = 8;
+                gemsPlaced++;
             }
 
             // Exit door at end of path — must be at least 3 rows below ceiling
@@ -945,6 +960,36 @@
                         ctx.fillRect(sx + TILE / 2 - 4, sy + TILE - 16, 8, 12);
                         ctx.fillRect(sx + TILE / 2 - 2, sy + TILE - 20, 4, 4);
                         ctx.shadowBlur = 0;
+                    } else if (t === 8) {
+                        // Gem — spinning diamond shape
+                        const gemTime = gameTime * 3 + c * 0.5;
+                        const gemScale = 0.8 + Math.sin(gemTime) * 0.2;
+                        const gcx = sx + TILE / 2;
+                        const gcy = sy + TILE - 12;
+                        ctx.save();
+                        ctx.translate(gcx, gcy);
+                        ctx.scale(gemScale, 1);
+                        ctx.fillStyle = '#00ffcc';
+                        ctx.shadowBlur = 12;
+                        ctx.shadowColor = '#00ffcc';
+                        ctx.beginPath();
+                        ctx.moveTo(0, -8);
+                        ctx.lineTo(6, 0);
+                        ctx.lineTo(0, 8);
+                        ctx.lineTo(-6, 0);
+                        ctx.closePath();
+                        ctx.fill();
+                        // Inner highlight
+                        ctx.fillStyle = '#aaffee';
+                        ctx.beginPath();
+                        ctx.moveTo(0, -4);
+                        ctx.lineTo(3, 0);
+                        ctx.lineTo(0, 4);
+                        ctx.lineTo(-3, 0);
+                        ctx.closePath();
+                        ctx.fill();
+                        ctx.shadowBlur = 0;
+                        ctx.restore();
                     }
                 }
             }
@@ -1497,6 +1542,17 @@
                 sfxPickup();
                 floatingTexts.push({x: prince.x + prince.w / 2, y: prince.y - 10, t: '+HEALTH', life: 1.0, c: '#ff3366'});
                 spawnExplosion(prince.x + prince.w / 2, prince.y + prince.h / 2, '#ff3366', 10);
+                updateHUD();
+            }
+
+            // Gem pickup — bonus score for exploring elevated paths
+            if (getTile(princeTileR, princeTileC) === 8) {
+                levelMap[princeTileR][princeTileC] = 0;
+                score += 500;
+                sfxPickup();
+                haptic(60);
+                floatingTexts.push({x: prince.x + prince.w / 2, y: prince.y - 10, t: '+500 GEM!', life: 1.2, c: '#00ffcc'});
+                spawnExplosion(prince.x + prince.w / 2, prince.y + prince.h / 2, '#00ffcc', 15);
                 updateHUD();
             }
 

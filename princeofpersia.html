@@ -1901,8 +1901,12 @@
             const dist = Math.sqrt(dx * dx + dy * dy);
 
             // Advance to next waypoint when close enough
-            const reachDist = wp.type === 'potion' ? TILE * 1.5 : TILE * 1.0;
-            if (dist < reachDist) {
+            // For the exit: must be close in BOTH X and Y (not just X)
+            const reachDist = wp.type === 'potion' ? TILE * 1.5 : TILE * 1.2;
+            const closeEnough = wp.type === 'exit'
+                ? (Math.abs(dx) < TILE * 1.5 && Math.abs(dy) < TILE * 1.5)
+                : (dist < reachDist);
+            if (closeEnough) {
                 aiWpIdx++;
                 aiStuckTimer = 0;
                 if (aiWpIdx >= aiWaypoints.length) return;
@@ -1910,8 +1914,41 @@
 
             // Re-read target after possible advance
             const twp = aiWaypoints[Math.min(aiWpIdx, aiWaypoints.length - 1)];
-            const tdx = twp.x - pcx;
-            const tdy = twp.y - pcy;
+            let tdx = twp.x - pcx;
+            let tdy = twp.y - pcy;
+
+            // === Below-target recovery ===
+            // If the target is significantly above us, we need to find a way up.
+            // Scan nearby for platforms we can jump onto (recovery ramps, stepping stones).
+            const needsToClimb = tdy < -TILE * 1.5 && prince.onGround;
+            if (needsToClimb) {
+                // Look for a solid platform 1-2 rows above within a few columns
+                let rampFound = false;
+                let rampCol = -1;
+                const feetRow = Math.floor((prince.y + prince.h) / TILE);
+                for (let up = 1; up <= 2; up++) {
+                    const checkRow = feetRow - up;
+                    if (checkRow < 1) continue;
+                    // Scan a wider area (8 tiles each direction)
+                    for (let dc = -8; dc <= 8; dc++) {
+                        const cc = princeCol + dc;
+                        if (cc < 1 || cc >= levelMap[0].length - 1) continue;
+                        if (isSolid(checkRow, cc) && !isSolid(checkRow - 1, cc)) {
+                            // Found a platform above with headroom — go toward it
+                            rampCol = cc;
+                            rampFound = true;
+                            break;
+                        }
+                    }
+                    if (rampFound) break;
+                }
+
+                if (rampFound) {
+                    // Override target: walk toward the ramp platform
+                    tdx = (rampCol * TILE + TILE / 2) - pcx;
+                    tdy = -TILE * 2; // signal to jump when close
+                }
+            }
 
             // === Stuck detection ===
             const moved = Math.abs(prince.x - aiLastX) + Math.abs(prince.y - aiLastY);
@@ -1923,21 +1960,30 @@
             aiLastX = prince.x;
             aiLastY = prince.y;
 
-            // === Stuck recovery: skip waypoint or backtrack ===
+            // === Stuck recovery ===
             if (aiStuckTimer > 2.0 && prince.onGround) {
                 if (aiStuckTimer < 3.5) {
-                    // Skip this waypoint — it may be unreachable
-                    aiWpIdx = Math.min(aiWpIdx + 1, aiWaypoints.length - 1);
+                    // If not on the last waypoint, skip it
+                    if (aiWpIdx < aiWaypoints.length - 1) {
+                        aiWpIdx++;
+                        aiStuckTimer = 0;
+                        return;
+                    }
+                    // On last waypoint (exit) — try exploring left/right to find ramps
+                    const exploreDir = (Math.floor(aiStuckTimer * 2) % 2 === 0) ? 1 : -1;
+                    keys[exploreDir > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
+                } else {
                     aiStuckTimer = 0;
-                    return;
                 }
-                aiStuckTimer = 0;
             }
 
-            // === Movement: walk toward waypoint ===
+            // === Movement: walk toward waypoint/ramp ===
             const moveDir = tdx >= 0 ? 1 : -1;
             if (Math.abs(tdx) > 6) {
                 keys[tdx > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
+            } else if (needsToClimb) {
+                // Very close to ramp X but need to climb — keep a direction held for running jump
+                keys[moveDir > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
             }
 
             // === Jumping: only when necessary AND there's headroom ===

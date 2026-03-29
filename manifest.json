@@ -1,7 +1,7 @@
 {
   "name": "Wayne's Retro Arcade",
   "short_name": "Retro Arcade",
-  "description": "9 classic arcade games built with HTML5 Canvas",
+  "description": "12 classic arcade games built with HTML5 Canvas",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#050505",

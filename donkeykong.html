@@ -1,0 +1,1667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#ff6b35">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Donkey Kong Deluxe</title>
+    <style>
+        body { background: #050505; color: #ff6b35; font-family: 'Courier New', Courier, monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; min-height: 100dvh; margin: 0; padding: 10px; box-sizing: border-box; overflow: auto; user-select: none; touch-action: manipulation; }
+        .stats { margin-bottom: 10px; font-size: 22px; display: flex; gap: 30px; font-weight: bold; text-shadow: 2px 2px #000; flex-wrap: wrap; justify-content: center; }
+        #s, #l, #v { color: #fff; }
+        #game-wrapper { position: relative; border: 4px solid #333; box-shadow: 0 0 50px rgba(255, 107, 53, 0.15); border-radius: 8px; overflow: hidden; touch-action: none; max-width: 560px; width: 100%; }
+        canvas { display: block; background: #000; cursor: crosshair; width: 100%; height: auto; }
+        .controls { display: flex; gap: 15px; margin-top: 15px; z-index: 10; flex-wrap: wrap; justify-content: center; }
+        button { padding: 12px 25px; font-size: 16px; font-family: inherit; font-weight: bold; cursor: pointer; border: none; border-radius: 4px; transition: 0.2s; text-transform: uppercase; }
+        #b { background: linear-gradient(180deg, #ff6b35, #cc5528); color: #000; box-shadow: 0 4px 0 #8a3a1a; }
+        #ai-btn { background: #222; color: #00ccff; border: 2px solid #00ccff; box-shadow: 0 0 10px rgba(0, 204, 255, 0.3); }
+        #pause-btn { background: #222; color: #ffaa00; border: 2px solid #ffaa00; box-shadow: 0 0 10px rgba(255, 170, 0, 0.3); }
+        button:active { transform: translateY(3px); box-shadow: none; }
+        .ai-active { background: #00ccff !important; color: #000 !important; box-shadow: 0 0 20px #00ccff !important; }
+        .pause-active { background: #ffaa00 !important; color: #000 !important; box-shadow: 0 0 20px #ffaa00 !important; }
+        .dpad { display: none; margin-top: 10px; }
+        @media (pointer: coarse) { .dpad { display: flex; } }
+        .dpad { gap: 10px; justify-content: center; align-items: center; flex-wrap: wrap; }
+        .dpad button { padding: 0; width: 60px; height: 55px; font-size: 24px; background: #222; color: #ff6b35; border: 2px solid #ff6b35; border-radius: 8px; }
+        .dpad button:active { background: #ff6b35; color: #000; }
+        .dpad .fire-btn { width: 80px; background: #331100; color: #ff6b35; border-color: #ff6b35; }
+        .dpad .fire-btn:active { background: #ff6b35; color: #000; }
+        @media (max-width: 580px) { .stats { font-size: 14px; gap: 10px; } .controls { display: flex; gap: 4px; margin-top: 8px; width: 100%; flex-wrap: nowrap; } .controls button, .controls a { padding: 8px 2px !important; font-size: 11px !important; text-align: center; box-sizing: border-box; flex: 1; min-width: 0; } }
+        #transition-overlay { position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;opacity:1;pointer-events:none;background:repeating-linear-gradient(0deg,#000 0px,#000 2px,rgba(0,0,0,0.85) 2px,rgba(0,0,0,0.85) 4px);transition:opacity 0.4s; }
+    </style>
+</head>
+<body>
+    <div id="transition-overlay"></div>
+
+    <div class="stats">
+        <div>SCORE: <span id="s">0</span></div>
+        <div>LIVES: <span id="l">3</span></div>
+        <div>LVL: <span id="v">1</span></div>
+    </div>
+
+    <div id="game-wrapper">
+        <canvas id="c" width="560" height="600"></canvas>
+    </div>
+
+    <div class="controls">
+        <button id="b">START</button>
+        <button id="pause-btn">PAUSE</button>
+        <button id="ai-btn">AI: OFF</button>
+        <button id="mute-btn" style="background:#222;color:#0ff;border:2px solid #0ff;line-height:0;padding:6px;"><svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><path d="M14,9.5 Q17,12 14,14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M16,7.5 Q21,12 16,16.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+        <a href="index.html" style="padding: 12px 25px; font-size: 16px; font-family: 'Courier New', Courier, monospace; font-weight: bold; cursor: pointer; border: none; border-radius: 4px; text-transform: uppercase; background: #222; color: #fff; border: 2px solid #fff; text-decoration: none; display: inline-block; transition: 0.2s;">MENU</a>
+    </div>
+
+    <div class="dpad">
+        <button id="d-up">&#9650;</button>
+        <button id="d-left">&#9664;</button>
+        <button id="d-fire" class="fire-btn">JUMP</button>
+        <button id="d-right">&#9654;</button>
+        <button id="d-down">&#9660;</button>
+    </div>
+
+    <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');</script>
+    <script>
+    (function() {
+        const canvas = document.getElementById('c');
+        const ctx = canvas.getContext('2d');
+        const btn = document.getElementById('b');
+        const aiBtn = document.getElementById('ai-btn');
+        const pauseBtn = document.getElementById('pause-btn');
+        let muted = localStorage.getItem('arcade_muted') === 'true';
+        const _mob = window.innerWidth <= 580;
+        const muteBtn = document.getElementById('mute-btn');
+        const _spkOn = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><path d="M14,9.5 Q17,12 14,14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M16,7.5 Q21,12 16,16.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+        const _spkOff = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><line x1="15" y1="9" x2="21" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="21" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+        muteBtn.innerHTML = muted ? _spkOff : _spkOn;
+        muteBtn.onclick = function() { haptic(30); muted = !muted; localStorage.setItem('arcade_muted', muted); muteBtn.innerHTML = muted ? _spkOff : _spkOn; if (muted) stopMusic(); else { currentTrack = null; if (state === 'START' || state === 'OVER') playMusic('home'); else if (state === 'PLAY' && !paused) playMusic('game'); } };
+        function haptic(ms) { try { if (navigator.vibrate) navigator.vibrate(ms || 50); } catch(e) {} }
+
+        const W = 560, H = 600;
+        canvas.width = W;
+        canvas.height = H;
+
+        let state = 'START', aiMode = false, paused = false;
+        let score = 0, lives = 3, level = 1, lastTime = performance.now(), gameTime = 0;
+        let floatingTexts = [], particles = [];
+        let difficulty = 1;
+        const DIFF_NAMES = ['E: EASY', 'M: MEDIUM', 'H: HARD'];
+        const DIFF_COLORS = ['#4ae04a', '#ffaa00', '#ff3333'];
+        let highScores = JSON.parse(localStorage.getItem('donkeykong_deluxe_scores')) || [{n:'DK', s:5000}];
+        highScores = highScores.slice(0, 10);
+
+        let titleTimer = 0;
+        let gameOverTimeoutId = null;
+
+        // === Level Layout ===
+        // Platforms: array of {x, y, w, slope} — slope is rise per pixel
+        // Ladders: array of {x, y1, y2, broken}
+        // Platform heights from bottom, with slight slopes like original DK
+        var platforms = [];
+        var ladders = [];
+        var hammers = [];
+        var barrels = [];
+        var barrelTimer = 0;
+        var barrelInterval = 2.5;
+
+        // Mario state
+        var mario = { x: 0, y: 0, vx: 0, vy: 0, w: 16, h: 20, onGround: false, onLadder: false, climbDir: 0, facing: 1, jumping: false, dead: false, deathTimer: 0, hasHammer: false, hammerTimer: 0, hammerSwing: 0, winTimer: 0 };
+        var GRAVITY = 600;
+        var JUMP_VEL = -260;
+        var MOVE_SPEED = 120;
+        var CLIMB_SPEED = 80;
+
+        // DK state
+        var dk = { x: 0, y: 0, throwTimer: 0, animTimer: 0, chest: false };
+
+        // Pauline
+        var pauline = { x: 0, y: 0 };
+
+        // Score items on platforms
+        var items = [];
+        var jumpedBarrels = []; // track barrels jumped over for scoring
+
+        // Difficulty multipliers
+        var DIFF_BARREL_RATE = [3.0, 2.2, 1.4];
+        var DIFF_BARREL_SPEED = [80, 110, 140];
+        var DIFF_LIVES = [4, 3, 2];
+
+        function buildLevel(lvl) {
+            platforms = [];
+            ladders = [];
+            hammers = [];
+            barrels = [];
+            items = [];
+            jumpedBarrels = [];
+            barrelTimer = 0;
+            barrelInterval = DIFF_BARREL_RATE[difficulty];
+
+            // Ground platform
+            var groundY = 560;
+            platforms.push({ x: 0, y: groundY, w: W, slope: 0 });
+
+            // Build 5 rows of girders with alternating slopes
+            var numRows = 5 + Math.min(lvl - 1, 2);
+            if (numRows > 7) numRows = 7;
+            var rowSpacing = (groundY - 100) / (numRows + 1);
+
+            for (var r = 0; r < numRows; r++) {
+                var baseY = groundY - (r + 1) * rowSpacing;
+                var slope = (r % 2 === 0) ? 0.03 : -0.03;
+                // Alternate direction: even rows slope right-down, odd rows slope left-down
+                var px = 20;
+                var pw = W - 40;
+                // Leave gap on alternating sides for barrels to fall
+                if (r % 2 === 0) {
+                    px = 0;
+                    pw = W - 30;
+                } else {
+                    px = 30;
+                    pw = W - 30;
+                }
+                platforms.push({ x: px, y: baseY, w: pw, slope: slope });
+            }
+
+            // Top platform for DK (short)
+            var topY = groundY - (numRows + 1) * rowSpacing + 10;
+            platforms.push({ x: 60, y: topY, w: 200, slope: 0 });
+
+            // Ladders from ground to first platform
+            var groundPlat = platforms[0];
+            var firstPlat = platforms[1];
+            if (firstPlat) {
+                var gLx1 = groundPlat.x + groundPlat.w * 0.25;
+                ladders.push({ x: gLx1, y1: getPlatformY(firstPlat, gLx1), y2: groundPlat.y, broken: false });
+                var gLx2 = groundPlat.x + groundPlat.w * 0.7;
+                ladders.push({ x: gLx2, y1: getPlatformY(firstPlat, gLx2), y2: groundPlat.y, broken: false });
+            }
+
+            // Place ladders connecting platforms (not to DK platform, that's separate)
+            for (var r = 0; r < numRows - 1; r++) {
+                var p1 = platforms[r + 1]; // lower platform
+                var p2 = platforms[r + 2]; // upper platform
+                if (!p2) continue;
+                // Place 2-3 ladders per section
+                var numLadders = 2 + (lvl > 2 ? 1 : 0);
+                for (var li = 0; li < numLadders; li++) {
+                    var lx;
+                    if (numLadders === 2) {
+                        lx = (r % 2 === 0) ? p1.x + p1.w * 0.3 + li * p1.w * 0.4 : p1.x + p1.w * 0.25 + li * p1.w * 0.45;
+                    } else {
+                        lx = p1.x + p1.w * (0.2 + li * 0.3);
+                    }
+                    lx = Math.max(p1.x + 10, Math.min(lx, p1.x + p1.w - 30));
+                    var y1top = getPlatformY(p2, lx);
+                    var y1bot = getPlatformY(p1, lx);
+                    var broken = (lvl > 1 && Math.random() < 0.2 * difficulty);
+                    ladders.push({ x: lx, y1: y1top, y2: y1bot, broken: broken });
+                }
+            }
+
+            // Ladder from top regular platform to DK platform
+            var dkPlat = platforms[platforms.length - 1];
+            var topRegPlat = platforms[platforms.length - 2];
+            if (topRegPlat && dkPlat) {
+                var lx = dkPlat.x + dkPlat.w * 0.5;
+                ladders.push({ x: lx, y1: dkPlat.y, y2: topRegPlat.y, broken: false });
+            }
+
+            // Place hammers
+            if (numRows >= 3) {
+                var hp = platforms[2];
+                hammers.push({ x: hp.x + 30, y: getPlatformY(hp, hp.x + 30) - 18, collected: false });
+            }
+            if (numRows >= 5) {
+                var hp2 = platforms[4];
+                hammers.push({ x: hp2.x + hp2.w - 50, y: getPlatformY(hp2, hp2.x + hp2.w - 50) - 18, collected: false });
+            }
+
+            // Place bonus items
+            for (var r = 1; r <= Math.min(numRows, 5); r++) {
+                var p = platforms[r];
+                if (Math.random() < 0.5) {
+                    var ix = p.x + p.w * (0.3 + Math.random() * 0.4);
+                    items.push({ x: ix, y: getPlatformY(p, ix) - 14, type: Math.random() < 0.3 ? 'purse' : 'hat', collected: false, points: Math.random() < 0.3 ? 500 : 300 });
+                }
+            }
+
+            // Position DK
+            dk.x = dkPlat.x + 20;
+            dk.y = dkPlat.y - 42;
+            dk.throwTimer = 1.5;
+            dk.animTimer = 0;
+            dk.chest = false;
+
+            // Position Pauline
+            pauline.x = dkPlat.x + dkPlat.w - 40;
+            pauline.y = dkPlat.y - 22;
+
+            // Position Mario at bottom-left
+            mario.x = 40;
+            mario.y = groundY - mario.h;
+            mario.vx = 0;
+            mario.vy = 0;
+            mario.onGround = true;
+            mario.onLadder = false;
+            mario.climbDir = 0;
+            mario.facing = 1;
+            mario.jumping = false;
+            mario.dead = false;
+            mario.deathTimer = 0;
+            mario.hasHammer = false;
+            mario.hammerTimer = 0;
+            mario.hammerSwing = 0;
+            mario.winTimer = 0;
+        }
+
+        function getPlatformY(plat, px) {
+            var dx = px - plat.x;
+            return plat.y + dx * plat.slope;
+        }
+
+        function isOnPlatform(x, y, w) {
+            // Check if a point/rect rests on any platform
+            var footY = y;
+            var cx = x + w / 2;
+            for (var i = 0; i < platforms.length; i++) {
+                var p = platforms[i];
+                if (cx >= p.x && cx <= p.x + p.w) {
+                    var py = getPlatformY(p, cx);
+                    if (footY >= py - 3 && footY <= py + 6) {
+                        return { plat: p, y: py };
+                    }
+                }
+            }
+            return null;
+        }
+
+        function getPlatformBelow(x, y, w) {
+            var cx = x + w / 2;
+            var best = null;
+            var bestY = 9999;
+            for (var i = 0; i < platforms.length; i++) {
+                var p = platforms[i];
+                if (cx >= p.x && cx <= p.x + p.w) {
+                    var py = getPlatformY(p, cx);
+                    if (py > y + 2 && py < bestY) {
+                        bestY = py;
+                        best = p;
+                    }
+                }
+            }
+            return best;
+        }
+
+        function getLadderAt(x, y, w, h) {
+            var cx = x + w / 2;
+            var cy = y + h / 2;
+            for (var i = 0; i < ladders.length; i++) {
+                var lad = ladders[i];
+                if (lad.broken) continue;
+                if (Math.abs(cx - (lad.x + 10)) < 18 && cy >= lad.y1 - 5 && cy <= lad.y2 + 5) {
+                    return lad;
+                }
+            }
+            return null;
+        }
+
+        function getLadderBelow(x, y, w, h) {
+            var cx = x + w / 2;
+            var footY = y + h;
+            for (var i = 0; i < ladders.length; i++) {
+                var lad = ladders[i];
+                if (lad.broken) continue;
+                if (Math.abs(cx - (lad.x + 10)) < 18 && Math.abs(footY - lad.y1) < 15) {
+                    return lad;
+                }
+            }
+            return null;
+        }
+
+        function getLadderAbove(x, y, w, h) {
+            var cx = x + w / 2;
+            var footY = y + h;
+            for (var i = 0; i < ladders.length; i++) {
+                var lad = ladders[i];
+                if (lad.broken) continue;
+                if (Math.abs(cx - (lad.x + 10)) < 18 && Math.abs(footY - lad.y2) < 15) {
+                    return lad;
+                }
+            }
+            return null;
+        }
+
+        // === Particles ===
+        function spawnExplosion(x, y, color, count) {
+            for (var i = 0; i < count; i++) {
+                var angle = Math.random() * Math.PI * 2;
+                var speed = Math.random() * 120 + 30;
+                particles.push({ x: x, y: y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, life: 0.5 + Math.random() * 0.5, color: color, size: Math.random() * 3 + 1 });
+            }
+        }
+
+        function spawnSparkle(x, y, color, count) {
+            for (var i = 0; i < count; i++) {
+                var angle = Math.random() * Math.PI * 2;
+                var speed = Math.random() * 60 + 20;
+                particles.push({ x: x, y: y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, life: 0.3 + Math.random() * 0.4, color: color, size: Math.random() * 2 + 1 });
+            }
+        }
+
+        // === Sound Engine ===
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+        function ensureAudio() { if (!audioCtx) audioCtx = new AudioCtx(); }
+
+        function playTone(freq, duration, type, vol) {
+            if (muted) return;
+            if (typeof type === 'undefined') type = 'square';
+            if (typeof vol === 'undefined') vol = 0.12;
+            ensureAudio();
+            var osc = audioCtx.createOscillator();
+            var gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+            osc.onended = function() { osc.disconnect(); gain.disconnect(); };
+        }
+
+        function sfxJump() {
+            playTone(200, 0.05, 'square', 0.08);
+            setTimeout(function() { playTone(350, 0.06, 'square', 0.07); }, 30);
+            setTimeout(function() { playTone(500, 0.05, 'square', 0.06); }, 60);
+        }
+        function sfxBarrelJump() {
+            playTone(523, 0.06, 'triangle', 0.1);
+            setTimeout(function() { playTone(659, 0.06, 'triangle', 0.09); }, 40);
+            setTimeout(function() { playTone(784, 0.07, 'triangle', 0.08); }, 80);
+        }
+        function sfxHammer() {
+            playTone(262, 0.05, 'sawtooth', 0.08);
+            setTimeout(function() { playTone(330, 0.05, 'sawtooth', 0.07); }, 30);
+        }
+        function sfxSmash() {
+            playTone(100, 0.15, 'sawtooth', 0.12);
+            setTimeout(function() { playTone(80, 0.1, 'sawtooth', 0.08); }, 50);
+        }
+        function sfxItem() {
+            [494, 587, 740, 988].forEach(function(f, i) {
+                setTimeout(function() { playTone(f, 0.08, 'triangle', 0.08); }, i * 40);
+            });
+        }
+        function sfxDie() {
+            playTone(110, 0.3, 'triangle', 0.12);
+            [350, 262, 196, 147].forEach(function(f, i) {
+                setTimeout(function() { playTone(f, 0.2, 'triangle', 0.1); }, i * 75);
+            });
+        }
+        function sfxGameOver() {
+            [392, 370, 349, 330, 294, 262, 220, 196].forEach(function(f, i) {
+                setTimeout(function() { playTone(f, 0.25, 'triangle', 0.1); }, i * 120);
+            });
+            setTimeout(function() { playTone(110, 0.5, 'triangle', 0.07); }, 1000);
+        }
+        function sfxLevelUp() {
+            [262, 330, 392, 523, 659, 784, 1047].forEach(function(f, i) {
+                setTimeout(function() { playTone(f, 0.15, 'triangle', 0.1); }, i * 80);
+            });
+        }
+        function sfxWin() {
+            [523, 587, 659, 784, 880, 1047].forEach(function(f, i) {
+                setTimeout(function() { playTone(f, 0.2, 'triangle', 0.1); }, i * 100);
+            });
+        }
+
+        // === Music Engine ===
+        var musicInterval = null;
+        var currentTrack = null;
+
+        function stopMusic() {
+            if (musicInterval) { clearInterval(musicInterval); musicInterval = null; }
+            currentTrack = null;
+        }
+
+        function playMusic(track) {
+            if (currentTrack === track) return;
+            stopMusic();
+            currentTrack = track;
+            if (muted) return;
+            ensureAudio(); if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            // Home: ominous DK theme with deep bass
+            var homeMelody = [
+                165, 196, 220, 262, 0, 220, 196, 165,
+                147, 0, 165, 196, 220, 0, 196, 165,
+                131, 147, 165, 0, 196, 220, 262, 0,
+                220, 196, 165, 147, 0, 131, 0, 0,
+                165, 0, 196, 220, 0, 262, 294, 262,
+                220, 196, 0, 165, 147, 0, 131, 0,
+                110, 131, 147, 165, 0, 196, 0, 220,
+                196, 165, 147, 0, 131, 110, 0, 0
+            ];
+            var homeBass = [
+                55, 0, 65, 0, 73, 0, 82, 0,
+                73, 0, 65, 0, 55, 0, 65, 0,
+                49, 0, 55, 0, 65, 0, 73, 0,
+                82, 0, 73, 0, 65, 0, 55, 0,
+                55, 0, 65, 0, 73, 0, 82, 0,
+                98, 0, 82, 0, 73, 0, 65, 0,
+                55, 0, 49, 0, 55, 0, 65, 0,
+                73, 65, 55, 0, 49, 0, 0, 0
+            ];
+            // Game: tense climbing music with urgency
+            var gameMelody = [
+                330, 0, 392, 0, 440, 0, 392, 330,
+                349, 0, 330, 294, 0, 330, 349, 0,
+                392, 440, 0, 494, 523, 0, 494, 440,
+                392, 0, 349, 330, 0, 294, 262, 0,
+                330, 349, 392, 0, 440, 494, 0, 523,
+                494, 440, 392, 0, 349, 330, 294, 0,
+                262, 294, 330, 349, 0, 392, 0, 440,
+                392, 349, 330, 0, 294, 0, 0, 0
+            ];
+            var gameBass = [
+                110, 0, 131, 0, 147, 0, 131, 110,
+                117, 0, 110, 98, 0, 110, 117, 0,
+                131, 147, 0, 165, 175, 0, 165, 147,
+                131, 0, 117, 110, 0, 98, 87, 0,
+                110, 117, 131, 0, 147, 165, 0, 175,
+                165, 147, 131, 0, 117, 110, 98, 0,
+                87, 98, 110, 117, 0, 131, 0, 147,
+                131, 117, 110, 0, 98, 0, 0, 0
+            ];
+
+            var melody = track === 'home' ? homeMelody : gameMelody;
+            var bass = track === 'home' ? homeBass : gameBass;
+            var tempo = track === 'home' ? 140 : 200;
+            var melVol = 0.045;
+            var bassVol = 0.03;
+            var stepMs = 60000 / tempo;
+            var step = 0;
+
+            musicInterval = setInterval(function() {
+                if (paused) return;
+                var note = melody[step % melody.length];
+                var bn = bass[step % bass.length];
+                if (note > 0) playTone(note, stepMs / 1000 * 0.85, 'square', melVol);
+                if (bn > 0) playTone(bn, stepMs / 1000 * 0.85, 'triangle', bassVol);
+                step++;
+            }, stepMs);
+        }
+
+        // === Input ===
+        var keys = {};
+        var jumpPressed = false;
+
+        document.addEventListener('keydown', function(e) {
+            keys[e.key] = true;
+            if (e.key === ' ' || e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault();
+
+            if (e.key === 'Escape') {
+                if (state === 'START' || state === 'OVER') window.location.href = 'index.html';
+            }
+            if (e.key === ' ' || e.key === 'Enter') {
+                if (state === 'START' || state === 'OVER') {
+                    ensureAudio();
+                    startGame();
+                } else if (state === 'PLAY') {
+                    if (!mario.jumping && mario.onGround && !mario.onLadder && !mario.dead) {
+                        jumpPressed = true;
+                    }
+                }
+            }
+            if (e.key === 'p' || e.key === 'P') togglePause();
+            if (e.key === 'a' || e.key === 'A') toggleAI();
+            if (e.key === 's' || e.key === 'S') { muteBtn.click(); return; }
+
+            // Difficulty keys on menu
+            if (state === 'START' || state === 'OVER') {
+                if (e.key === 'e' || e.key === 'E') difficulty = 0;
+                if (e.key === 'm' || e.key === 'M') difficulty = 1;
+                if (e.key === 'h' || e.key === 'H') difficulty = 2;
+            }
+        });
+        document.addEventListener('keyup', function(e) { keys[e.key] = false; });
+
+        // D-pad
+        var dpadUp = document.getElementById('d-up');
+        var dpadDown = document.getElementById('d-down');
+        var dpadLeft = document.getElementById('d-left');
+        var dpadRight = document.getElementById('d-right');
+        var dFire = document.getElementById('d-fire');
+
+        function addDpadEvents(el, key) {
+            el.addEventListener('touchstart', function(e) { e.preventDefault(); keys[key] = true; haptic(30); });
+            el.addEventListener('touchend', function(e) { e.preventDefault(); keys[key] = false; });
+            el.addEventListener('mousedown', function(e) { keys[key] = true; });
+            el.addEventListener('mouseup', function(e) { keys[key] = false; });
+        }
+        addDpadEvents(dpadUp, 'ArrowUp');
+        addDpadEvents(dpadDown, 'ArrowDown');
+        addDpadEvents(dpadLeft, 'ArrowLeft');
+        addDpadEvents(dpadRight, 'ArrowRight');
+        dFire.addEventListener('touchstart', function(e) { e.preventDefault(); haptic(30); if (!mario.jumping && mario.onGround && !mario.onLadder && !mario.dead) jumpPressed = true; });
+        dFire.addEventListener('mousedown', function(e) { if (!mario.jumping && mario.onGround && !mario.onLadder && !mario.dead) jumpPressed = true; });
+
+        // Buttons
+        btn.onclick = function() { haptic(50); ensureAudio(); if (state === 'START' || state === 'OVER') startGame(); };
+        function togglePause() {
+            if (state !== 'PLAY') return;
+            paused = !paused;
+            pauseBtn.classList.toggle('pause-active', paused);
+            pauseBtn.innerText = paused ? 'RESUME' : 'PAUSE';
+            if (paused) stopMusic(); else playMusic('game');
+        }
+        pauseBtn.onclick = function() { haptic(30); togglePause(); };
+        function toggleAI() {
+            aiMode = !aiMode;
+            aiBtn.innerText = 'AI: ' + (aiMode ? 'ON' : 'OFF');
+            aiBtn.classList.toggle('ai-active', aiMode);
+        }
+        aiBtn.onclick = function() { haptic(30); toggleAI(); };
+
+        function startGame() {
+            score = 0;
+            lives = DIFF_LIVES[difficulty];
+            level = 1;
+            paused = false;
+            floatingTexts = [];
+            particles = [];
+            if (gameOverTimeoutId) { clearTimeout(gameOverTimeoutId); gameOverTimeoutId = null; }
+            buildLevel(level);
+            state = 'PLAY';
+            lastTime = performance.now();
+            gameTime = 0;
+            playMusic('game');
+            canvas.focus();
+            updateHUD();
+        }
+
+        function updateHUD() {
+            document.getElementById('s').innerText = score;
+            document.getElementById('l').innerText = lives;
+            document.getElementById('v').innerText = level;
+        }
+
+        // === AI Mode ===
+        function runAI() {
+            if (mario.dead) return;
+            // Reset keys
+            keys['ArrowLeft'] = false;
+            keys['ArrowRight'] = false;
+            keys['ArrowUp'] = false;
+            keys['ArrowDown'] = false;
+            jumpPressed = false;
+
+            // Find nearest barrel threat
+            var nearestBarrel = null;
+            var nearestBarrelDist = 9999;
+            for (var i = 0; i < barrels.length; i++) {
+                var b = barrels[i];
+                if (b.falling) continue;
+                var dx = b.x - mario.x;
+                var dy = b.y - (mario.y + mario.h);
+                if (Math.abs(dy) < 30 && dx * mario.facing >= -10 && Math.abs(dx) < 80) {
+                    var dist = Math.abs(dx);
+                    if (dist < nearestBarrelDist) {
+                        nearestBarrelDist = dist;
+                        nearestBarrel = b;
+                    }
+                }
+            }
+
+            // Jump over nearby barrels
+            if (nearestBarrel && nearestBarrelDist < 50 && mario.onGround && !mario.onLadder) {
+                jumpPressed = true;
+                return;
+            }
+
+            // If on ladder, keep climbing up
+            if (mario.onLadder) {
+                keys['ArrowUp'] = true;
+                return;
+            }
+
+            // Find nearest ladder going up
+            var bestLadder = null;
+            var bestLadderDist = 9999;
+            for (var i = 0; i < ladders.length; i++) {
+                var lad = ladders[i];
+                if (lad.broken) continue;
+                // Ladder must be reachable from current platform level
+                var ladBot = lad.y2;
+                var marioFoot = mario.y + mario.h;
+                if (Math.abs(ladBot - marioFoot) < 15) {
+                    var dist = Math.abs(lad.x + 10 - (mario.x + mario.w / 2));
+                    if (dist < bestLadderDist) {
+                        bestLadderDist = dist;
+                        bestLadder = lad;
+                    }
+                }
+            }
+
+            if (bestLadder) {
+                var targetX = bestLadder.x + 10 - mario.w / 2;
+                if (Math.abs(mario.x - targetX) < 6) {
+                    keys['ArrowUp'] = true;
+                } else if (mario.x < targetX) {
+                    keys['ArrowRight'] = true;
+                } else {
+                    keys['ArrowLeft'] = true;
+                }
+            } else {
+                // Move right generally (toward pauline)
+                if (mario.x < pauline.x) keys['ArrowRight'] = true;
+                else keys['ArrowLeft'] = true;
+            }
+
+            // Collect nearby hammer
+            for (var i = 0; i < hammers.length; i++) {
+                var hm = hammers[i];
+                if (!hm.collected && Math.abs(hm.x - mario.x) < 40 && Math.abs(hm.y - mario.y) < 30) {
+                    if (hm.x < mario.x) keys['ArrowLeft'] = true;
+                    else keys['ArrowRight'] = true;
+                }
+            }
+        }
+
+        // === Drawing Functions ===
+
+        function drawPlatforms() {
+            for (var i = 0; i < platforms.length; i++) {
+                var p = platforms[i];
+                var segW = 20;
+                var numSegs = Math.ceil(p.w / segW);
+                for (var s = 0; s < numSegs; s++) {
+                    var sx = p.x + s * segW;
+                    var sw = Math.min(segW, p.x + p.w - sx);
+                    var sy = getPlatformY(p, sx);
+                    // Girder style - red/orange steel beams
+                    ctx.fillStyle = '#cc3300';
+                    ctx.fillRect(sx, sy, sw, 8);
+                    // Rivet dots
+                    ctx.fillStyle = '#ff6b35';
+                    ctx.fillRect(sx + 2, sy + 1, 3, 3);
+                    ctx.fillRect(sx + sw - 5, sy + 4, 3, 3);
+                    // Bottom highlight
+                    ctx.fillStyle = '#881100';
+                    ctx.fillRect(sx, sy + 6, sw, 2);
+                }
+            }
+        }
+
+        function drawLadders() {
+            for (var i = 0; i < ladders.length; i++) {
+                var lad = ladders[i];
+                var x = lad.x;
+                var y1 = lad.y1;
+                var y2 = lad.y2;
+                var ladW = 20;
+                var alpha = lad.broken ? 0.3 : 1.0;
+                ctx.globalAlpha = alpha;
+                // Side rails
+                ctx.fillStyle = '#66ccff';
+                ctx.fillRect(x, y1, 3, y2 - y1);
+                ctx.fillRect(x + ladW - 3, y1, 3, y2 - y1);
+                // Rungs
+                var rungSpacing = 14;
+                var numRungs = Math.floor((y2 - y1) / rungSpacing);
+                for (var r = 1; r < numRungs; r++) {
+                    var ry = y1 + r * rungSpacing;
+                    ctx.fillRect(x + 3, ry, ladW - 6, 2);
+                }
+                if (lad.broken) {
+                    // X marks
+                    ctx.strokeStyle = '#ff3333';
+                    ctx.lineWidth = 2;
+                    var midY = (y1 + y2) / 2;
+                    ctx.beginPath();
+                    ctx.moveTo(x, midY - 8); ctx.lineTo(x + ladW, midY + 8);
+                    ctx.moveTo(x + ladW, midY - 8); ctx.lineTo(x, midY + 8);
+                    ctx.stroke();
+                }
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        function drawMario() {
+            if (mario.dead && mario.deathTimer <= 0) return;
+            var x = Math.round(mario.x);
+            var y = Math.round(mario.y);
+            var f = mario.facing;
+
+            if (mario.dead) {
+                var flash = Math.floor(mario.deathTimer * 10) % 2 === 0;
+                if (!flash) return;
+                ctx.globalAlpha = mario.deathTimer / 1.5;
+            }
+
+            // Hammer
+            if (mario.hasHammer) {
+                var hx = x + (f > 0 ? 14 : -10);
+                var hy = y - 4;
+                ctx.save();
+                ctx.translate(hx, hy);
+                ctx.rotate(Math.sin(mario.hammerSwing * 10) * 1.2);
+                ctx.fillStyle = '#8B4513';
+                ctx.fillRect(-2, -16, 4, 14);
+                ctx.fillStyle = '#888';
+                ctx.fillRect(-5, -22, 10, 8);
+                ctx.restore();
+            }
+
+            // Body (overalls - blue)
+            ctx.fillStyle = '#2244cc';
+            ctx.fillRect(x + 2, y + 10, 12, 8);
+
+            // Legs
+            var walkCycle = mario.onLadder ? Math.sin(gameTime * 12) : (mario.onGround ? Math.sin(gameTime * 10) : 0);
+            if (mario.onLadder) {
+                ctx.fillStyle = '#2244cc';
+                ctx.fillRect(x + 2, y + 18, 5, 4);
+                ctx.fillRect(x + 9, y + 18, 5, 4);
+            } else if (!mario.onGround) {
+                // Jumping pose - legs apart
+                ctx.fillStyle = '#2244cc';
+                ctx.fillRect(x + 1, y + 18, 5, 3);
+                ctx.fillRect(x + 10, y + 18, 5, 3);
+            } else {
+                var legOffset = walkCycle > 0 ? 1 : -1;
+                ctx.fillStyle = '#2244cc';
+                ctx.fillRect(x + 3 + legOffset, y + 18, 4, 3);
+                ctx.fillRect(x + 9 - legOffset, y + 18, 4, 3);
+            }
+
+            // Shoes
+            ctx.fillStyle = '#663300';
+            if (mario.onLadder) {
+                ctx.fillRect(x + 1, y + 19, 6, 2);
+                ctx.fillRect(x + 9, y + 19, 6, 2);
+            } else {
+                ctx.fillRect(x + 1, y + 18, 6, 3);
+                ctx.fillRect(x + 9, y + 18, 6, 3);
+            }
+
+            // Shirt (red)
+            ctx.fillStyle = '#ee2222';
+            ctx.fillRect(x + 1, y + 5, 14, 7);
+
+            // Arms
+            ctx.fillStyle = '#ee2222';
+            if (mario.onLadder) {
+                var armOff = Math.sin(gameTime * 12) * 2;
+                ctx.fillRect(x - 2, y + 5 + armOff, 4, 6);
+                ctx.fillRect(x + 14, y + 5 - armOff, 4, 6);
+            } else {
+                ctx.fillRect(x - 1, y + 7, 3, 5);
+                ctx.fillRect(x + 14, y + 7, 3, 5);
+            }
+
+            // Head (skin)
+            ctx.fillStyle = '#ffcc88';
+            ctx.fillRect(x + 3, y, 10, 7);
+
+            // Cap (red)
+            ctx.fillStyle = '#ee2222';
+            ctx.fillRect(x + 1, y - 2, 14, 4);
+            // Cap brim
+            if (f > 0) {
+                ctx.fillRect(x + 10, y + 1, 6, 2);
+            } else {
+                ctx.fillRect(x - 2, y + 1, 6, 2);
+            }
+
+            // Eyes
+            ctx.fillStyle = '#000';
+            if (f > 0) {
+                ctx.fillRect(x + 9, y + 3, 2, 2);
+            } else {
+                ctx.fillRect(x + 5, y + 3, 2, 2);
+            }
+
+            // Mustache
+            ctx.fillStyle = '#663300';
+            if (f > 0) {
+                ctx.fillRect(x + 7, y + 5, 5, 1);
+            } else {
+                ctx.fillRect(x + 4, y + 5, 5, 1);
+            }
+
+            ctx.globalAlpha = 1;
+        }
+
+        function drawDK() {
+            var x = Math.round(dk.x);
+            var y = Math.round(dk.y);
+            var anim = Math.sin(dk.animTimer * 3);
+
+            // Body (brown)
+            ctx.fillStyle = '#884400';
+            ctx.fillRect(x, y + 10, 40, 30);
+
+            // Belly
+            ctx.fillStyle = '#aa6622';
+            ctx.fillRect(x + 8, y + 14, 24, 22);
+
+            // Head
+            ctx.fillStyle = '#884400';
+            ctx.fillRect(x + 6, y - 4, 28, 18);
+
+            // Face
+            ctx.fillStyle = '#aa6622';
+            ctx.fillRect(x + 10, y, 20, 12);
+
+            // Eyes
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(x + 12, y + 2, 6, 5);
+            ctx.fillRect(x + 22, y + 2, 6, 5);
+            ctx.fillStyle = '#000';
+            ctx.fillRect(x + 15, y + 3, 3, 3);
+            ctx.fillRect(x + 25, y + 3, 3, 3);
+
+            // Mouth
+            ctx.fillStyle = '#cc6644';
+            ctx.fillRect(x + 14, y + 9, 12, 4);
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(x + 15, y + 9, 3, 2);
+            ctx.fillRect(x + 22, y + 9, 3, 2);
+
+            // Arms
+            ctx.fillStyle = '#884400';
+            var armY = y + 10 + anim * 3;
+            ctx.fillRect(x - 8, armY, 10, 8);
+            ctx.fillRect(x + 38, armY, 10, 8);
+
+            // Hands
+            ctx.fillStyle = '#aa6622';
+            ctx.fillRect(x - 10, armY + 2, 5, 6);
+            ctx.fillRect(x + 45, armY + 2, 5, 6);
+
+            // Legs
+            ctx.fillStyle = '#884400';
+            ctx.fillRect(x + 4, y + 38, 12, 8);
+            ctx.fillRect(x + 24, y + 38, 12, 8);
+
+            // Tie
+            ctx.fillStyle = '#ff2222';
+            ctx.fillRect(x + 16, y + 14, 8, 10);
+            ctx.fillStyle = '#cc0000';
+            ctx.fillRect(x + 17, y + 15, 6, 3);
+        }
+
+        function drawPauline() {
+            var x = Math.round(pauline.x);
+            var y = Math.round(pauline.y);
+
+            // Dress (pink)
+            ctx.fillStyle = '#ff66aa';
+            ctx.fillRect(x + 2, y + 6, 10, 12);
+            ctx.fillRect(x, y + 14, 14, 4);
+
+            // Legs
+            ctx.fillStyle = '#ffcc88';
+            ctx.fillRect(x + 3, y + 18, 3, 4);
+            ctx.fillRect(x + 8, y + 18, 3, 4);
+
+            // Head
+            ctx.fillStyle = '#ffcc88';
+            ctx.fillRect(x + 3, y, 8, 7);
+
+            // Hair (blonde)
+            ctx.fillStyle = '#ffdd44';
+            ctx.fillRect(x + 2, y - 2, 10, 4);
+            ctx.fillRect(x + 1, y + 1, 3, 6);
+            ctx.fillRect(x + 10, y + 1, 3, 6);
+
+            // Eyes
+            ctx.fillStyle = '#000';
+            ctx.fillRect(x + 5, y + 3, 1, 1);
+            ctx.fillRect(x + 8, y + 3, 1, 1);
+
+            // "HELP!" text floating
+            if (Math.sin(gameTime * 4) > 0) {
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 9px Courier';
+                ctx.textAlign = 'center';
+                ctx.fillText('HELP!', x + 7, y - 6);
+            }
+        }
+
+        function drawBarrels() {
+            for (var i = 0; i < barrels.length; i++) {
+                var b = barrels[i];
+                var x = Math.round(b.x);
+                var y = Math.round(b.y);
+
+                ctx.save();
+                ctx.translate(x + 8, y + 8);
+                ctx.rotate(b.rotation);
+
+                // Barrel body
+                ctx.fillStyle = '#885522';
+                ctx.fillRect(-8, -8, 16, 16);
+
+                // Barrel bands
+                ctx.fillStyle = '#aa7744';
+                ctx.fillRect(-8, -8, 16, 3);
+                ctx.fillRect(-8, 5, 16, 3);
+
+                // Center dot
+                ctx.fillStyle = '#664411';
+                ctx.fillRect(-2, -2, 4, 4);
+
+                ctx.restore();
+            }
+        }
+
+        function drawHammers() {
+            for (var i = 0; i < hammers.length; i++) {
+                var hm = hammers[i];
+                if (hm.collected) continue;
+                var x = Math.round(hm.x);
+                var y = Math.round(hm.y);
+                var pulse = 1 + 0.1 * Math.sin(gameTime * 6);
+
+                // Handle
+                ctx.fillStyle = '#8B4513';
+                ctx.fillRect(x + 4, y + 4, 4, 14 * pulse);
+
+                // Head
+                ctx.fillStyle = '#aaa';
+                ctx.fillRect(x - 1, y, 14, 8);
+            }
+        }
+
+        function drawItems() {
+            for (var i = 0; i < items.length; i++) {
+                var item = items[i];
+                if (item.collected) continue;
+                var x = Math.round(item.x);
+                var y = Math.round(item.y);
+                var pulse = 1 + 0.1 * Math.sin(gameTime * 5 + i);
+
+                if (item.type === 'purse') {
+                    ctx.fillStyle = '#ff66aa';
+                    ctx.fillRect(x, y + 2, 12 * pulse, 8 * pulse);
+                    ctx.fillStyle = '#ffaa00';
+                    ctx.fillRect(x + 2, y, 8 * pulse, 3);
+                } else {
+                    ctx.fillStyle = '#ffdd44';
+                    ctx.fillRect(x + 2, y + 4, 10 * pulse, 6 * pulse);
+                    ctx.fillRect(x, y, 14 * pulse, 5 * pulse);
+                }
+            }
+        }
+
+        function drawFloatingTexts(dt) {
+            for (var i = floatingTexts.length - 1; i >= 0; i--) {
+                var ft = floatingTexts[i];
+                ft.y -= 40 * dt;
+                ft.life -= dt;
+                if (ft.life <= 0) { floatingTexts.splice(i, 1); continue; }
+                ctx.globalAlpha = Math.min(1, ft.life * 2);
+                ctx.fillStyle = ft.c;
+                ctx.font = 'bold 14px Courier';
+                ctx.textAlign = 'center';
+                ctx.shadowBlur = 6;
+                ctx.shadowColor = ft.c;
+                ctx.fillText(ft.t, ft.x, ft.y);
+                ctx.shadowBlur = 0;
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        function drawParticles(dt) {
+            for (var i = particles.length - 1; i >= 0; i--) {
+                var p = particles[i];
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
+                p.life -= dt;
+                if (p.life <= 0) { particles.splice(i, 1); continue; }
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.fillRect(p.x, p.y, p.size, p.size);
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        // Barrel-stack decoration near DK
+        function drawBarrelStack() {
+            var bx = dk.x - 15;
+            var dkPlat = platforms[platforms.length - 1];
+            var by = dkPlat.y - 16;
+            for (var r = 0; r < 3; r++) {
+                for (var c = 0; c < 3 - r; c++) {
+                    var sx = bx - (3 - r) * 8 + c * 16;
+                    var sy = by - r * 16;
+                    ctx.fillStyle = '#885522';
+                    ctx.fillRect(sx, sy, 14, 14);
+                    ctx.fillStyle = '#aa7744';
+                    ctx.fillRect(sx, sy, 14, 3);
+                    ctx.fillRect(sx, sy + 11, 14, 3);
+                    ctx.fillStyle = '#664411';
+                    ctx.fillRect(sx + 5, sy + 5, 4, 4);
+                }
+            }
+        }
+
+        // === Home Screen ===
+        function drawHomeScreen(dt) {
+            titleTimer += dt;
+
+            var bgG = ctx.createLinearGradient(0, 0, 0, H);
+            bgG.addColorStop(0, '#0a0200');
+            bgG.addColorStop(0.5, '#0a0500');
+            bgG.addColorStop(1, '#050505');
+            ctx.fillStyle = bgG;
+            ctx.fillRect(0, 0, W, H);
+
+            // Animated barrel rolling along bottom
+            var barrelX = ((titleTimer * 80) % (W + 40)) - 20;
+            var barrelRot = titleTimer * 4;
+            ctx.save();
+            ctx.translate(barrelX, H - 30);
+            ctx.rotate(barrelRot);
+            ctx.fillStyle = '#885522';
+            ctx.fillRect(-8, -8, 16, 16);
+            ctx.fillStyle = '#aa7744';
+            ctx.fillRect(-8, -8, 16, 3);
+            ctx.fillRect(-8, 5, 16, 3);
+            ctx.restore();
+
+            // Title pulse
+            var titlePulse = 1 + 0.05 * Math.sin(titleTimer * 8);
+            var titleGlow = 15 + 10 * Math.sin(titleTimer * 8);
+            var titleSize = Math.round(36 * titlePulse);
+
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#ff6b35';
+            ctx.font = 'bold ' + titleSize + 'px Courier';
+            ctx.shadowBlur = titleGlow;
+            ctx.shadowColor = '#cc5528';
+            ctx.fillText("DONKEY KONG", W / 2, 55);
+            ctx.shadowBlur = 0;
+
+            ctx.fillStyle = '#ffaa00';
+            ctx.font = 'bold 14px Courier';
+            ctx.fillText("D E L U X E", W / 2, 75);
+
+            // High scores panel
+            var panelX = W / 2 - 160, panelY = 90, panelW = 320, panelH = 260;
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+            ctx.fillRect(panelX, panelY, panelW, panelH);
+            ctx.strokeStyle = '#ff6b35';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(panelX, panelY, panelW, panelH);
+
+            ctx.fillStyle = '#ff6b35';
+            ctx.font = 'bold 16px Courier';
+            ctx.textAlign = 'center';
+            ctx.fillText("--- HALL OF FAME ---", W / 2, panelY + 25);
+
+            ctx.fillStyle = '#666';
+            ctx.font = '11px Courier';
+            ctx.textAlign = 'left';
+            ctx.fillText("RNK", panelX + 15, panelY + 45);
+            ctx.fillText("NAME", panelX + 55, panelY + 45);
+            ctx.textAlign = 'right';
+            ctx.fillText("SCORE", panelX + panelW - 15, panelY + 45);
+
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(panelX + 10, panelY + 50);
+            ctx.lineTo(panelX + panelW - 10, panelY + 50);
+            ctx.stroke();
+
+            for (var i = 0; i < 10; i++) {
+                var rowY = panelY + 66 + i * 20;
+                if (i < highScores.length) {
+                    var h = highScores[i];
+                    var isTop3 = i < 3;
+                    ctx.fillStyle = isTop3 ? ['#ffd700', '#c0c0c0', '#cd7f32'][i] : '#aaa';
+                    ctx.font = isTop3 ? 'bold 13px Courier' : '13px Courier';
+                    ctx.textAlign = 'left';
+                    ctx.fillText((i + 1).toString().padStart(2, ' ') + '.', panelX + 15, rowY);
+                    ctx.fillText(h.n, panelX + 55, rowY);
+                    ctx.textAlign = 'right';
+                    ctx.fillText(h.s, panelX + panelW - 15, rowY);
+                } else {
+                    ctx.fillStyle = '#333';
+                    ctx.font = '13px Courier';
+                    ctx.textAlign = 'left';
+                    ctx.fillText((i + 1).toString().padStart(2, ' ') + '.', panelX + 15, rowY);
+                    ctx.fillText("---", panelX + 55, rowY);
+                    ctx.textAlign = 'right';
+                    ctx.fillText("---", panelX + panelW - 15, rowY);
+                }
+            }
+
+            // Difficulty selector
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#aaa';
+            ctx.font = 'bold 14px Courier';
+            ctx.fillText("DIFFICULTY", W / 2, 380);
+
+            var dBtnW = 100, dBtnH = 30, dBtnGap = 12;
+            var dTotalW = 3 * dBtnW + 2 * dBtnGap;
+            var dBtnStartX = (W - dTotalW) / 2;
+            var dBtnY = 390;
+            for (var d = 0; d < 3; d++) {
+                var bx = dBtnStartX + d * (dBtnW + dBtnGap);
+                var selected = d === difficulty;
+                ctx.fillStyle = selected ? DIFF_COLORS[d] : '#222';
+                ctx.fillRect(bx, dBtnY, dBtnW, dBtnH);
+                ctx.strokeStyle = DIFF_COLORS[d];
+                ctx.lineWidth = selected ? 2 : 1;
+                ctx.strokeRect(bx, dBtnY, dBtnW, dBtnH);
+                ctx.fillStyle = selected ? '#000' : DIFF_COLORS[d];
+                ctx.font = selected ? 'bold 12px Courier' : '12px Courier';
+                ctx.textAlign = 'center';
+                ctx.fillText(DIFF_NAMES[d], bx + dBtnW / 2, dBtnY + 20);
+            }
+
+            // Mode info
+            ctx.textAlign = 'center';
+            ctx.font = '12px Courier';
+            ctx.fillStyle = '#888';
+            if (difficulty === 0) ctx.fillText("SLOW BARRELS | 4 LIVES", W / 2, 438);
+            else if (difficulty === 1) ctx.fillText("NORMAL BARRELS | 3 LIVES", W / 2, 438);
+            else ctx.fillText("FAST BARRELS | 2 LIVES", W / 2, 438);
+
+            // Mini DK drawing
+            var dkMiniX = W / 2 - 20;
+            var dkMiniY = 460;
+            ctx.fillStyle = '#884400';
+            ctx.fillRect(dkMiniX, dkMiniY, 40, 24);
+            ctx.fillStyle = '#aa6622';
+            ctx.fillRect(dkMiniX + 8, dkMiniY + 4, 24, 16);
+            ctx.fillStyle = '#884400';
+            ctx.fillRect(dkMiniX + 6, dkMiniY - 10, 28, 14);
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(dkMiniX + 12, dkMiniY - 6, 5, 4);
+            ctx.fillRect(dkMiniX + 22, dkMiniY - 6, 5, 4);
+            ctx.fillStyle = '#000';
+            ctx.fillRect(dkMiniX + 14, dkMiniY - 5, 2, 2);
+            ctx.fillRect(dkMiniX + 24, dkMiniY - 5, 2, 2);
+
+            // Bottom text
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 18px Courier';
+            ctx.fillText(state === 'START' ? "RESCUE PAULINE!" : "GAME OVER", W / 2, 520);
+            ctx.font = '11px Courier';
+            ctx.fillStyle = '#888';
+            ctx.fillText("SPACE: START | P: PAUSE | A: AI | S: SOUND | ESC: MENU", W / 2, 545);
+            ctx.fillText("ARROWS: MOVE/CLIMB | SPACE: JUMP", W / 2, 562);
+            ctx.fillText("JUMP OVER BARRELS | CLIMB TO SAVE PAULINE!", W / 2, 579);
+        }
+
+        // === Difficulty click ===
+        canvas.addEventListener('click', function(e) {
+            if (state !== 'START' && state !== 'OVER') return;
+            ensureAudio();
+            playMusic('home');
+            var rect = canvas.getBoundingClientRect();
+            var scaleX = W / rect.width;
+            var scaleY = H / rect.height;
+            var mx = (e.clientX - rect.left) * scaleX;
+            var my = (e.clientY - rect.top) * scaleY;
+            var dBtnW = 100, dBtnH = 30, dBtnGap = 12;
+            var dTotalW = 3 * dBtnW + 2 * dBtnGap;
+            var dBtnStartX = (W - dTotalW) / 2;
+            var dBtnY = 390;
+            for (var d = 0; d < 3; d++) {
+                var bx = dBtnStartX + d * (dBtnW + dBtnGap);
+                if (mx >= bx && mx <= bx + dBtnW && my >= dBtnY && my <= dBtnY + dBtnH) {
+                    difficulty = d;
+                }
+            }
+        });
+
+        // === Game Update ===
+        function updateGame(dt) {
+            if (mario.winTimer > 0) {
+                mario.winTimer -= dt;
+                if (mario.winTimer <= 0) {
+                    // Next level
+                    level++;
+                    var bonus = 1000 * level;
+                    score += bonus;
+                    floatingTexts.push({ x: W / 2, y: H / 2, t: 'LEVEL ' + level + '! +' + bonus, life: 2.0, c: '#ffdd44' });
+                    sfxLevelUp();
+                    buildLevel(level);
+                }
+                return;
+            }
+
+            if (mario.dead) {
+                mario.deathTimer -= dt;
+                if (mario.deathTimer <= 0) {
+                    lives--;
+                    updateHUD();
+                    if (lives <= 0) {
+                        state = 'OVER';
+                        titleTimer = 0;
+                        stopMusic();
+                        sfxGameOver();
+                        gameOverTimeoutId = setTimeout(function() {
+                            if (state !== 'OVER') return;
+                            if (!aiMode && score > 0 && (highScores.length < 10 || score > highScores[highScores.length - 1].s)) {
+                                stopMusic();
+                                var n = prompt("LEGENDARY SCORE! Enter Initials:", "ACE");
+                                if (n) {
+                                    highScores.push({ n: n.substring(0, 3).toUpperCase(), s: score });
+                                    highScores.sort(function(a, b) { return b.s - a.s; });
+                                    highScores = highScores.slice(0, 10);
+                                    localStorage.setItem('donkeykong_deluxe_scores', JSON.stringify(highScores));
+                                }
+                            }
+                            playMusic('home');
+                        }, 1000);
+                    } else {
+                        // Respawn
+                        mario.x = 40;
+                        mario.y = platforms[0].y - mario.h;
+                        mario.vx = 0;
+                        mario.vy = 0;
+                        mario.onGround = true;
+                        mario.onLadder = false;
+                        mario.facing = 1;
+                        mario.jumping = false;
+                        mario.dead = false;
+                        mario.hasHammer = false;
+                        mario.hammerTimer = 0;
+                        barrels = [];
+                        barrelTimer = 0;
+                    }
+                }
+                return;
+            }
+
+            // AI
+            if (aiMode) runAI();
+
+            // Hammer timer
+            if (mario.hasHammer) {
+                mario.hammerSwing += dt * 10;
+                mario.hammerTimer -= dt;
+                if (mario.hammerTimer <= 0) {
+                    mario.hasHammer = false;
+                }
+            }
+
+            // DK barrel throwing
+            dk.animTimer += dt;
+            dk.throwTimer -= dt;
+            if (dk.throwTimer <= 0) {
+                dk.throwTimer = barrelInterval * (0.7 + Math.random() * 0.6);
+                // Spawn barrel at DK position
+                var dkPlat = platforms[platforms.length - 1];
+                var bx = dk.x + 20;
+                var by = dkPlat.y - 16;
+                var speed = DIFF_BARREL_SPEED[difficulty] + (level - 1) * 10;
+                barrels.push({ x: bx, y: by, vx: speed * (Math.random() < 0.5 ? 1 : -1), vy: 0, onGround: true, falling: false, rotation: 0, scored: false });
+                dk.chest = true;
+                setTimeout(function() { dk.chest = false; }, 300);
+            }
+
+            // Update barrels
+            for (var i = barrels.length - 1; i >= 0; i--) {
+                var b = barrels[i];
+                b.rotation += b.vx * dt * 0.03;
+
+                if (b.falling) {
+                    b.vy += GRAVITY * dt;
+                    b.y += b.vy * dt;
+                    b.x += b.vx * 0.1 * dt;
+                    // Check if landed on platform
+                    var plat = isOnPlatform(b.x, b.y + 16, 16);
+                    if (plat) {
+                        b.y = plat.y - 16;
+                        b.vy = 0;
+                        b.falling = false;
+                        b.onGround = true;
+                        // Reverse direction based on platform slope
+                        var speed = DIFF_BARREL_SPEED[difficulty] + (level - 1) * 10;
+                        if (plat.plat.slope > 0) b.vx = speed;
+                        else if (plat.plat.slope < 0) b.vx = -speed;
+                        else b.vx = (b.vx > 0 ? 1 : -1) * speed;
+                    }
+                    if (b.y > H + 20) { barrels.splice(i, 1); continue; }
+                } else {
+                    // Rolling on platform
+                    b.x += b.vx * dt;
+                    // Adjust Y for slope
+                    var cx = b.x + 8;
+                    var onPlat = isOnPlatform(b.x, b.y + 16, 16);
+                    if (onPlat) {
+                        b.y = onPlat.y - 16;
+                        // Random chance to go down ladder
+                        for (var li = 0; li < ladders.length; li++) {
+                            var lad = ladders[li];
+                            if (lad.broken) continue;
+                            if (Math.abs(cx - (lad.x + 10)) < 10 && Math.abs(b.y + 16 - lad.y1) < 8) {
+                                if (Math.random() < 0.3 * dt * 10) {
+                                    b.falling = true;
+                                    b.vy = 20;
+                                    break;
+                                }
+                            }
+                        }
+                    } else {
+                        // Fell off platform edge
+                        b.falling = true;
+                        b.vy = 0;
+                    }
+
+                    // Remove if off screen
+                    if (b.x < -20 || b.x > W + 20) { barrels.splice(i, 1); continue; }
+                }
+
+                // Collision with Mario
+                if (!mario.dead && !mario.winTimer) {
+                    var mx = mario.x, my = mario.y, mw = mario.w, mh = mario.h;
+                    if (b.x + 14 > mx + 2 && b.x + 2 < mx + mw - 2 && b.y + 14 > my + 2 && b.y + 2 < my + mh - 2) {
+                        if (mario.hasHammer) {
+                            // Smash barrel
+                            score += 300;
+                            floatingTexts.push({ x: b.x, y: b.y, t: '+300', life: 1.0, c: '#ffaa00' });
+                            spawnExplosion(b.x + 8, b.y + 8, '#885522', 15);
+                            sfxSmash();
+                            barrels.splice(i, 1);
+                            continue;
+                        } else {
+                            // Mario dies
+                            killMario();
+                            continue;
+                        }
+                    }
+
+                    // Score for jumping over barrels
+                    if (!b.scored && !mario.onGround && mario.vy < 0) {
+                        if (Math.abs(b.x + 8 - (mx + mw / 2)) < 24 && Math.abs(b.y - (my + mh)) < 20) {
+                            b.scored = true;
+                            score += 100;
+                            floatingTexts.push({ x: mx + mw / 2, y: my - 10, t: '+100', life: 0.8, c: '#fff' });
+                            sfxBarrelJump();
+                        }
+                    }
+                }
+            }
+
+            // Mario movement
+            var moveLeft = keys['ArrowLeft'];
+            var moveRight = keys['ArrowRight'];
+            var moveUp = keys['ArrowUp'];
+            var moveDown = keys['ArrowDown'];
+
+            if (mario.onLadder) {
+                // Climbing
+                mario.vx = 0;
+                mario.vy = 0;
+                var ladder = getLadderAt(mario.x, mario.y, mario.w, mario.h);
+                if (ladder) {
+                    if (moveUp) {
+                        mario.y -= CLIMB_SPEED * dt;
+                        mario.climbDir = -1;
+                        // Reached top of ladder?
+                        if (mario.y + mario.h <= ladder.y1 + 5) {
+                            mario.onLadder = false;
+                            mario.onGround = true;
+                            mario.y = ladder.y1 - mario.h;
+                        }
+                    } else if (moveDown) {
+                        mario.y += CLIMB_SPEED * dt;
+                        mario.climbDir = 1;
+                        // Reached bottom?
+                        if (mario.y + mario.h >= ladder.y2) {
+                            mario.onLadder = false;
+                            mario.onGround = true;
+                            mario.y = ladder.y2 - mario.h;
+                        }
+                    }
+                    // Allow side exit from ladder
+                    if (moveLeft || moveRight) {
+                        mario.onLadder = false;
+                    }
+                } else {
+                    mario.onLadder = false;
+                }
+            }
+
+            if (!mario.onLadder) {
+                // Horizontal movement
+                mario.vx = 0;
+                if (moveLeft) { mario.vx = -MOVE_SPEED; mario.facing = -1; }
+                if (moveRight) { mario.vx = MOVE_SPEED; mario.facing = 1; }
+
+                // Jump
+                if (jumpPressed && mario.onGround) {
+                    mario.vy = JUMP_VEL;
+                    mario.onGround = false;
+                    mario.jumping = true;
+                    sfxJump();
+                    haptic(20);
+                }
+                jumpPressed = false;
+
+                // Apply gravity
+                if (!mario.onGround) {
+                    mario.vy += GRAVITY * dt;
+                }
+
+                // Apply velocity
+                mario.x += mario.vx * dt;
+                mario.y += mario.vy * dt;
+
+                // Clamp to screen bounds
+                if (mario.x < 0) mario.x = 0;
+                if (mario.x + mario.w > W) mario.x = W - mario.w;
+
+                // Check ladder entry (up) - find ladder whose bottom (y2) is at Mario's feet
+                if (moveUp && mario.onGround) {
+                    var ladder = getLadderAbove(mario.x, mario.y, mario.w, mario.h);
+                    if (ladder) {
+                        mario.onLadder = true;
+                        mario.onGround = false;
+                        mario.x = ladder.x + 10 - mario.w / 2;
+                        mario.vy = 0;
+                    }
+                }
+                // Check ladder entry (down) - find ladder whose top (y1) is at Mario's feet
+                if (moveDown && mario.onGround) {
+                    var ladder = getLadderBelow(mario.x, mario.y, mario.w, mario.h);
+                    if (ladder) {
+                        mario.onLadder = true;
+                        mario.onGround = false;
+                        mario.x = ladder.x + 10 - mario.w / 2;
+                        mario.vy = 0;
+                    }
+                }
+
+                // Platform collision
+                if (mario.vy >= 0 && !mario.onLadder) {
+                    var plat = isOnPlatform(mario.x, mario.y + mario.h, mario.w);
+                    if (plat) {
+                        mario.y = plat.y - mario.h;
+                        mario.vy = 0;
+                        mario.onGround = true;
+                        mario.jumping = false;
+                    } else {
+                        mario.onGround = false;
+                    }
+                }
+
+                // Fall off bottom
+                if (mario.y > H + 20) {
+                    killMario();
+                }
+            }
+
+            // Collect hammers
+            for (var i = 0; i < hammers.length; i++) {
+                var hm = hammers[i];
+                if (hm.collected) continue;
+                if (Math.abs(mario.x + mario.w / 2 - (hm.x + 6)) < 16 && Math.abs(mario.y + mario.h / 2 - (hm.y + 8)) < 16) {
+                    hm.collected = true;
+                    mario.hasHammer = true;
+                    mario.hammerTimer = 8.0;
+                    sfxHammer();
+                    floatingTexts.push({ x: hm.x, y: hm.y - 10, t: 'HAMMER!', life: 1.0, c: '#ffaa00' });
+                    spawnSparkle(hm.x + 6, hm.y + 6, '#ffaa00', 12);
+                }
+            }
+
+            // Collect items
+            for (var i = 0; i < items.length; i++) {
+                var item = items[i];
+                if (item.collected) continue;
+                if (Math.abs(mario.x + mario.w / 2 - (item.x + 6)) < 16 && Math.abs(mario.y + mario.h / 2 - (item.y + 5)) < 16) {
+                    item.collected = true;
+                    score += item.points;
+                    sfxItem();
+                    floatingTexts.push({ x: item.x, y: item.y - 10, t: '+' + item.points, life: 1.0, c: item.type === 'purse' ? '#ff66aa' : '#ffdd44' });
+                    spawnSparkle(item.x + 6, item.y + 5, item.type === 'purse' ? '#ff66aa' : '#ffdd44', 10);
+                }
+            }
+
+            // Check win condition - reach Pauline
+            if (Math.abs(mario.x + mario.w / 2 - (pauline.x + 7)) < 25 && Math.abs(mario.y - pauline.y) < 25) {
+                mario.winTimer = 2.0;
+                sfxWin();
+                spawnExplosion(pauline.x + 7, pauline.y + 10, '#ff66aa', 30);
+                spawnExplosion(pauline.x + 7, pauline.y + 10, '#ffdd44', 20);
+                floatingTexts.push({ x: W / 2, y: H / 2 - 50, t: 'RESCUED!', life: 2.0, c: '#ff66aa' });
+                var timeBonus = Math.max(0, 500 - Math.floor(gameTime * 10));
+                score += timeBonus;
+                floatingTexts.push({ x: W / 2, y: H / 2 - 20, t: 'TIME BONUS: ' + timeBonus, life: 2.0, c: '#ffdd44' });
+            }
+
+            updateHUD();
+        }
+
+        function killMario() {
+            mario.dead = true;
+            mario.deathTimer = 1.5;
+            mario.vx = 0;
+            mario.vy = 0;
+            spawnExplosion(mario.x + mario.w / 2, mario.y + mario.h / 2, '#ff6b35', 25);
+            sfxDie();
+            haptic(100);
+        }
+
+        // === Main Loop ===
+        function loop(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            var rawDt = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+            var dt = Math.min(rawDt, 0.05);
+
+            ctx.clearRect(0, 0, W, H);
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, W, H);
+
+            if (state === 'START' || state === 'OVER') {
+                drawHomeScreen(dt);
+                requestAnimationFrame(loop);
+                return;
+            }
+
+            if (paused) {
+                drawPlatforms();
+                drawLadders();
+                drawBarrels();
+                drawHammers();
+                drawItems();
+                drawDK();
+                drawPauline();
+                drawBarrelStack();
+                drawMario();
+                ctx.fillStyle = 'rgba(0,0,0,0.7)';
+                ctx.fillRect(0, 0, W, H);
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#ffaa00';
+                ctx.font = 'bold 40px Courier';
+                ctx.fillText("PAUSED", W / 2, H / 2 - 10);
+                ctx.font = '16px Courier';
+                ctx.fillStyle = '#fff';
+                ctx.fillText("PRESS P OR CLICK RESUME", W / 2, H / 2 + 25);
+                requestAnimationFrame(loop);
+                return;
+            }
+
+            gameTime += dt;
+
+            // Update game logic
+            updateGame(dt);
+
+            // Draw everything
+            drawPlatforms();
+            drawLadders();
+            drawBarrelStack();
+            drawHammers();
+            drawItems();
+            drawBarrels();
+            drawDK();
+            drawPauline();
+            drawMario();
+            drawFloatingTexts(dt);
+            drawParticles(dt);
+
+            // Win overlay
+            if (mario.winTimer > 0) {
+                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                ctx.fillRect(0, 0, W, H);
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#ff66aa';
+                ctx.font = 'bold 36px Courier';
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#ff66aa';
+                ctx.fillText("PAULINE SAVED!", W / 2, H / 2);
+                ctx.shadowBlur = 0;
+            }
+
+            // Hammer timer bar
+            if (mario.hasHammer) {
+                var barW = 60;
+                var barH = 6;
+                var barX = mario.x + mario.w / 2 - barW / 2;
+                var barY = mario.y - 10;
+                var pct = mario.hammerTimer / 8.0;
+                ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                ctx.fillRect(barX, barY, barW, barH);
+                ctx.fillStyle = pct > 0.3 ? '#ffaa00' : '#ff3333';
+                ctx.fillRect(barX, barY, barW * pct, barH);
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(barX, barY, barW, barH);
+            }
+
+            // Death animation
+            if (mario.dead) {
+                // Floating "death" text
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#ff3333';
+                ctx.font = 'bold 20px Courier';
+                ctx.fillText("OH NO!", mario.x + mario.w / 2, mario.y - 20);
+            }
+
+            requestAnimationFrame(loop);
+        }
+
+        // Start
+        requestAnimationFrame(loop);
+        playMusic('home');
+        setTimeout(function() { document.getElementById('transition-overlay').style.opacity = '0'; }, 60);
+    })();
+    </script>
+</body>
+</html>

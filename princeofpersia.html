@@ -401,7 +401,7 @@
                             // Temporarily place platform
                             for (let pc = 0; pc < platLen; pc++) map[newRow][newCol + pc] = 1;
 
-                            // Simulate running jump arc
+                            // Simulate running jump arc using local map (not levelMap)
                             let jumpOk = true;
                             let simX = (col - 1) * TILE + TILE - prince.w / 2;
                             let simY = (curRow - 1) * TILE + TILE - prince.h;
@@ -411,9 +411,19 @@
                                 simVY += GRAVITY / 120;
                                 simX += simVX / 120;
                                 simY += simVY / 120;
-                                if (entityCollides(simX, simY, prince.w, prince.h)) {
-                                    jumpOk = false; break;
+                                // Collision check against local map directly
+                                const sLeft = Math.floor(simX / TILE);
+                                const sRight = Math.floor((simX + prince.w) / TILE);
+                                const sTop = Math.floor(simY / TILE);
+                                const sBot = Math.floor((simY + prince.h - 2) / TILE);
+                                let blocked = false;
+                                for (let sr = sTop; sr <= sBot && !blocked; sr++) {
+                                    for (let sc = sLeft; sc <= sRight && !blocked; sc++) {
+                                        if (sr < 0 || sr >= mapH || sc < 0 || sc >= mapW) { blocked = true; }
+                                        else if (map[sr][sc] === 1 || map[sr][sc] === 2) { blocked = true; }
+                                    }
                                 }
+                                if (blocked) { jumpOk = false; break; }
                                 if (simVY > 0 && simY > (curRow - 1) * TILE) break;
                             }
 

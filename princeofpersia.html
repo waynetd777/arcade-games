@@ -693,7 +693,7 @@
             particles = [];
             timeLeft = DIFF_TIME[difficulty];
             levelMap = generateLevel(level);
-            aiPathIdx = 0;
+            aiPathIdx = 0; aiBackupTimer = 0; aiJumpDir = 0; aiStuckTimer = 0;
 
             prince.x = 2 * TILE + 10;
             prince.y = 0;
@@ -1791,7 +1791,9 @@
         let aiStuckTimer = 0;
         let aiLastX = 0;
         let aiLastY = 0;
-        let aiJumpDir = 0; // locked direction during jump: -1, 0, or 1
+        let aiJumpDir = 0;    // locked direction during jump: -1, 0, or 1
+        let aiBackupTimer = 0; // > 0 means backing up before a jump
+        let aiBackupDir = 0;   // direction to jump AFTER backing up
 
         function runAI(dt) {
             if (prince.dead || path.length === 0) return;
@@ -1892,28 +1894,33 @@
                 const feetRow = Math.floor((prince.y + prince.h + 2) / TILE);
                 const bodyRow = Math.floor((prince.y + prince.h - 5) / TILE);
                 const headRow = Math.floor(prince.y / TILE);
-
-                // Is there a wall directly ahead at body level?
                 const wallAhead = isSolid(bodyRow, aheadCol) || isSolid(headRow, aheadCol);
-
-                // Does the target require jumping up?
                 const needsJumpUp = t.r < pFeetRow;
 
-                // BACK UP TO GET RUNNING ROOM: if target is above and there's a wall
-                // ahead (the upper platform's side), walk backward 2-3 tiles first,
-                // THEN do a running jump toward the platform.
-                if (needsJumpUp && wallAhead) {
-                    // Back up — walk away from the wall to build running distance
-                    const backDir = -moveDir;
-                    keys[backDir > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
-                    // Don't jump yet — we're backing up
-                } else {
-                    // Normal: walk toward target
+                // === Backup-then-jump sequence ===
+                if (aiBackupTimer > 0) {
+                    aiBackupTimer -= dt;
+                    // Phase 1: back up (first 0.4s)
+                    if (aiBackupTimer > 0.15) {
+                        keys[aiBackupDir > 0 ? 'ArrowLeft' : 'ArrowRight'] = true;
+                    } else {
+                        // Phase 2: run forward and jump!
+                        keys[aiBackupDir > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
+                        keys[' '] = true;
+                        aiJumpDir = aiBackupDir;
+                    }
+                }
+                // Start backup if wall ahead and need to jump up
+                else if (needsJumpUp && wallAhead && Math.abs(dx) < TILE * 2) {
+                    aiBackupTimer = 0.55; // 0.4s backup + 0.15s run+jump
+                    aiBackupDir = moveDir;
+                }
+                // Normal movement
+                else {
                     if (Math.abs(dx) > 6) {
                         keys[dx > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
                     }
 
-                    // HEADROOM CHECK
                     const hasHeadroom = !isSolid(headRow - 1, princeCol) &&
                                         !isSolid(headRow - 2, princeCol) &&
                                         !isSolid(headRow - 1, princeCol + moveDir) &&
@@ -1921,14 +1928,9 @@
 
                     if (hasHeadroom) {
                         let wantJump = false;
-
-                        // Target is above and we have running room (no wall ahead)
-                        if (needsJumpUp && Math.abs(dx) < TILE * 5 && Math.abs(dx) > TILE * 0.5) wantJump = true;
-                        // Gap ahead
+                        if (needsJumpUp && Math.abs(dx) > TILE * 1.5 && Math.abs(dx) < TILE * 5) wantJump = true;
                         if (!isSolid(feetRow, aheadCol) && !isFallingTile(feetRow, aheadCol) && Math.abs(dx) > TILE) wantJump = true;
-                        // Spikes ahead
                         if (getTile(bodyRow, aheadCol) === 3) wantJump = true;
-                        // Stuck
                         if (aiStuckTimer > 1.0 && !wallAhead) wantJump = true;
 
                         if (wantJump) {

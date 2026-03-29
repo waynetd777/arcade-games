@@ -398,10 +398,8 @@
                             const newCol = col + gapSize;
                             if (newCol + platLen >= mapW - 2) break;
 
-                            // Temporarily place platform
-                            for (let pc = 0; pc < platLen; pc++) map[newRow][newCol + pc] = 1;
-
-                            // Simulate running jump arc using local map (not levelMap)
+                            // Simulate jump arc WITHOUT the target platform placed
+                            // (so landing on it isn't detected as a collision)
                             let jumpOk = true;
                             let simX = (col - 1) * TILE + TILE - prince.w / 2;
                             let simY = (curRow - 1) * TILE + TILE - prince.h;
@@ -411,7 +409,6 @@
                                 simVY += GRAVITY / 120;
                                 simX += simVX / 120;
                                 simY += simVY / 120;
-                                // Collision check against local map directly
                                 const sLeft = Math.floor(simX / TILE);
                                 const sRight = Math.floor((simX + prince.w) / TILE);
                                 const sTop = Math.floor(simY / TILE);
@@ -426,6 +423,9 @@
                                 if (blocked) { jumpOk = false; break; }
                                 if (simVY > 0 && simY > (curRow - 1) * TILE) break;
                             }
+
+                            // Now place the platform (committed if jumpOk, removed if not)
+                            for (let pc = 0; pc < platLen; pc++) map[newRow][newCol + pc] = 1;
 
                             if (jumpOk) {
                                 // Commit this platform

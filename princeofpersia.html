@@ -1085,7 +1085,8 @@
                 ctx.restore();
             } else if (running) {
                 // Running: alternating leg swing with knee bend
-                const legSwing = sinP * 0.6;
+                // Negate swing when sprite is flipped so legs move in the correct direction
+                const legSwing = sinP * 0.6 * dir;
                 const kneeBack = Math.max(0, -cosP) * 0.8;   // back leg bends knee
                 const kneeFront = Math.max(0, cosP) * 0.8;
                 // Left leg (swings with +sinP)
@@ -1152,7 +1153,7 @@
                 ctx.fillRect(7, -30 + crouch, 4, 3);
             } else if (running) {
                 // Arms swing opposite to legs
-                const armSwing = sinP * 0.55;
+                const armSwing = sinP * 0.55 * dir;
                 // Back arm
                 ctx.save();
                 ctx.translate(-7, -28 + crouch);
@@ -1631,14 +1632,17 @@
                 }
             }
 
-            // Guillotines
+            // Guillotines — blade drops from g.r down toward the prince
             guillotines.forEach(function(g) {
                 if (!g.bladeDown) return;
                 const bladeX = g.c * TILE + TILE / 2;
-                const bladeY = g.r * TILE + TILE * 0.8;
+                // Blade tip when down: extends 1.5 tiles below guillotine row
+                const bladeTipY = g.r * TILE + TILE * 1.5;
                 const dist = Math.abs(pcx - bladeX);
-                const distY = Math.abs(pcy - bladeY);
-                if (dist < 18 && distY < 24) {
+                // Hit if prince's head/body is near the blade tip
+                const princeTopY = prince.y;
+                const hitY = bladeTipY > princeTopY && bladeTipY < princeTopY + prince.h;
+                if (dist < 18 && hitY) {
                     hurtPrince(2);
                     sfxGuillotine();
                     prince.vy = -150;

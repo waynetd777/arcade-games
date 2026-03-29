@@ -312,41 +312,36 @@
                 map[r][mapW - 1] = 2;
             }
 
-            // Generate platforms at various heights
-            let numPlatforms = 6 + lvl * 3;
-            if (numPlatforms > 25) numPlatforms = 25;
-            const platforms = [];
-
-            // Ensure a navigable path with platforms at specific rows
-            const platformRows = [mapH - 4, mapH - 7, mapH - 10, mapH - 13];
-            for (let pi = 0; pi < platformRows.length; pi++) {
-                const pr = platformRows[pi];
-                if (pr < 1) continue;
-                const segCount = 2 + Math.floor(Math.random() * 3) + Math.floor(lvl / 2);
-                for (let seg = 0; seg < segCount; seg++) {
-                    const startC = 2 + Math.floor(Math.random() * (mapW - 8));
-                    const platLen = 3 + Math.floor(Math.random() * 5);
-                    for (let pc = startC; pc < startC + platLen && pc < mapW - 1; pc++) {
-                        if (map[pr][pc] === 0) {
-                            map[pr][pc] = 1;
-                            platforms.push({r: pr, c: pc});
-                        }
-                    }
+            // Helper: check if N rows above (r, c) are clear (for jump/walk clearance)
+            function clearAbove(r, c, n) {
+                for (let i = 1; i <= n; i++) {
+                    if (r - i < 0) return true;
+                    if (map[r - i][c] !== 0) return false;
                 }
+                return true;
             }
 
-            // Add some connecting platforms for navigation
-            for (let pi = 0; pi < platformRows.length - 1; pi++) {
-                const upperRow = platformRows[pi + 1];
-                const lowerRow = platformRows[pi];
-                if (upperRow < 1) continue;
-                // Add a bridging platform
-                const bridgeC = 3 + Math.floor(Math.random() * (mapW - 6));
-                const midRow = Math.floor((upperRow + lowerRow) / 2);
-                if (midRow >= 1 && midRow < mapH - 1) {
-                    for (let bc = bridgeC; bc < bridgeC + 4 && bc < mapW - 1; bc++) {
-                        map[midRow][bc] = 1;
+            // Build platforms at fixed height bands with guaranteed gaps for traversal
+            const platformRows = [mapH - 4, mapH - 7, mapH - 10];
+            if (mapH - 13 >= 2) platformRows.push(mapH - 13);
+
+            for (let pi = 0; pi < platformRows.length; pi++) {
+                const pr = platformRows[pi];
+                if (pr < 2) continue;
+                // Create platform segments with guaranteed gaps between them
+                let col = 2;
+                while (col < mapW - 4) {
+                    // Gap first (2-4 tiles wide so player can pass underneath or jump across)
+                    const gap = 2 + Math.floor(Math.random() * 3);
+                    col += gap;
+                    if (col >= mapW - 4) break;
+                    // Platform segment (3-6 tiles)
+                    const platLen = 3 + Math.floor(Math.random() * 4);
+                    const endC = Math.min(col + platLen, mapW - 2);
+                    for (let pc = col; pc < endC; pc++) {
+                        map[pr][pc] = 1;
                     }
+                    col = endC;
                 }
             }
 
@@ -355,56 +350,68 @@
             guillotines = [];
             fallingTiles = [];
 
-            // Add traps based on difficulty and level
+            // Add traps — only place where there's enough vertical clearance (3+ tiles above)
             const numSpikes = 2 + lvl + difficulty;
-            for (let si = 0; si < numSpikes; si++) {
+            let spikesPlaced = 0;
+            for (let si = 0; si < numSpikes * 3 && spikesPlaced < numSpikes; si++) {
                 const sc = 3 + Math.floor(Math.random() * (mapW - 6));
-                // Find a floor tile to place spikes on
                 for (let sr = mapH - 2; sr >= 1; sr--) {
                     if (map[sr + 1] && map[sr + 1][sc] === 1 && map[sr][sc] === 0) {
+                        // Require 3 tiles of clearance above so player can jump over
+                        if (!clearAbove(sr, sc, 3)) continue;
+                        // Don't place spikes next to other spikes (leave room to land)
+                        if ((sc > 0 && map[sr][sc - 1] === 3) || (sc < mapW - 1 && map[sr][sc + 1] === 3)) continue;
                         map[sr][sc] = 3;
                         spikes.push({r: sr, c: sc, active: true});
+                        spikesPlaced++;
                         break;
                     }
                 }
             }
 
-            // Guillotines
+            // Guillotines — only under platforms with 2+ tiles clearance below
             let numGuill = Math.floor(lvl / 2) + difficulty;
             if (numGuill > 6) numGuill = 6;
-            for (let gi = 0; gi < numGuill; gi++) {
+            let guillPlaced = 0;
+            for (let gi = 0; gi < numGuill * 3 && guillPlaced < numGuill; gi++) {
                 const gc = 4 + Math.floor(Math.random() * (mapW - 8));
-                for (let gr = 1; gr < mapH - 2; gr++) {
-                    if (map[gr][gc] === 1 && map[gr - 1][gc] === 0) {
+                for (let gr = 1; gr < mapH - 3; gr++) {
+                    if (map[gr][gc] === 1 && map[gr - 1][gc] === 0 && map[gr + 1][gc] === 0 && map[gr + 2][gc] === 0) {
                         map[gr - 1][gc] = 5;
                         guillotines.push({r: gr - 1, c: gc, phase: Math.random() * Math.PI * 2, speed: 2 + Math.random() * 2});
+                        guillPlaced++;
                         break;
                     }
                 }
             }
 
-            // Falling floor tiles
+            // Falling floor tiles — only on platforms, not on the ground floor
             let numFalling = 1 + Math.floor(lvl / 2);
             if (numFalling > 5) numFalling = 5;
-            for (let fi = 0; fi < numFalling; fi++) {
+            let fallingPlaced = 0;
+            for (let fi = 0; fi < numFalling * 3 && fallingPlaced < numFalling; fi++) {
                 const fc = 3 + Math.floor(Math.random() * (mapW - 6));
                 for (let fr = 1; fr < mapH - 2; fr++) {
-                    if (map[fr][fc] === 1) {
-                        map[fr][fc] = 4;
-                        fallingTiles.push({r: fr, c: fc, triggered: false, fallTimer: 0, fallen: false, shakeTimer: 0});
-                        break;
+                    if (map[fr][fc] === 1 && fr < mapH - 1) {
+                        // Don't turn a platform tile into falling if it's the only path
+                        // Check that adjacent tiles provide alternative footing
+                        if ((fc > 1 && map[fr][fc - 1] === 1) || (fc < mapW - 2 && map[fr][fc + 1] === 1)) {
+                            map[fr][fc] = 4;
+                            fallingTiles.push({r: fr, c: fc, triggered: false, fallTimer: 0, fallen: false, shakeTimer: 0});
+                            fallingPlaced++;
+                            break;
+                        }
                     }
                 }
             }
 
-            // Guards
+            // Guards — place on ground or platforms with clearance
             let numGuards = 1 + Math.floor(lvl / 2) + Math.floor(difficulty / 2);
             if (numGuards > 5) numGuards = 5;
             for (let gui = 0; gui < numGuards; gui++) {
                 const guardC = 8 + Math.floor(Math.random() * (mapW - 12));
-                // Place guard on ground or platform
                 for (let gr2 = 1; gr2 < mapH; gr2++) {
-                    if (map[gr2][guardC] === 1 && map[gr2 - 1][guardC] === 0) {
+                    if (map[gr2][guardC] === 1 && map[gr2 - 1][guardC] === 0 && clearAbove(gr2 - 1, guardC, 2)) {
                         guards.push({
                             x: guardC * TILE + TILE / 2,
                             y: (gr2 - 1) * TILE + TILE - 36,
@@ -418,7 +425,7 @@
                             patrolTimer: 0,
                             nextPatrolChange: 2 + Math.random() * 2,
                             aggroRange: 120 + lvl * 10,
-                            state: 'patrol', // patrol, chase, attack, block
+                            state: 'patrol',
                             runFrame: 0, runTimer: 0,
                             deathAnim: 0,
                             vx: 0, vy: 0, onGround: true
@@ -428,7 +435,7 @@
                 }
             }
 
-            // Potions
+            // Potions — place on open floor
             const numPotions = 1 + Math.floor(Math.random() * 2);
             for (let poi = 0; poi < numPotions; poi++) {
                 const pc2 = 4 + Math.floor(Math.random() * (mapW - 8));
@@ -440,7 +447,8 @@
                 }
             }
 
-            // Exit door at right side
+            // Exit door — place on ground floor at right side
+            exitDoor = null;
             const exitC = mapW - 3;
             for (let er = mapH - 2; er >= 1; er--) {
                 if (map[er + 1] && map[er + 1][exitC] === 1 && map[er][exitC] === 0) {

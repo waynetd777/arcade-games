@@ -767,25 +767,93 @@
 
             const crouch = prince.crouching ? 8 : 0;
 
-            // Legs
-            let legOffset = 0;
-            if (!prince.onGround) {
-                legOffset = 4;
-            } else if (Math.abs(prince.vx) > 10) {
-                legOffset = Math.sin(prince.runFrame * 8) * 6;
-            }
-            ctx.fillStyle = '#8855aa';
-            // Left leg
-            ctx.fillRect(-6, -14 + crouch, 5, 14 - crouch);
-            // Right leg
-            ctx.fillRect(1, -14 + crouch + (prince.onGround ? 0 : legOffset), 5, 14 - crouch);
-            // Feet
-            ctx.fillStyle = '#553366';
-            ctx.fillRect(-7, -2, 6, 3);
-            ctx.fillRect(0, -2 + (prince.onGround ? 0 : legOffset), 6, 3);
+            // Run cycle phase (0 to 2*PI) — drives legs, arms, body bob
+            const running = prince.onGround && Math.abs(prince.vx) > 10;
+            const phase = running ? prince.runFrame * 10 : 0;
+            const sinP = Math.sin(phase);
+            const cosP = Math.cos(phase);
 
-            // Body/torso
-            ctx.fillStyle = '#f5deb3'; // Wheat color tunic
+            // Body bob — torso rises/falls slightly while running
+            const bodyBob = running ? Math.abs(sinP) * 2 : 0;
+
+            // --- Legs ---
+            // Each leg swings forward/back from the hip; thigh + shin segments
+            const hipY = -14 + crouch;
+            const thighLen = 8 - Math.floor(crouch / 2);
+            const shinLen = 7 - Math.ceil(crouch / 2);
+
+            if (!prince.onGround) {
+                // Airborne: legs tucked or spread
+                const tuck = prince.vy < 0 ? -0.3 : 0.2;
+                // Left leg
+                ctx.save();
+                ctx.translate(-3, hipY - bodyBob);
+                ctx.rotate(tuck);
+                ctx.fillStyle = '#8855aa';
+                ctx.fillRect(-2, 0, 5, thighLen);
+                ctx.translate(0, thighLen);
+                ctx.rotate(0.3);
+                ctx.fillRect(-2, 0, 5, shinLen);
+                ctx.fillStyle = '#553366';
+                ctx.fillRect(-2, shinLen - 2, 6, 3);
+                ctx.restore();
+                // Right leg
+                ctx.save();
+                ctx.translate(2, hipY - bodyBob);
+                ctx.rotate(-tuck);
+                ctx.fillStyle = '#8855aa';
+                ctx.fillRect(-2, 0, 5, thighLen);
+                ctx.translate(0, thighLen);
+                ctx.rotate(0.3);
+                ctx.fillRect(-2, 0, 5, shinLen);
+                ctx.fillStyle = '#553366';
+                ctx.fillRect(-2, shinLen - 2, 6, 3);
+                ctx.restore();
+            } else if (running) {
+                // Running: alternating leg swing with knee bend
+                const legSwing = sinP * 0.6;
+                const kneeBack = Math.max(0, -cosP) * 0.8;   // back leg bends knee
+                const kneeFront = Math.max(0, cosP) * 0.8;
+                // Left leg (swings with +sinP)
+                ctx.save();
+                ctx.translate(-3, hipY - bodyBob);
+                ctx.rotate(legSwing);
+                ctx.fillStyle = '#8855aa';
+                ctx.fillRect(-2, 0, 5, thighLen);
+                ctx.translate(0, thighLen);
+                ctx.rotate(kneeBack);
+                ctx.fillRect(-2, 0, 5, shinLen);
+                ctx.fillStyle = '#553366';
+                ctx.fillRect(-2, shinLen - 2, 6, 3);
+                ctx.restore();
+                // Right leg (swings with -sinP)
+                ctx.save();
+                ctx.translate(2, hipY - bodyBob);
+                ctx.rotate(-legSwing);
+                ctx.fillStyle = '#8855aa';
+                ctx.fillRect(-2, 0, 5, thighLen);
+                ctx.translate(0, thighLen);
+                ctx.rotate(kneeFront);
+                ctx.fillRect(-2, 0, 5, shinLen);
+                ctx.fillStyle = '#553366';
+                ctx.fillRect(-2, shinLen - 2, 6, 3);
+                ctx.restore();
+            } else {
+                // Idle: legs straight
+                ctx.fillStyle = '#8855aa';
+                ctx.fillRect(-6, hipY, 5, thighLen + shinLen);
+                ctx.fillRect(1, hipY, 5, thighLen + shinLen);
+                ctx.fillStyle = '#553366';
+                ctx.fillRect(-7, -2, 6, 3);
+                ctx.fillRect(0, -2, 6, 3);
+            }
+
+            // --- Body/torso --- slight forward lean when running
+            ctx.save();
+            if (running) ctx.rotate(0.05);
+            ctx.translate(0, -bodyBob);
+
+            ctx.fillStyle = '#f5deb3';
             if (prince.hurtTimer > 0) ctx.fillStyle = '#ff6666';
             ctx.fillRect(-7, -30 + crouch, 14, 18);
 
@@ -793,38 +861,54 @@
             ctx.fillStyle = '#8B4513';
             ctx.fillRect(-7, -16 + crouch, 14, 3);
 
-            // Arms
+            // --- Arms ---
             ctx.fillStyle = '#deb887';
             if (prince.attacking) {
-                // Sword arm extended
+                // Sword arm thrust forward
                 ctx.fillRect(2, -28 + crouch, 18, 4);
-                // Sword
                 ctx.fillStyle = '#ccc';
                 ctx.fillRect(18, -30 + crouch, 14, 2);
                 ctx.fillStyle = '#ffd700';
-                ctx.fillRect(16, -30 + crouch, 3, 6); // Guard
+                ctx.fillRect(16, -30 + crouch, 3, 6);
             } else if (prince.blocking) {
-                // Arm in block position
                 ctx.fillRect(2, -32 + crouch, 10, 4);
                 ctx.fillStyle = '#ccc';
                 ctx.fillRect(8, -36 + crouch, 2, 14);
                 ctx.fillStyle = '#ffd700';
                 ctx.fillRect(7, -30 + crouch, 4, 3);
+            } else if (running) {
+                // Arms swing opposite to legs
+                const armSwing = sinP * 0.55;
+                // Back arm
+                ctx.save();
+                ctx.translate(-7, -28 + crouch);
+                ctx.rotate(armSwing);
+                ctx.fillRect(-2, 0, 4, 10);
+                ctx.restore();
+                // Front arm
+                ctx.save();
+                ctx.translate(7, -28 + crouch);
+                ctx.rotate(-armSwing);
+                ctx.fillRect(-2, 0, 4, 10);
+                ctx.restore();
+                if (prince.hasSword) {
+                    ctx.fillStyle = '#999';
+                    ctx.fillRect(6, -18 + crouch, 2, 10);
+                }
             } else {
-                // Arms at sides
+                // Idle arms at sides
                 ctx.fillRect(-9, -28 + crouch, 4, 10);
                 ctx.fillRect(5, -28 + crouch, 4, 10);
-                // Sword on belt (sheathed)
                 if (prince.hasSword) {
                     ctx.fillStyle = '#999';
                     ctx.fillRect(6, -18 + crouch, 2, 10);
                 }
             }
 
-            // Head
+            // --- Head --- bobs with body
             ctx.fillStyle = '#deb887';
             ctx.fillRect(-5, -38 + crouch, 10, 9);
-            // Hair/turban
+            // Turban
             ctx.fillStyle = '#c084fc';
             ctx.fillRect(-6, -40 + crouch, 12, 5);
             ctx.fillRect(-4, -41 + crouch, 8, 2);
@@ -832,7 +916,8 @@
             ctx.fillStyle = '#000';
             ctx.fillRect(2, -35 + crouch, 2, 2);
 
-            ctx.restore();
+            ctx.restore(); // undo body lean/bob
+            ctx.restore(); // undo main transform
         }
 
         function drawGuard(g) {

@@ -2140,6 +2140,30 @@
             // HUD
             drawHUD();
 
+            // AI debug overlay — draw path tiles and AI target
+            if (aiMode && path.length > 0) {
+                ctx.globalAlpha = 0.3;
+                for (let pi = 0; pi < path.length; pi++) {
+                    const px = path[pi].c * TILE - camX;
+                    const py = (path[pi].r - 1) * TILE - camY;
+                    ctx.fillStyle = pi < aiPathIdx ? '#00ff00' : '#ffff00';
+                    ctx.fillRect(px + 2, py + 2, TILE - 4, TILE - 4);
+                }
+                // Draw current AI target
+                if (aiPathIdx < path.length) {
+                    const tp = path[aiPathIdx];
+                    ctx.fillStyle = '#ff0000';
+                    ctx.globalAlpha = 0.6;
+                    ctx.fillRect(tp.c * TILE - camX, (tp.r - 1) * TILE - camY, TILE, TILE);
+                }
+                ctx.globalAlpha = 1;
+                // Debug text
+                ctx.fillStyle = '#fff';
+                ctx.font = '10px Courier';
+                ctx.textAlign = 'left';
+                ctx.fillText('AI path: ' + aiPathIdx + '/' + path.length + ' stuck:' + aiStuckTimer.toFixed(1), 5, H - 5);
+            }
+
             updateHUD();
             requestAnimationFrame(loop);
         }

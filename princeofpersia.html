@@ -1886,40 +1886,56 @@
                 return;
             }
 
-            // === Walk toward target ===
-            if (Math.abs(dx) > 6) {
-                keys[dx > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
-            }
-
-            // === Jump decisions (only on ground + headroom check) ===
+            // === Movement + Jump logic ===
             if (prince.onGround) {
                 const aheadCol = Math.floor((prince.x + moveDir * (prince.w + 6)) / TILE);
                 const feetRow = Math.floor((prince.y + prince.h + 2) / TILE);
                 const bodyRow = Math.floor((prince.y + prince.h - 5) / TILE);
                 const headRow = Math.floor(prince.y / TILE);
 
-                // HEADROOM CHECK: don't jump if ceiling is above (check both cols)
-                const hasHeadroom = !isSolid(headRow - 1, princeCol) &&
-                                    !isSolid(headRow - 2, princeCol) &&
-                                    !isSolid(headRow - 1, princeCol + moveDir) &&
-                                    !isSolid(headRow - 2, princeCol + moveDir);
+                // Is there a wall directly ahead at body level?
+                const wallAhead = isSolid(bodyRow, aheadCol) || isSolid(headRow, aheadCol);
 
-                if (hasHeadroom) {
-                    let wantJump = false;
+                // Does the target require jumping up?
+                const needsJumpUp = t.r < pFeetRow;
 
-                    // Target is above
-                    if (t.r < pFeetRow && Math.abs(dx) < TILE * 4) wantJump = true;
-                    // Gap ahead
-                    if (!isSolid(feetRow, aheadCol) && !isFallingTile(feetRow, aheadCol) && Math.abs(dx) > TILE) wantJump = true;
-                    // Spikes ahead
-                    if (getTile(bodyRow, aheadCol) === 3) wantJump = true;
-                    // Stuck
-                    if (aiStuckTimer > 1.0) wantJump = true;
+                // BACK UP TO GET RUNNING ROOM: if target is above and there's a wall
+                // ahead (the upper platform's side), walk backward 2-3 tiles first,
+                // THEN do a running jump toward the platform.
+                if (needsJumpUp && wallAhead) {
+                    // Back up — walk away from the wall to build running distance
+                    const backDir = -moveDir;
+                    keys[backDir > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
+                    // Don't jump yet — we're backing up
+                } else {
+                    // Normal: walk toward target
+                    if (Math.abs(dx) > 6) {
+                        keys[dx > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
+                    }
 
-                    if (wantJump) {
-                        keys[' '] = true;
-                        aiJumpDir = moveDir;
-                        keys[moveDir > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
+                    // HEADROOM CHECK
+                    const hasHeadroom = !isSolid(headRow - 1, princeCol) &&
+                                        !isSolid(headRow - 2, princeCol) &&
+                                        !isSolid(headRow - 1, princeCol + moveDir) &&
+                                        !isSolid(headRow - 2, princeCol + moveDir);
+
+                    if (hasHeadroom) {
+                        let wantJump = false;
+
+                        // Target is above and we have running room (no wall ahead)
+                        if (needsJumpUp && Math.abs(dx) < TILE * 5 && Math.abs(dx) > TILE * 0.5) wantJump = true;
+                        // Gap ahead
+                        if (!isSolid(feetRow, aheadCol) && !isFallingTile(feetRow, aheadCol) && Math.abs(dx) > TILE) wantJump = true;
+                        // Spikes ahead
+                        if (getTile(bodyRow, aheadCol) === 3) wantJump = true;
+                        // Stuck
+                        if (aiStuckTimer > 1.0 && !wallAhead) wantJump = true;
+
+                        if (wantJump) {
+                            keys[' '] = true;
+                            aiJumpDir = moveDir;
+                            keys[moveDir > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
+                        }
                     }
                 }
             }

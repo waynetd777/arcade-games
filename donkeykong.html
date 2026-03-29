@@ -770,7 +770,7 @@
                 var hy = y - 4;
                 ctx.save();
                 ctx.translate(hx, hy);
-                ctx.rotate(Math.sin(mario.hammerSwing * 10) * 1.2);
+                ctx.rotate(Math.sin(mario.hammerSwing * 5) * 1.0);
                 ctx.fillStyle = '#8B4513';
                 ctx.fillRect(-2, -16, 4, 14);
                 ctx.fillStyle = '#888';
@@ -1314,7 +1314,7 @@
 
             // Hammer timer
             if (mario.hasHammer) {
-                mario.hammerSwing += dt * 10;
+                mario.hammerSwing += dt * 4;
                 mario.hammerTimer -= dt;
                 if (mario.hammerTimer <= 0) {
                     mario.hasHammer = false;

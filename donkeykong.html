@@ -506,7 +506,10 @@
             if (e.key === ' ' || e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault();
 
             if (e.key === 'Escape') {
-                if (state === 'START' || state === 'OVER') window.location.href = 'index.html';
+                if (state === 'START' || state === 'OVER') { setTimeout(function() { window.location.href = 'index.html'; }, 0); return; }
+                if (paused) pauseBtn.click();
+                else if (state === 'PLAY') pauseBtn.click();
+                return;
             }
             if (e.key === ' ' || e.key === 'Enter') {
                 if (state === 'START' || state === 'OVER') {

@@ -1,9 +1,10 @@
-const CACHE = 'retro-arcade-v2';
+const CACHE = 'retro-arcade-v3';
 const FILES = [
   './', 'index.html', 'manifest.json',
   'tetris.html', 'asteroids.html', 'pacman.html',
   'frogger.html', 'pong.html', 'invaders.html',
-  'breakout.html', 'snake.html', 'centipede.html'
+  'breakout.html', 'snake.html', 'centipede.html',
+  'donkeykong.html', 'princeofpersia.html', 'digdug.html'
 ];
 self.addEventListener('install', e => { self.skipWaiting(); e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); });
 self.addEventListener('activate', e => e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k))))));

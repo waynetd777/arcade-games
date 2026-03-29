@@ -1092,9 +1092,9 @@
                 if (prince.vy > 600) prince.vy = 600;
             }
 
-            // Move X
+            // Move X (use h-2 to avoid colliding with the floor tile the prince stands on)
             const newX = prince.x + prince.vx * dt;
-            if (!entityCollides(newX, prince.y, prince.w, prince.h)) {
+            if (!entityCollides(newX, prince.y, prince.w, prince.h - 2)) {
                 prince.x = newX;
             } else {
                 prince.vx = 0;
@@ -1351,7 +1351,7 @@
 
                 // Move guard X
                 const gnx = g.x + g.vx * dt;
-                if (!entityCollides(gnx, g.y, g.w, g.h)) {
+                if (!entityCollides(gnx, g.y, g.w, g.h - 2)) {
                     // Check for edge (don't walk off platforms)
                     const footRow = Math.floor((g.y + g.h + 2) / TILE);
                     const checkCol = Math.floor((gnx + (g.vx > 0 ? g.w : 0)) / TILE);

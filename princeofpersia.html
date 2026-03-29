@@ -686,6 +686,8 @@
             particles = [];
             timeLeft = DIFF_TIME[difficulty];
             levelMap = generateLevel(level);
+            aiProgressIdx = 0;
+            aiStuckTimer = 0;
 
             prince.x = 2 * TILE + 10;
             prince.y = 0;
@@ -1778,18 +1780,18 @@
         let aiStuckTimer = 0;
         let aiLastX = 0;
         let aiLastY = 0;
-        let aiScanDir = 1; // 1=right, -1=left when exploring
         let aiJumpCooldown = 0;
+        let aiProgressIdx = 0; // highest path index we've been close to
 
         function runAI(dt) {
-            if (prince.dead) return;
+            if (prince.dead || path.length === 0) return;
 
             const pcx = prince.x + prince.w / 2;
             const pcy = prince.y + prince.h;
             const princeCol = Math.floor(pcx / TILE);
             const princeRow = Math.floor(pcy / TILE);
 
-            // Clear all keys each frame — AI sets what it needs
+            // Clear all keys each frame
             keys['ArrowLeft'] = false;
             keys['ArrowRight'] = false;
             keys[' '] = false;
@@ -1815,10 +1817,9 @@
             if (nearestGuard && nearestGuardDist < 70) {
                 prince.facingRight = nearestGuard.x > prince.x;
                 if (nearestGuardDist > 40) {
-                    // Approach
                     keys[nearestGuard.x > prince.x ? 'ArrowRight' : 'ArrowLeft'] = true;
                 } else if (nearestGuard.attackTimer > 0.1) {
-                    keys['ArrowDown'] = true; // block
+                    keys['ArrowDown'] = true;
                 } else if (Math.random() < 0.05) {
                     keys['z'] = true;
                     setTimeout(function() { keys['z'] = false; }, 100);
@@ -1837,103 +1838,107 @@
             aiLastX = prince.x;
             aiLastY = prince.y;
 
-            // === Navigation: follow the path tiles ===
-            // Find the furthest path tile we haven't passed yet (closest to exit)
-            // The path array is ordered from start to exit
-            let targetPathIdx = -1;
-            let targetDist = Infinity;
-
-            // Find our closest path tile first
+            // === Find where we are on the path ===
+            // Find the closest path tile to the prince
             let closestPathIdx = 0;
             let closestDist = Infinity;
             for (let i = 0; i < path.length; i++) {
                 const px = path[i].c * TILE + TILE / 2;
                 const py = path[i].r * TILE;
-                const d = Math.abs(px - pcx) + Math.abs(py - pcy);
+                const d = Math.abs(px - pcx) + Math.abs(py - pcy) * 0.5; // weight X more than Y
                 if (d < closestDist) {
                     closestDist = d;
                     closestPathIdx = i;
                 }
             }
 
-            // Target: a path tile ahead of our current position (toward exit)
-            const lookAhead = 5; // how many path tiles ahead to target
-            targetPathIdx = Math.min(closestPathIdx + lookAhead, path.length - 1);
-            const target = path[targetPathIdx];
+            // Update our high-water mark of progress
+            if (closestPathIdx > aiProgressIdx) {
+                aiProgressIdx = closestPathIdx;
+            }
+
+            // === Pick next target ===
+            // Target the NEXT path tile beyond our closest one.
+            // Use a small look-ahead (2-3 tiles) so we follow the path precisely
+            // rather than cutting corners and falling off.
+            const targetIdx = Math.min(closestPathIdx + 3, path.length - 1);
+            const target = path[targetIdx];
             const targetX = target.c * TILE + TILE / 2;
             const targetY = target.r * TILE;
             const dx = targetX - pcx;
-            const dy = targetY - pcy;
+            const dy = targetY - pcy; // negative = target is above us
 
-            // === Horizontal movement toward target ===
-            if (Math.abs(dx) > 10) {
+            // === Move toward target (can be left OR right) ===
+            if (Math.abs(dx) > 8) {
                 if (dx > 0) {
                     keys['ArrowRight'] = true;
-                    aiScanDir = 1;
                 } else {
                     keys['ArrowLeft'] = true;
-                    aiScanDir = -1;
                 }
             }
+            const moveDir = dx >= 0 ? 1 : -1;
 
-            // === Jumping logic ===
+            // === Jumping — only when there's a clear reason ===
             if (prince.onGround && aiJumpCooldown <= 0) {
-                const moveDir = keys['ArrowRight'] ? 1 : (keys['ArrowLeft'] ? -1 : aiScanDir);
-                const aheadX = prince.x + moveDir * (prince.w + 5);
-                const aheadCol = Math.floor(aheadX / TILE);
+                let shouldJump = false;
+                const aheadCol = Math.floor((prince.x + moveDir * (prince.w + 8)) / TILE);
                 const feetRow = Math.floor((prince.y + prince.h + 2) / TILE);
 
-                // Jump over gaps (no floor ahead)
+                // Reason 1: gap ahead (no floor in movement direction)
                 const floorAhead = isSolid(feetRow, aheadCol) || isFallingTile(feetRow, aheadCol);
-                if (!floorAhead) {
-                    keys[' '] = true;
-                    aiJumpCooldown = 0.4;
+                if (!floorAhead && Math.abs(dx) > TILE * 0.5) {
+                    shouldJump = true;
                 }
 
-                // Jump over spikes
-                const nextRow = Math.floor((prince.y + prince.h - 5) / TILE);
-                if (getTile(nextRow, aheadCol) === 3) {
-                    keys[' '] = true;
-                    aiJumpCooldown = 0.4;
+                // Reason 2: spikes ahead at foot level
+                const bodyRow = Math.floor((prince.y + prince.h - 5) / TILE);
+                if (getTile(bodyRow, aheadCol) === 3) {
+                    shouldJump = true;
                 }
 
-                // Jump up to reach higher target
-                if (dy < -TILE * 0.5 && Math.abs(dx) < TILE * 4) {
-                    keys[' '] = true;
-                    aiJumpCooldown = 0.3;
+                // Reason 3: wall blocking horizontal movement
+                const headRow = Math.floor(prince.y / TILE);
+                if (isSolid(headRow, aheadCol) || isSolid(bodyRow, aheadCol)) {
+                    shouldJump = true;
                 }
 
-                // Wall ahead — try jumping
-                if (isSolid(princeRow - 1, aheadCol) || isSolid(princeRow, aheadCol)) {
+                // Reason 4: target is directly above us AND close horizontally
+                // (we're at the base of a step-up)
+                if (dy < -TILE * 1.2 && Math.abs(dx) < TILE * 2) {
+                    shouldJump = true;
+                }
+
+                if (shouldJump) {
                     keys[' '] = true;
-                    aiJumpCooldown = 0.4;
+                    aiJumpCooldown = 0.5;
                 }
             }
 
             // === Stuck recovery ===
-            if (aiStuckTimer > 0.8) {
-                // Try jumping
-                if (prince.onGround) {
+            if (aiStuckTimer > 1.0 && prince.onGround) {
+                // First: try jumping in current direction
+                if (aiStuckTimer < 2.0) {
+                    keys[' '] = true;
+                    aiJumpCooldown = 0.6;
+                } else {
+                    // Backtrack: target an earlier path tile to find a new route
+                    // Move toward a tile a few steps BACK along the path
+                    const backIdx = Math.max(0, closestPathIdx - 8);
+                    const backTarget = path[backIdx];
+                    const bdx = (backTarget.c * TILE + TILE / 2) - pcx;
+                    keys['ArrowLeft'] = bdx < 0;
+                    keys['ArrowRight'] = bdx > 0;
                     keys[' '] = true;
                     aiJumpCooldown = 0.5;
-                }
-                // If stuck for longer, reverse direction
-                if (aiStuckTimer > 1.5) {
-                    aiScanDir = -aiScanDir;
-                    keys['ArrowLeft'] = aiScanDir < 0;
-                    keys['ArrowRight'] = aiScanDir > 0;
-                    if (aiStuckTimer > 2.5) {
-                        aiStuckTimer = 0; // reset and try again
+                    if (aiStuckTimer > 3.5) {
+                        aiStuckTimer = 0;
                     }
                 }
             }
 
-            // === Avoid hazards we're about to walk into ===
-            // Check tile directly ahead at foot level
-            const lookCol = princeCol + aiScanDir;
-            const tileAhead = getTile(princeRow, lookCol);
-            if (tileAhead === 5) {
-                // Guillotine — wait for it to retract (just stop briefly)
+            // === Avoid guillotines ===
+            const lookCol = princeCol + moveDir;
+            if (getTile(princeRow, lookCol) === 5) {
                 keys['ArrowLeft'] = false;
                 keys['ArrowRight'] = false;
             }

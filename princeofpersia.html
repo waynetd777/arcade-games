@@ -389,13 +389,55 @@
                     col += placeTiles(curRow, col, 3 + Math.floor(Math.random() * 2));
 
                     while (curRow > targetRow && col < mapW - 6) {
-                        // 1-row steps with 3-col gaps — easy running jumps
-                        const step = 1;
-                        col += 3;
-                        curRow -= step;
-                        // Platform at new height, offset to the right
+                        const newRow = curRow - 1;
                         const platLen = 3 + Math.floor(Math.random() * 2);
-                        col += placeTiles(curRow, col, platLen);
+
+                        // Try gap sizes 3, then 4 — simulate jump arc to verify clearance
+                        let placed = false;
+                        for (let gapSize = 3; gapSize <= 4; gapSize++) {
+                            const newCol = col + gapSize;
+                            if (newCol + platLen >= mapW - 2) break;
+
+                            // Temporarily place platform
+                            for (let pc = 0; pc < platLen; pc++) map[newRow][newCol + pc] = 1;
+
+                            // Simulate running jump arc
+                            let jumpOk = true;
+                            let simX = (col - 1) * TILE + TILE - prince.w / 2;
+                            let simY = (curRow - 1) * TILE + TILE - prince.h;
+                            let simVX = RUN_SPEED * 1.3;
+                            let simVY = -RUNNING_JUMP_VEL;
+                            for (let st = 0; st < 200; st++) {
+                                simVY += GRAVITY / 120;
+                                simX += simVX / 120;
+                                simY += simVY / 120;
+                                if (entityCollides(simX, simY, prince.w, prince.h)) {
+                                    jumpOk = false; break;
+                                }
+                                if (simVY > 0 && simY > (curRow - 1) * TILE) break;
+                            }
+
+                            if (jumpOk) {
+                                // Commit this platform
+                                curRow = newRow;
+                                col = newCol;
+                                for (let pc = 0; pc < platLen; pc++) {
+                                    path.push({r: curRow, c: col + pc});
+                                }
+                                col += platLen;
+                                placed = true;
+                                break;
+                            } else {
+                                // Remove and try wider gap
+                                for (let pc = 0; pc < platLen; pc++) map[newRow][newCol + pc] = 0;
+                            }
+                        }
+
+                        if (!placed) {
+                            // Can't place step — extend flat run and stop climbing
+                            col += placeTiles(curRow, col, 3);
+                            break;
+                        }
                     }
                     // Horizontal run at the top
                     const topRun = 3 + Math.floor(Math.random() * 4);
@@ -1854,10 +1896,19 @@
                 }
             }
 
-            const t = aiPathIdx < path.length ? path[aiPathIdx] : null;
-            if (!t) return;
-            const tx = t.c * TILE + TILE / 2;
-            const dx = tx - pcx;
+            // If past all path tiles, target the exit door directly
+            let t, tx, dx;
+            if (aiPathIdx >= path.length && exitDoor) {
+                t = { r: exitDoor.r + 1, c: exitDoor.c }; // floor tile under exit
+                tx = exitDoor.c * TILE + TILE / 2;
+                dx = tx - pcx;
+            } else if (aiPathIdx < path.length) {
+                t = path[aiPathIdx];
+                tx = t.c * TILE + TILE / 2;
+                dx = tx - pcx;
+            } else {
+                return;
+            }
             const moveDir = dx >= 0 ? 1 : -1;
 
             // === Stuck detection ===
@@ -1881,28 +1932,36 @@
                 keys[dx > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
             }
 
-            // === Jump decisions (only on ground) ===
+            // === Jump decisions (only on ground + headroom check) ===
             if (prince.onGround) {
-                let wantJump = false;
-
                 const aheadCol = Math.floor((prince.x + moveDir * (prince.w + 6)) / TILE);
                 const feetRow = Math.floor((prince.y + prince.h + 2) / TILE);
                 const bodyRow = Math.floor((prince.y + prince.h - 5) / TILE);
+                const headRow = Math.floor(prince.y / TILE);
 
-                // Target is above
-                if (t.r < pFeetRow && Math.abs(dx) < TILE * 4) wantJump = true;
-                // Gap ahead
-                if (!isSolid(feetRow, aheadCol) && !isFallingTile(feetRow, aheadCol) && Math.abs(dx) > TILE) wantJump = true;
-                // Spikes ahead
-                if (getTile(bodyRow, aheadCol) === 3) wantJump = true;
-                // Stuck
-                if (aiStuckTimer > 1.0) wantJump = true;
+                // HEADROOM CHECK: don't jump if ceiling is above (check both cols)
+                const hasHeadroom = !isSolid(headRow - 1, princeCol) &&
+                                    !isSolid(headRow - 2, princeCol) &&
+                                    !isSolid(headRow - 1, princeCol + moveDir) &&
+                                    !isSolid(headRow - 2, princeCol + moveDir);
 
-                if (wantJump) {
-                    keys[' '] = true;
-                    // Lock direction for entire jump duration
-                    aiJumpDir = moveDir;
-                    keys[moveDir > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
+                if (hasHeadroom) {
+                    let wantJump = false;
+
+                    // Target is above
+                    if (t.r < pFeetRow && Math.abs(dx) < TILE * 4) wantJump = true;
+                    // Gap ahead
+                    if (!isSolid(feetRow, aheadCol) && !isFallingTile(feetRow, aheadCol) && Math.abs(dx) > TILE) wantJump = true;
+                    // Spikes ahead
+                    if (getTile(bodyRow, aheadCol) === 3) wantJump = true;
+                    // Stuck
+                    if (aiStuckTimer > 1.0) wantJump = true;
+
+                    if (wantJump) {
+                        keys[' '] = true;
+                        aiJumpDir = moveDir;
+                        keys[moveDir > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
+                    }
                 }
             }
 
@@ -2066,11 +2125,13 @@
 
             if (aiMode) runAI(dt);
 
-            // Timer
-            timeLeft -= dt;
-            if (timeLeft <= 0) {
-                timeLeft = 0;
-                killPrince();
+            // Timer (disabled in AI mode — AI needs time to traverse)
+            if (!aiMode) {
+                timeLeft -= dt;
+                if (timeLeft <= 0) {
+                    timeLeft = 0;
+                    killPrince();
+                }
             }
 
             // Update

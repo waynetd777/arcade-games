@@ -1790,6 +1790,7 @@
         let aiStuckTimer = 0;
         let aiLastX = 0;
         let aiLastY = 0;
+        let aiJumpDir = 0; // locked direction during jump: -1, 0, or 1
 
         function runAI(dt) {
             if (prince.dead || path.length === 0) return;
@@ -1803,6 +1804,15 @@
             keys[' '] = false;
             keys['ArrowDown'] = false;
             keys['z'] = false;
+
+            // === While airborne, hold the locked jump direction ===
+            if (!prince.onGround && aiJumpDir !== 0) {
+                keys[aiJumpDir > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
+                prince.invincible = 0.5;
+                return; // don't change anything else mid-jump
+            }
+            // Landed — clear jump lock
+            if (prince.onGround) aiJumpDir = 0;
 
             // === Combat: attack nearby guards on same floor ===
             let fighting = false;
@@ -1826,13 +1836,11 @@
             if (fighting) { aiStuckTimer = 0; return; }
 
             // === Find target: next path tile we haven't reached ===
-            // Skip path tiles that are behind us (same row, already passed)
             while (aiPathIdx < path.length - 1) {
                 const p = path[aiPathIdx];
                 const px = p.c * TILE + TILE / 2;
                 const sameLvl = Math.abs(p.r - pFeetRow) <= 1;
                 const passed = sameLvl && Math.abs(px - pcx) < TILE * 0.8;
-                // Also skip if the NEXT tile is same row and further ahead
                 const next = path[Math.min(aiPathIdx + 1, path.length - 1)];
                 const nextSameRow = next.r === p.r;
                 if (passed && nextSameRow) {
@@ -1842,12 +1850,11 @@
                 }
             }
 
-            // Target tile
             const t = aiPathIdx < path.length ? path[aiPathIdx] : null;
             if (!t) return;
             const tx = t.c * TILE + TILE / 2;
-            const ty = (t.r - 1) * TILE; // top of the space above the floor tile
             const dx = tx - pcx;
+            const moveDir = dx >= 0 ? 1 : -1;
 
             // === Stuck detection ===
             const moved = Math.abs(prince.x - aiLastX) + Math.abs(prince.y - aiLastY);
@@ -1859,59 +1866,42 @@
             aiLastX = prince.x;
             aiLastY = prince.y;
 
-            // If stuck too long, skip this path tile
             if (aiStuckTimer > 3.0) {
                 aiPathIdx = Math.min(aiPathIdx + 2, path.length - 1);
                 aiStuckTimer = 0;
                 return;
             }
 
-            // === Press direction key toward target ===
-            if (dx > 6) keys['ArrowRight'] = true;
-            else if (dx < -6) keys['ArrowLeft'] = true;
+            // === Walk toward target ===
+            if (Math.abs(dx) > 6) {
+                keys[dx > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
+            }
 
-            // === Jump when needed ===
+            // === Jump decisions (only on ground) ===
             if (prince.onGround) {
-                const moveDir = dx >= 0 ? 1 : -1;
+                let wantJump = false;
+
                 const aheadCol = Math.floor((prince.x + moveDir * (prince.w + 6)) / TILE);
                 const feetRow = Math.floor((prince.y + prince.h + 2) / TILE);
-
-                // Target is above us — need to jump to reach it
-                if (t.r < pFeetRow && Math.abs(dx) < TILE * 4) {
-                    keys[' '] = true;
-                    // Ensure we're running in a direction for a running jump
-                    if (!keys['ArrowLeft'] && !keys['ArrowRight']) {
-                        keys[moveDir > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
-                    }
-                }
-
-                // Gap ahead — no floor where we're walking
-                if (!isSolid(feetRow, aheadCol) && !isFallingTile(feetRow, aheadCol) && Math.abs(dx) > TILE) {
-                    keys[' '] = true;
-                    if (!keys['ArrowLeft'] && !keys['ArrowRight']) {
-                        keys[moveDir > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
-                    }
-                }
-
-                // Spikes ahead
                 const bodyRow = Math.floor((prince.y + prince.h - 5) / TILE);
-                if (getTile(bodyRow, aheadCol) === 3) {
-                    keys[' '] = true;
-                    if (!keys['ArrowLeft'] && !keys['ArrowRight']) {
-                        keys[moveDir > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
-                    }
-                }
 
-                // Stuck and trying to jump? Make sure we have a direction
-                if (aiStuckTimer > 1.0) {
+                // Target is above
+                if (t.r < pFeetRow && Math.abs(dx) < TILE * 4) wantJump = true;
+                // Gap ahead
+                if (!isSolid(feetRow, aheadCol) && !isFallingTile(feetRow, aheadCol) && Math.abs(dx) > TILE) wantJump = true;
+                // Spikes ahead
+                if (getTile(bodyRow, aheadCol) === 3) wantJump = true;
+                // Stuck
+                if (aiStuckTimer > 1.0) wantJump = true;
+
+                if (wantJump) {
                     keys[' '] = true;
-                    if (!keys['ArrowLeft'] && !keys['ArrowRight']) {
-                        keys[moveDir > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
-                    }
+                    // Lock direction for entire jump duration
+                    aiJumpDir = moveDir;
+                    keys[moveDir > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
                 }
             }
 
-            // Invincible in AI mode so it doesn't die to traps
             prince.invincible = 0.5;
         }
 

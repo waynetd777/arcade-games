@@ -122,6 +122,7 @@
         let guillotines = [];
         let fallingTiles = [];
         let exitDoor = null;
+        let path = [];
 
         // Prince
         const prince = {
@@ -327,7 +328,7 @@
             // The path zigzags vertically across the full map height.
             // Structure: climb up to near the ceiling, run across, drop down, run, climb again.
             // This ensures the full screen is used and vertical traversal is required.
-            const path = [];
+            path = [];
             let curRow = mapH - 1; // start on ground floor
             let col = 1;
 

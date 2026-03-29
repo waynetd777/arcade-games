@@ -388,66 +388,15 @@
                     // Run-up on current floor
                     col += placeTiles(curRow, col, 3 + Math.floor(Math.random() * 2));
 
-                    while (curRow > targetRow && col < mapW - 6) {
-                        const newRow = curRow - 1;
+                    // 1-row steps with 3-col gaps — proven traversable by simulation.
+                    // Each step: 3 empty columns (gap), then 3-4 tile platform 1 row up.
+                    // Running jump covers 4.6 tiles horizontally and 1.8 tiles high,
+                    // easily clearing a 3-col gap with 1-row rise.
+                    while (curRow > targetRow && col < mapW - 8) {
+                        col += 3; // gap
+                        curRow -= 1; // 1 row up
                         const platLen = 3 + Math.floor(Math.random() * 2);
-
-                        // Try gap sizes 3, then 4 — simulate jump arc to verify clearance
-                        let placed = false;
-                        for (let gapSize = 3; gapSize <= 4; gapSize++) {
-                            const newCol = col + gapSize;
-                            if (newCol + platLen >= mapW - 2) break;
-
-                            // Simulate jump arc WITHOUT the target platform placed
-                            // (so landing on it isn't detected as a collision)
-                            let jumpOk = true;
-                            let simX = (col - 1) * TILE + TILE - prince.w / 2;
-                            let simY = (curRow - 1) * TILE + TILE - prince.h;
-                            let simVX = RUN_SPEED * 1.3;
-                            let simVY = -RUNNING_JUMP_VEL;
-                            for (let st = 0; st < 200; st++) {
-                                simVY += GRAVITY / 120;
-                                simX += simVX / 120;
-                                simY += simVY / 120;
-                                const sLeft = Math.floor(simX / TILE);
-                                const sRight = Math.floor((simX + prince.w) / TILE);
-                                const sTop = Math.floor(simY / TILE);
-                                const sBot = Math.floor((simY + prince.h - 2) / TILE);
-                                let blocked = false;
-                                for (let sr = sTop; sr <= sBot && !blocked; sr++) {
-                                    for (let sc = sLeft; sc <= sRight && !blocked; sc++) {
-                                        if (sr < 0 || sr >= mapH || sc < 0 || sc >= mapW) { blocked = true; }
-                                        else if (map[sr][sc] === 1 || map[sr][sc] === 2) { blocked = true; }
-                                    }
-                                }
-                                if (blocked) { jumpOk = false; break; }
-                                if (simVY > 0 && simY > (curRow - 1) * TILE) break;
-                            }
-
-                            // Now place the platform (committed if jumpOk, removed if not)
-                            for (let pc = 0; pc < platLen; pc++) map[newRow][newCol + pc] = 1;
-
-                            if (jumpOk) {
-                                // Commit this platform
-                                curRow = newRow;
-                                col = newCol;
-                                for (let pc = 0; pc < platLen; pc++) {
-                                    path.push({r: curRow, c: col + pc});
-                                }
-                                col += platLen;
-                                placed = true;
-                                break;
-                            } else {
-                                // Remove and try wider gap
-                                for (let pc = 0; pc < platLen; pc++) map[newRow][newCol + pc] = 0;
-                            }
-                        }
-
-                        if (!placed) {
-                            // Can't place step — extend flat run and stop climbing
-                            col += placeTiles(curRow, col, 3);
-                            break;
-                        }
+                        col += placeTiles(curRow, col, platLen);
                     }
                     // Horizontal run at the top
                     const topRun = 3 + Math.floor(Math.random() * 4);

@@ -378,16 +378,22 @@
                         col += placeTiles(curRow, col, 2);
                     }
                 } else if (rowDiff < 0) {
-                    // CLIMB UP — build stepping stones upward
-                    // Short run first
-                    col += placeTiles(curRow, col, 2 + Math.floor(Math.random() * 2));
+                    // CLIMB UP — staircase platforms, each offset horizontally
+                    // so the prince has room for a running jump arc.
+                    // Layout: each step is 3-4 tiles wide, placed 3+ columns
+                    // to the RIGHT of the previous one, and 2 rows higher.
+                    // This ensures the ceiling of the upper platform doesn't
+                    // block the jump from the lower one.
 
-                    const stepsUp = Math.abs(rowDiff);
-                    // Climb in 2-row jumps (running jump height)
-                    while (curRow > targetRow && col < mapW - 4) {
+                    // Run-up on current floor
+                    col += placeTiles(curRow, col, 3 + Math.floor(Math.random() * 2));
+
+                    while (curRow > targetRow && col < mapW - 6) {
                         const step = Math.min(2, curRow - targetRow);
+                        // Horizontal gap before the next platform (gives jump arc room)
+                        col += 2;
                         curRow -= step;
-                        // Platform at new height (3-4 tiles, offset slightly right)
+                        // Platform at new height, offset to the right
                         const platLen = 3 + Math.floor(Math.random() * 2);
                         col += placeTiles(curRow, col, platLen);
                     }

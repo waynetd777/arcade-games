@@ -346,7 +346,7 @@
             for (let i = 0; i < numZigs; i++) {
                 if (i % 2 === 0) {
                     // Go high
-                    waypoints.push(3 + Math.floor(Math.random() * 2));
+                    waypoints.push(5 + Math.floor(Math.random() * 2));
                 } else {
                     // Go low
                     waypoints.push(mapH - 2 - Math.floor(Math.random() * 2));
@@ -669,7 +669,7 @@
             const exitC = mapW - 3;
             let exitRow = curRow; // floor row where path ends
             // If path ends too close to ceiling (row 0), move exit down
-            if (exitRow < 4) exitRow = 4;
+            if (exitRow < 6) exitRow = 6;
             // Ensure there's a floor tile under the exit
             if (map[exitRow][exitC] !== 1) map[exitRow][exitC] = 1;
             // Place exit above the floor

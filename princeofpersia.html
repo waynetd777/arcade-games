@@ -1940,58 +1940,64 @@
                 keys[tdx > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
             }
 
-            // === Jumping: only when necessary ===
+            // === Jumping: only when necessary AND there's headroom ===
             if (prince.onGround && aiJumpCooldown <= 0) {
-                let shouldJump = false;
+                // GLOBAL GATE: never jump if there's a solid tile above the prince's head.
+                // Check the 2 rows above prince (need clearance for the jump arc).
+                const headRow = Math.floor(prince.y / TILE);
+                const hasHeadroom = !isSolid(headRow - 1, princeCol) &&
+                                    !isSolid(headRow - 1, princeCol + moveDir);
+                // Also check 2 rows up for running jump clearance
+                const hasFullHeadroom = hasHeadroom &&
+                                        !isSolid(headRow - 2, princeCol) &&
+                                        !isSolid(headRow - 2, princeCol + moveDir);
 
-                const aheadCol = Math.floor((prince.x + moveDir * (prince.w + 6)) / TILE);
-                const feetRow = Math.floor((prince.y + prince.h + 2) / TILE);
-                const bodyRow = Math.floor((prince.y + prince.h * 0.5) / TILE);
+                if (hasHeadroom) {
+                    let shouldJump = false;
 
-                // 1. Gap ahead — no floor tile in movement direction
-                if (!isSolid(feetRow, aheadCol) && !isFallingTile(feetRow, aheadCol)) {
-                    // Only jump if waypoint is ahead (not behind the gap)
-                    if (Math.abs(tdx) > TILE * 0.5) {
+                    const aheadCol = Math.floor((prince.x + moveDir * (prince.w + 6)) / TILE);
+                    const feetRow = Math.floor((prince.y + prince.h + 2) / TILE);
+                    const bodyRow = Math.floor((prince.y + prince.h * 0.5) / TILE);
+
+                    // 1. Gap ahead — no floor in movement direction, waypoint is beyond
+                    if (!isSolid(feetRow, aheadCol) && !isFallingTile(feetRow, aheadCol)) {
+                        if (Math.abs(tdx) > TILE * 0.5) {
+                            shouldJump = true;
+                        }
+                    }
+
+                    // 2. Spikes ahead
+                    if (getTile(bodyRow, aheadCol) === 3 || getTile(princeRow - 1, aheadCol) === 3) {
                         shouldJump = true;
                     }
-                }
 
-                // 2. Spikes ahead
-                if (getTile(bodyRow, aheadCol) === 3 || getTile(princeRow - 1, aheadCol) === 3) {
-                    shouldJump = true;
-                }
-
-                // 3. Waypoint is above — check there's actually a platform to land on
-                if (tdy < -TILE * 0.5 && Math.abs(tdx) < TILE * 3) {
-                    // Verify a solid tile exists 1-2 rows above that we can reach
-                    let canLand = false;
-                    for (let up = 1; up <= 2; up++) {
-                        const checkRow = princeRow - up;
-                        if (checkRow < 1) continue;
-                        // Check current col and adjacent
-                        for (let dc = -1; dc <= 1; dc++) {
-                            if (isSolid(checkRow, princeCol + dc)) {
-                                canLand = true;
-                                break;
+                    // 3. Waypoint is above — only with full headroom and a verified landing
+                    if (hasFullHeadroom && tdy < -TILE * 0.5 && Math.abs(tdx) < TILE * 3) {
+                        let canLand = false;
+                        for (let up = 1; up <= 2; up++) {
+                            const checkRow = princeRow - up;
+                            if (checkRow < 1) continue;
+                            for (let dc = -1; dc <= 1; dc++) {
+                                if (isSolid(checkRow, princeCol + dc)) {
+                                    canLand = true;
+                                    break;
+                                }
                             }
+                            if (canLand) break;
                         }
-                        if (canLand) break;
+                        if (canLand) shouldJump = true;
                     }
-                    if (canLand) shouldJump = true;
-                }
 
-                // 4. Wall blocking horizontal movement (but NOT ceiling above)
-                const headRow = Math.floor(prince.y / TILE);
-                if (isSolid(bodyRow, aheadCol) && !isSolid(headRow - 1, princeCol)) {
-                    shouldJump = true;
-                }
+                    // 4. Wall blocking horizontal movement
+                    if (isSolid(bodyRow, aheadCol) && hasFullHeadroom) {
+                        shouldJump = true;
+                    }
 
-                if (shouldJump) {
-                    keys[' '] = true;
-                    // MUST hold a direction key while jumping for a running jump
-                    // (standing jumps barely go anywhere)
-                    keys[moveDir > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
-                    aiJumpCooldown = 0.5;
+                    if (shouldJump) {
+                        keys[' '] = true;
+                        keys[moveDir > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
+                        aiJumpCooldown = 0.6;
+                    }
                 }
             }
 

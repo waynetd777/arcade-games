@@ -1897,49 +1897,46 @@
                 const wallAhead = isSolid(bodyRow, aheadCol) || isSolid(headRow, aheadCol);
                 const needsJumpUp = t.r < pFeetRow;
 
-                // === Backup-then-jump sequence ===
-                // Phase 1 (aiBackupTimer > 0, aiBackupDir set): walk backward
-                //   until we have 3+ tiles of running room AND no wall ahead
-                // Phase 2: run forward and jump
-                if (aiBackupTimer > 0) {
-                    aiBackupTimer -= dt;
-                    // Check: do we now have running room? (no wall in jump direction)
-                    const jumpCol = Math.floor((prince.x + aiBackupDir * (prince.w + 6)) / TILE);
-                    const jumpWall = isSolid(bodyRow, jumpCol) || isSolid(headRow, jumpCol);
-                    const hasRoom = !jumpWall && Math.abs(dx) > TILE * 2;
-
-                    if (hasRoom || aiBackupTimer <= 0) {
-                        // GO! Run toward target and jump
-                        keys[aiBackupDir > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
-                        keys[' '] = true;
-                        aiJumpDir = aiBackupDir;
-                        aiBackupTimer = 0;
-                    } else {
-                        // Still backing up
-                        keys[aiBackupDir > 0 ? 'ArrowLeft' : 'ArrowRight'] = true;
+                // === Jump-up detection: jump BEFORE walking under the ledge ===
+                // Look ahead in the movement direction: is there a platform
+                // above within the next few columns? If so, jump NOW while
+                // we still have headroom, don't walk further forward.
+                let upcomingLedge = false;
+                if (needsJumpUp) {
+                    // Scan 1-4 columns ahead for a solid tile 1-2 rows up
+                    for (let lookAhead = 1; lookAhead <= 4; lookAhead++) {
+                        const checkC = princeCol + moveDir * lookAhead;
+                        if (isSolid(pFeetRow - 1, checkC) || isSolid(pFeetRow - 2, checkC)) {
+                            upcomingLedge = true;
+                            break;
+                        }
                     }
                 }
-                // Start backup if wall ahead and need to jump up
-                else if (needsJumpUp && wallAhead && Math.abs(dx) < TILE * 3) {
-                    aiBackupTimer = 1.5; // max backup time (will stop early if room found)
-                    aiBackupDir = moveDir;
-                }
-                // Normal movement
-                else {
+
+                const hasHeadroom = !isSolid(headRow - 1, princeCol) &&
+                                    !isSolid(headRow - 2, princeCol);
+
+                if (needsJumpUp && upcomingLedge && hasHeadroom) {
+                    // Jump NOW — we're approaching a ledge with clear sky above
+                    keys[' '] = true;
+                    aiJumpDir = moveDir;
+                    keys[moveDir > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
+                } else if (needsJumpUp && wallAhead && !hasHeadroom) {
+                    // Already under the ledge — back up until we have headroom
+                    keys[moveDir > 0 ? 'ArrowLeft' : 'ArrowRight'] = true;
+                } else {
+                    // Normal: walk toward target
                     if (Math.abs(dx) > 6) {
                         keys[dx > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
                     }
 
-                    const hasHeadroom = !isSolid(headRow - 1, princeCol) &&
-                                        !isSolid(headRow - 2, princeCol) &&
-                                        !isSolid(headRow - 1, princeCol + moveDir) &&
-                                        !isSolid(headRow - 2, princeCol + moveDir);
-
                     if (hasHeadroom) {
                         let wantJump = false;
-                        if (needsJumpUp && Math.abs(dx) > TILE * 1.5 && Math.abs(dx) < TILE * 5) wantJump = true;
+                        // Gap ahead
                         if (!isSolid(feetRow, aheadCol) && !isFallingTile(feetRow, aheadCol) && Math.abs(dx) > TILE) wantJump = true;
+                        // Spikes ahead
                         if (getTile(bodyRow, aheadCol) === 3) wantJump = true;
+                        // Stuck
                         if (aiStuckTimer > 1.0 && !wallAhead) wantJump = true;
 
                         if (wantJump) {

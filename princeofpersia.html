@@ -572,7 +572,7 @@
                 spikesPlaced++;
             }
 
-            // Guillotines: hanging from ceiling/platform underside, on the path, with room to run under
+            // Guillotines: placed 2 rows above the path (in the prince's head space)
             let numGuill = Math.floor(lvl / 2) + Math.floor(difficulty / 2);
             if (numGuill > 4) numGuill = 4;
             let guillPlaced = 0;
@@ -580,16 +580,17 @@
                 const p = shuffledPath[pi];
                 const gc = p.c;
                 if (gc < 5 || gc > mapW - 5) continue;
-                // Find ceiling above this path tile (scan upward for solid)
-                let ceilRow = -1;
-                for (let r = p.r - 2; r >= 0; r--) {
-                    if (map[r][gc] === 1 || map[r][gc] === 2) { ceilRow = r; break; }
-                }
-                if (ceilRow < 0) continue;
-                const guilRow = ceilRow + 1;
-                // Need at least 2 clear rows between guillotine and floor for player to pass
-                if (p.r - 1 - guilRow < 2) continue;
+                // Place guillotine 2 rows above the floor tile the prince walks on
+                // (p.r is the floor row, p.r-1 is where prince stands, p.r-2 is head height)
+                const guilRow = p.r - 2;
+                if (guilRow < 1) continue;
                 if (map[guilRow][gc] !== 0) continue;
+                // Don't place adjacent to another guillotine
+                let tooClose = false;
+                for (let gi = 0; gi < guillotines.length; gi++) {
+                    if (Math.abs(guillotines[gi].c - gc) < 3) { tooClose = true; break; }
+                }
+                if (tooClose) continue;
                 map[guilRow][gc] = 5;
                 guillotines.push({r: guilRow, c: gc, phase: Math.random() * Math.PI * 2, speed: 2 + Math.random() * 2});
                 guillPlaced++;

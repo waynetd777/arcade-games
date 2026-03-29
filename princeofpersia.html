@@ -289,6 +289,10 @@
 
         // === Level Generation ===
         // Tile types: 0=empty, 1=floor, 2=wall, 3=spikes, 4=falling_floor, 5=guillotine, 6=exit, 7=potion
+        // Max jump height is ~1.8 tiles (JUMP_VEL=340, GRAVITY=800).
+        // Platforms must be spaced <=1 tile apart vertically so the prince can reach them.
+        // Spikes need 4+ tiles of ceiling clearance so the prince can arc over them.
+
         function generateLevel(lvl) {
             let mapW = 28 + lvl * 4;
             if (mapW > 60) mapW = 60;
@@ -312,7 +316,7 @@
                 map[r][mapW - 1] = 2;
             }
 
-            // Helper: check if N rows above (r, c) are clear (for jump/walk clearance)
+            // Helper: check if N rows above (r, c) are all empty
             function clearAbove(r, c, n) {
                 for (let i = 1; i <= n; i++) {
                     if (r - i < 0) return true;
@@ -321,27 +325,51 @@
                 return true;
             }
 
-            // Build platforms at fixed height bands with guaranteed gaps for traversal
-            const platformRows = [mapH - 4, mapH - 7, mapH - 10];
-            if (mapH - 13 >= 2) platformRows.push(mapH - 13);
+            // === Platform generation ===
+            // Create floors at heights reachable by 1-tile jumps, connected by staircases.
+            // Floor rows: ground=14, then every 2 rows up: 12, 10, 8, 6, 4
+            const floorRows = [];
+            for (let r = mapH - 3; r >= 3; r -= 2) {
+                floorRows.push(r);
+            }
 
-            for (let pi = 0; pi < platformRows.length; pi++) {
-                const pr = platformRows[pi];
-                if (pr < 2) continue;
-                // Create platform segments with guaranteed gaps between them
+            // Each floor gets platform segments with gaps
+            for (let fi = 0; fi < floorRows.length; fi++) {
+                const fr = floorRows[fi];
                 let col = 2;
                 while (col < mapW - 4) {
-                    // Gap first (2-4 tiles wide so player can pass underneath or jump across)
-                    const gap = 2 + Math.floor(Math.random() * 3);
+                    // Gap (2-3 tiles — jumpable horizontally)
+                    const gap = 2 + Math.floor(Math.random() * 2);
                     col += gap;
                     if (col >= mapW - 4) break;
-                    // Platform segment (3-6 tiles)
-                    const platLen = 3 + Math.floor(Math.random() * 4);
+                    // Platform segment (3-7 tiles)
+                    const platLen = 3 + Math.floor(Math.random() * 5);
                     const endC = Math.min(col + platLen, mapW - 2);
                     for (let pc = col; pc < endC; pc++) {
-                        map[pr][pc] = 1;
+                        map[fr][pc] = 1;
                     }
                     col = endC;
+                }
+            }
+
+            // Add staircases: 1-tile stepping stones connecting each floor to the one above.
+            // Place 2-3 staircases per floor gap, spread across the map width.
+            for (let fi = 0; fi < floorRows.length; fi++) {
+                const upperRow = floorRows[fi];
+                const lowerRow = fi === 0 ? mapH - 1 : floorRows[fi - 1];
+                // The gap is 2 rows (e.g., ground=14, first floor=12, step at 13)
+                const stepRow = lowerRow - 1;
+                if (stepRow <= upperRow) continue;
+                const numStairs = 2 + Math.floor(Math.random() * 2);
+                const sectionW = Math.floor((mapW - 4) / numStairs);
+                for (let si = 0; si < numStairs; si++) {
+                    const sc = 2 + si * sectionW + Math.floor(Math.random() * Math.max(1, sectionW - 3));
+                    if (sc >= mapW - 2) continue;
+                    // Place a 2-3 tile stepping stone
+                    const stepLen = 2 + Math.floor(Math.random() * 2);
+                    for (let pc = sc; pc < sc + stepLen && pc < mapW - 1; pc++) {
+                        if (map[stepRow][pc] === 0) map[stepRow][pc] = 1;
+                    }
                 }
             }
 
@@ -350,17 +378,21 @@
             guillotines = [];
             fallingTiles = [];
 
-            // Add traps — only place where there's enough vertical clearance (3+ tiles above)
+            // === Traps ===
+            // Spikes: require 4 clear tiles above (prince needs full jump arc to clear)
             const numSpikes = 2 + lvl + difficulty;
             let spikesPlaced = 0;
-            for (let si = 0; si < numSpikes * 3 && spikesPlaced < numSpikes; si++) {
+            for (let si = 0; si < numSpikes * 4 && spikesPlaced < numSpikes; si++) {
                 const sc = 3 + Math.floor(Math.random() * (mapW - 6));
                 for (let sr = mapH - 2; sr >= 1; sr--) {
                     if (map[sr + 1] && map[sr + 1][sc] === 1 && map[sr][sc] === 0) {
-                        // Require 3 tiles of clearance above so player can jump over
-                        if (!clearAbove(sr, sc, 3)) continue;
-                        // Don't place spikes next to other spikes (leave room to land)
+                        if (!clearAbove(sr, sc, 4)) continue;
+                        // No adjacent spikes
                         if ((sc > 0 && map[sr][sc - 1] === 3) || (sc < mapW - 1 && map[sr][sc + 1] === 3)) continue;
+                        // Must have clear landing on at least one side
+                        const leftClear = sc > 1 && map[sr][sc - 1] === 0 && map[sr + 1][sc - 1] === 1;
+                        const rightClear = sc < mapW - 2 && map[sr][sc + 1] === 0 && map[sr + 1][sc + 1] === 1;
+                        if (!leftClear && !rightClear) continue;
                         map[sr][sc] = 3;
                         spikes.push({r: sr, c: sc, active: true});
                         spikesPlaced++;
@@ -369,14 +401,15 @@
                 }
             }
 
-            // Guillotines — only under platforms with 2+ tiles clearance below
+            // Guillotines: under platforms, need 3 tiles clearance below
             let numGuill = Math.floor(lvl / 2) + difficulty;
             if (numGuill > 6) numGuill = 6;
             let guillPlaced = 0;
-            for (let gi = 0; gi < numGuill * 3 && guillPlaced < numGuill; gi++) {
+            for (let gi = 0; gi < numGuill * 4 && guillPlaced < numGuill; gi++) {
                 const gc = 4 + Math.floor(Math.random() * (mapW - 8));
-                for (let gr = 1; gr < mapH - 3; gr++) {
-                    if (map[gr][gc] === 1 && map[gr - 1][gc] === 0 && map[gr + 1][gc] === 0 && map[gr + 2][gc] === 0) {
+                for (let gr = 1; gr < mapH - 4; gr++) {
+                    if (map[gr][gc] === 1 && map[gr - 1][gc] === 0 &&
+                        map[gr + 1][gc] === 0 && map[gr + 2][gc] === 0 && map[gr + 3][gc] === 0) {
                         map[gr - 1][gc] = 5;
                         guillotines.push({r: gr - 1, c: gc, phase: Math.random() * Math.PI * 2, speed: 2 + Math.random() * 2});
                         guillPlaced++;
@@ -385,16 +418,14 @@
                 }
             }
 
-            // Falling floor tiles — only on platforms, not on the ground floor
+            // Falling floor tiles — on platforms only, with adjacent solid tiles
             let numFalling = 1 + Math.floor(lvl / 2);
             if (numFalling > 5) numFalling = 5;
             let fallingPlaced = 0;
             for (let fi = 0; fi < numFalling * 3 && fallingPlaced < numFalling; fi++) {
                 const fc = 3 + Math.floor(Math.random() * (mapW - 6));
                 for (let fr = 1; fr < mapH - 2; fr++) {
-                    if (map[fr][fc] === 1 && fr < mapH - 1) {
-                        // Don't turn a platform tile into falling if it's the only path
-                        // Check that adjacent tiles provide alternative footing
+                    if (map[fr][fc] === 1) {
                         if ((fc > 1 && map[fr][fc - 1] === 1) || (fc < mapW - 2 && map[fr][fc + 1] === 1)) {
                             map[fr][fc] = 4;
                             fallingTiles.push({r: fr, c: fc, triggered: false, fallTimer: 0, fallen: false, shakeTimer: 0});
@@ -405,7 +436,7 @@
                 }
             }
 
-            // Guards — place on ground or platforms with clearance
+            // Guards — on floors with 2 tiles headroom
             let numGuards = 1 + Math.floor(lvl / 2) + Math.floor(difficulty / 2);
             if (numGuards > 5) numGuards = 5;
             for (let gui = 0; gui < numGuards; gui++) {
@@ -435,7 +466,7 @@
                 }
             }
 
-            // Potions — place on open floor
+            // Potions
             const numPotions = 1 + Math.floor(Math.random() * 2);
             for (let poi = 0; poi < numPotions; poi++) {
                 const pc2 = 4 + Math.floor(Math.random() * (mapW - 8));
@@ -447,7 +478,7 @@
                 }
             }
 
-            // Exit door — place on ground floor at right side
+            // Exit door at right side
             exitDoor = null;
             const exitC = mapW - 3;
             for (let er = mapH - 2; er >= 1; er--) {

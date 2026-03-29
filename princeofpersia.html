@@ -2171,35 +2171,37 @@
 
             // Controls info
             ctx.textAlign = 'center';
+            // Controls help
+            ctx.textAlign = 'center';
+            ctx.font = 'bold 13px Courier';
+            ctx.fillStyle = '#c084fc';
+            ctx.fillText("CONTROLS", W / 2, 460);
             ctx.font = '12px Courier';
-            ctx.fillStyle = '#888';
-            ctx.fillText("CONTROLS:", W / 2, 470);
-            const ctrlInfo = [
-                { label: 'ARROWS: MOVE', color: '#c084fc' },
-                { label: 'SPACE: JUMP', color: '#33ff66' },
-                { label: 'Z: ATTACK', color: '#ff6666' }
+            const controls = [
+                { text: 'ARROWS: MOVE / CLIMB', color: '#fff' },
+                { text: 'SPACE: JUMP  (RUN + JUMP = HIGHER!)', color: '#33ff66' },
+                { text: 'Z: SWORD ATTACK', color: '#ff6666' },
+                { text: 'DOWN: CROUCH / BLOCK ATTACKS', color: '#ffaa00' },
             ];
-            ctrlInfo.forEach(function(ci, idx) {
-                const cx = W / 2 - 120 + idx * 120;
-                ctx.fillStyle = ci.color;
-                ctx.font = '10px Courier';
-                ctx.fillText(ci.label, cx, 488);
-            });
+            for (let ci = 0; ci < controls.length; ci++) {
+                ctx.fillStyle = controls[ci].color;
+                ctx.fillText(controls[ci].text, W / 2, 478 + ci * 16);
+            }
 
             // Bottom text
             ctx.textAlign = 'center';
             ctx.fillStyle = '#fff';
             ctx.font = 'bold 18px Courier';
-            ctx.fillText(state === 'START' ? "ESCAPE THE DUNGEON!" : "GAME OVER", W / 2, 520);
+            const bottomY = 478 + controls.length * 16 + 14;
+            ctx.fillText(state === 'START' ? "ESCAPE THE DUNGEON!" : "GAME OVER", W / 2, bottomY);
             if (state === 'OVER') {
                 ctx.font = 'bold 14px Courier';
                 ctx.fillStyle = '#ffd700';
-                ctx.fillText("FINAL SCORE: " + score, W / 2, 540);
+                ctx.fillText("FINAL SCORE: " + score, W / 2, bottomY + 20);
             }
-            ctx.font = '12px Courier';
+            ctx.font = '11px Courier';
             ctx.fillStyle = '#888';
-            ctx.fillText("SPACE: START | P: PAUSE | A: AI | S: SOUND | ESC: MENU", W / 2, 560);
-            ctx.fillText("DOWN: CAREFUL STEP | CROUCH BLOCKS ATTACKS", W / 2, 578);
+            ctx.fillText("SPACE: START | P: PAUSE | A: AI | S: SOUND | ESC: MENU", W / 2, bottomY + 38);
         }
 
         // === Difficulty click ===

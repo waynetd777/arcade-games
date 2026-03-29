@@ -662,26 +662,27 @@
                 }
             }
 
-            // Exit door at end of path
+            // Exit door at end of path — must be at least 3 rows below ceiling
+            // so the player can jump to reach it
             exitDoor = null;
             const exitC = mapW - 3;
-            // Place on the path's end floor level
-            if (map[curRow][exitC] === 1) {
-                map[curRow - 1][exitC] = 6;
-                exitDoor = {r: curRow - 1, c: exitC};
-            } else {
-                // Fallback: find any floor near the right side
-                for (let er = mapH - 2; er >= 1; er--) {
-                    if (map[er + 1] && map[er + 1][exitC] === 1 && map[er][exitC] === 0) {
-                        map[er][exitC] = 6;
-                        exitDoor = {r: er, c: exitC};
-                        break;
-                    }
+            let exitRow = curRow; // floor row where path ends
+            // If path ends too close to ceiling (row 0), move exit down
+            if (exitRow < 4) exitRow = 4;
+            // Ensure there's a floor tile under the exit
+            if (map[exitRow][exitC] !== 1) map[exitRow][exitC] = 1;
+            // Place exit above the floor
+            if (exitRow - 1 >= 1) {
+                map[exitRow - 1][exitC] = 6;
+                exitDoor = {r: exitRow - 1, c: exitC};
+                // Ensure 3 rows clear above exit for jump headroom
+                for (let cr = exitRow - 2; cr >= Math.max(1, exitRow - 4); cr--) {
+                    if (map[cr][exitC] !== 0 && map[cr][exitC] !== 2) map[cr][exitC] = 0;
                 }
-                if (!exitDoor) {
-                    map[curRow][exitC] = 1;
-                    map[curRow - 1][exitC] = 6;
-                    exitDoor = {r: curRow - 1, c: exitC};
+                // Extend path to exit if needed
+                for (let c = col; c <= exitC; c++) {
+                    if (map[exitRow][c] === 0) map[exitRow][c] = 1;
+                    path.push({r: exitRow, c: c});
                 }
             }
 

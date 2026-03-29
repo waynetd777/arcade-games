@@ -412,6 +412,71 @@
                 path.push({r: curRow, c: c});
             }
 
+            // === GROUND FLOOR SAFETY NET ===
+            // Fill the bottom row across the entire level so the player always has
+            // somewhere to land if they fall. Skip columns that already have something.
+            for (let c = 1; c < mapW - 1; c++) {
+                if (map[mapH - 1][c] === 0) {
+                    map[mapH - 1][c] = 1;
+                }
+            }
+
+            // === RECOVERY RAMPS ===
+            // Scan the path for every height transition. At each point where the path
+            // is above the ground floor, place stepping-stone platforms so a player on
+            // the ground floor can climb back up to the path via 1-row jumps.
+            //
+            // We collect the distinct path "segments" (contiguous floor runs at a given row)
+            // and for each elevated segment, build a staircase from ground up to it.
+            const segments = []; // {row, startC, endC}
+            let segStart = 0;
+            for (let i = 0; i < path.length; i++) {
+                const isEnd = (i === path.length - 1) ||
+                              (path[i + 1].r !== path[i].r) ||
+                              (path[i + 1].c !== path[i].c + 1);
+                if (isEnd) {
+                    segments.push({row: path[segStart].r, startC: path[segStart].c, endC: path[i].c});
+                    segStart = i + 1;
+                }
+            }
+
+            // For each elevated segment, build a ramp nearby
+            for (let si = 0; si < segments.length; si++) {
+                const seg = segments[si];
+                if (seg.row >= mapH - 1) continue; // already on ground, no ramp needed
+
+                // How many 1-row steps from ground to this segment?
+                const stepsNeeded = (mapH - 1) - seg.row;
+
+                // Place ramp to the left of the segment (or right if no room)
+                let rampCol = seg.startC - 2;
+                let rampDir = -1; // build ramp going left
+                if (rampCol < 2) {
+                    rampCol = seg.endC + 2;
+                    rampDir = 1; // build ramp going right
+                }
+
+                // Build stepping stones: one 2-tile platform per row, each 1 row higher
+                for (let step = 0; step < stepsNeeded; step++) {
+                    const stepRow = (mapH - 1) - step - 1; // one row above previous step
+                    const stepC = rampCol + (step * rampDir * 2);
+                    if (stepC < 1 || stepC >= mapW - 2) break;
+                    // Place 2-tile platform if space is empty
+                    for (let dc = 0; dc < 2; dc++) {
+                        const c = stepC + dc;
+                        if (c >= 1 && c < mapW - 1 && map[stepRow][c] === 0) {
+                            map[stepRow][c] = 1;
+                        }
+                    }
+                    // Ensure 2 rows above are clear for the prince to stand
+                    for (let dr = 1; dr <= 2; dr++) {
+                        if (stepRow - dr >= 1 && (map[stepRow - dr][stepC] === 1 || map[stepRow - dr][stepC] === 2)) {
+                            map[stepRow - dr][stepC] = 0;
+                        }
+                    }
+                }
+            }
+
             // Track which columns are on the main path (for safe trap placement)
             const pathCols = new Set();
             path.forEach(function(p) { pathCols.add(p.r + ',' + p.c); });

@@ -686,7 +686,8 @@
             particles = [];
             timeLeft = DIFF_TIME[difficulty];
             levelMap = generateLevel(level);
-            aiProgressIdx = 0;
+            aiWaypoints = [];
+            aiWpIdx = 0;
             aiStuckTimer = 0;
 
             prince.x = 2 * TILE + 10;
@@ -1776,22 +1777,86 @@
         }
 
         // === AI Mode ===
-        // AI state
+        // Waypoint-walking AI: builds a list of world-coordinate waypoints from the
+        // path array, enriched with detours to potions and guards (for points).
+        // Then simply walks toward each waypoint in order, jumping only when the
+        // next waypoint is higher or there's a gap/spike/wall ahead.
+
+        let aiWaypoints = [];  // [{x, y, type}]  type: 'path'|'potion'|'guard'|'exit'
+        let aiWpIdx = 0;
         let aiStuckTimer = 0;
         let aiLastX = 0;
         let aiLastY = 0;
         let aiJumpCooldown = 0;
-        let aiProgressIdx = 0; // highest path index we've been close to
+
+        function aiBuildWaypoints() {
+            aiWaypoints = [];
+            aiWpIdx = 0;
+
+            // Convert path tiles to world-coordinate waypoints, sampling every few tiles
+            // to avoid micromanaging every single tile
+            for (let i = 0; i < path.length; i += 3) {
+                const p = path[i];
+                aiWaypoints.push({
+                    x: p.c * TILE + TILE / 2,
+                    y: (p.r - 1) * TILE + TILE - prince.h / 2, // stand on top of floor tile
+                    type: 'path'
+                });
+            }
+            // Always include last path tile
+            if (path.length > 0) {
+                const last = path[path.length - 1];
+                aiWaypoints.push({
+                    x: last.c * TILE + TILE / 2,
+                    y: (last.r - 1) * TILE + TILE - prince.h / 2,
+                    type: 'path'
+                });
+            }
+
+            // Insert potion detours: for each potion tile in the map, find the nearest
+            // waypoint and insert a potion waypoint right before it
+            for (let r = 0; r < levelMap.length; r++) {
+                for (let c = 0; c < levelMap[r].length; c++) {
+                    if (levelMap[r][c] === 7) {
+                        const px = c * TILE + TILE / 2;
+                        const py = (r) * TILE + TILE / 2;
+                        // Find nearest waypoint by X
+                        let bestIdx = 0;
+                        let bestDist = Infinity;
+                        for (let wi = 0; wi < aiWaypoints.length; wi++) {
+                            const d = Math.abs(aiWaypoints[wi].x - px);
+                            if (d < bestDist) { bestDist = d; bestIdx = wi; }
+                        }
+                        // Only detour if potion is within 5 tiles of the path
+                        if (bestDist < TILE * 5) {
+                            aiWaypoints.splice(bestIdx, 0, { x: px, y: py, type: 'potion' });
+                        }
+                    }
+                }
+            }
+
+            // Add exit as final waypoint
+            if (exitDoor) {
+                aiWaypoints.push({
+                    x: exitDoor.c * TILE + TILE / 2,
+                    y: (exitDoor.r) * TILE + TILE / 2,
+                    type: 'exit'
+                });
+            }
+        }
 
         function runAI(dt) {
             if (prince.dead || path.length === 0) return;
 
-            const pcx = prince.x + prince.w / 2;
-            const pcy = prince.y + prince.h;
-            const princeCol = Math.floor(pcx / TILE);
-            const princeRow = Math.floor(pcy / TILE);
+            // Build waypoints on first call or if empty
+            if (aiWaypoints.length === 0) aiBuildWaypoints();
 
-            // Clear all keys each frame
+            const pcx = prince.x + prince.w / 2;
+            const pcy = prince.y + prince.h / 2;
+            const princeCol = Math.floor(pcx / TILE);
+            const princeRow = Math.floor((prince.y + prince.h) / TILE);
+
+            // Clear keys
             keys['ArrowLeft'] = false;
             keys['ArrowRight'] = false;
             keys[' '] = false;
@@ -1800,7 +1865,7 @@
 
             if (aiJumpCooldown > 0) aiJumpCooldown -= dt;
 
-            // === Combat: fight nearby guards on same level ===
+            // === Combat: fight nearby guards on same floor for points ===
             let nearestGuard = null;
             let nearestGuardDist = Infinity;
             guards.forEach(function(g) {
@@ -1814,200 +1879,125 @@
                 }
             });
 
-            if (nearestGuard && nearestGuardDist < 70) {
+            if (nearestGuard && nearestGuardDist < 80) {
                 prince.facingRight = nearestGuard.x > prince.x;
-                if (nearestGuardDist > 40) {
+                if (nearestGuardDist > 35) {
                     keys[nearestGuard.x > prince.x ? 'ArrowRight' : 'ArrowLeft'] = true;
                 } else if (nearestGuard.attackTimer > 0.1) {
-                    keys['ArrowDown'] = true;
-                } else if (Math.random() < 0.05) {
+                    keys['ArrowDown'] = true; // block
+                } else if (Math.random() < 0.06) {
                     keys['z'] = true;
-                    setTimeout(function() { keys['z'] = false; }, 100);
+                    setTimeout(function() { keys['z'] = false; }, 120);
                 }
                 aiStuckTimer = 0;
                 return;
             }
 
+            // === Current waypoint ===
+            if (aiWpIdx >= aiWaypoints.length) return; // done
+            const wp = aiWaypoints[aiWpIdx];
+            const dx = wp.x - pcx;
+            const dy = wp.y - pcy;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            // Advance to next waypoint when close enough
+            const reachDist = wp.type === 'potion' ? TILE * 1.5 : TILE * 1.0;
+            if (dist < reachDist) {
+                aiWpIdx++;
+                aiStuckTimer = 0;
+                if (aiWpIdx >= aiWaypoints.length) return;
+            }
+
+            // Re-read target after possible advance
+            const twp = aiWaypoints[Math.min(aiWpIdx, aiWaypoints.length - 1)];
+            const tdx = twp.x - pcx;
+            const tdy = twp.y - pcy;
+
             // === Stuck detection ===
             const moved = Math.abs(prince.x - aiLastX) + Math.abs(prince.y - aiLastY);
-            if (moved < 2 && prince.onGround) {
+            if (moved < 1.5 && prince.onGround) {
                 aiStuckTimer += dt;
             } else {
-                aiStuckTimer = 0;
+                if (moved > 5) aiStuckTimer = 0;
             }
             aiLastX = prince.x;
             aiLastY = prince.y;
 
-            // === Find where we are on the path ===
-            // Two searches:
-            // 1. Closest path tile on the SAME floor (strongly preferred)
-            // 2. Closest path tile overall (fallback)
-            const princeFeetRow = Math.floor((prince.y + prince.h) / TILE);
-            let sameFloorIdx = -1;
-            let sameFloorDist = Infinity;
-            let anyIdx = 0;
-            let anyDist = Infinity;
-
-            for (let i = 0; i < path.length; i++) {
-                const px = path[i].c * TILE + TILE / 2;
-                const py = path[i].r * TILE;
-                const d = Math.abs(px - pcx) + Math.abs(py - pcy);
-                if (d < anyDist) {
-                    anyDist = d;
-                    anyIdx = i;
+            // === Stuck recovery: skip waypoint or backtrack ===
+            if (aiStuckTimer > 2.0 && prince.onGround) {
+                if (aiStuckTimer < 3.5) {
+                    // Skip this waypoint — it may be unreachable
+                    aiWpIdx = Math.min(aiWpIdx + 1, aiWaypoints.length - 1);
+                    aiStuckTimer = 0;
+                    return;
                 }
-                // Same floor = path floor tile is within 1 row of prince's feet
-                if (Math.abs(path[i].r - princeFeetRow) <= 1) {
-                    const sd = Math.abs(px - pcx);
-                    if (sd < sameFloorDist) {
-                        sameFloorDist = sd;
-                        sameFloorIdx = i;
-                    }
-                }
+                aiStuckTimer = 0;
             }
 
-            const closestPathIdx = sameFloorIdx >= 0 ? sameFloorIdx : anyIdx;
-            const onPath = sameFloorIdx >= 0 && sameFloorDist < TILE * 3;
-
-            // Update progress high-water mark
-            if (closestPathIdx > aiProgressIdx) {
-                aiProgressIdx = closestPathIdx;
+            // === Movement: walk toward waypoint ===
+            const moveDir = tdx >= 0 ? 1 : -1;
+            if (Math.abs(tdx) > 6) {
+                keys[tdx > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
             }
 
-            // === Pick next target ===
-            let targetIdx, target, targetX, targetY, dx, dy;
-
-            if (onPath) {
-                // On the path: target a few tiles ahead
-                targetIdx = Math.min(closestPathIdx + 3, path.length - 1);
-                target = path[targetIdx];
-                targetX = target.c * TILE + TILE / 2;
-                targetY = target.r * TILE;
-                dx = targetX - pcx;
-                dy = targetY - pcy;
-            } else {
-                // OFF the path (fell to ground floor or different level).
-                // Find the nearest path tile that is ABOVE us — we need to
-                // get underneath it then jump up via recovery ramps.
-                // Scan path for the closest tile that's above and reachable-ish.
-                let bestRampIdx = -1;
-                let bestRampDist = Infinity;
-                for (let i = 0; i < path.length; i++) {
-                    const pr = path[i].r;
-                    const pc = path[i].c;
-                    // Must be above the prince
-                    if (pr >= princeFeetRow) continue;
-                    const hd = Math.abs(pc * TILE + TILE / 2 - pcx);
-                    if (hd < bestRampDist) {
-                        bestRampDist = hd;
-                        bestRampIdx = i;
-                    }
-                }
-
-                if (bestRampIdx >= 0) {
-                    // Walk toward the X of that path tile — recovery ramps should be nearby
-                    target = path[bestRampIdx];
-                    targetX = target.c * TILE + TILE / 2;
-                    targetY = target.r * TILE;
-                    dx = targetX - pcx;
-                    dy = targetY - pcy;
-                } else {
-                    // No path above us — just head right toward exit
-                    dx = (exitDoor ? exitDoor.c * TILE : mapW * TILE) - pcx;
-                    dy = 0;
-                    targetY = prince.y;
-                }
-            }
-
-            // === Move toward target ===
-            if (Math.abs(dx) > 8) {
-                keys[dx > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
-            }
-            const moveDir = dx >= 0 ? 1 : -1;
-
-            // === Jumping — only with a specific reason ===
+            // === Jumping: only when necessary ===
             if (prince.onGround && aiJumpCooldown <= 0) {
                 let shouldJump = false;
-                const aheadCol = Math.floor((prince.x + moveDir * (prince.w + 8)) / TILE);
+
+                const aheadCol = Math.floor((prince.x + moveDir * (prince.w + 6)) / TILE);
                 const feetRow = Math.floor((prince.y + prince.h + 2) / TILE);
-                const bodyRow = Math.floor((prince.y + prince.h - 5) / TILE);
+                const bodyRow = Math.floor((prince.y + prince.h * 0.5) / TILE);
 
-                // Reason 1: gap ahead (no floor where we're walking)
-                const floorAhead = isSolid(feetRow, aheadCol) || isFallingTile(feetRow, aheadCol);
-                if (!floorAhead && Math.abs(dx) > TILE) {
-                    shouldJump = true;
-                }
-
-                // Reason 2: spikes ahead
-                if (getTile(bodyRow, aheadCol) === 3) {
-                    shouldJump = true;
-                }
-
-                // Reason 3: wall blocking us
-                const headRow = Math.floor(prince.y / TILE);
-                if (isSolid(headRow, aheadCol) || isSolid(bodyRow, aheadCol)) {
-                    shouldJump = true;
-                }
-
-                // Reason 4: there's a platform directly above within jump reach
-                // (look for solid tile 1-2 rows up that we can land on)
-                if (!onPath && dy < -TILE) {
-                    for (let checkUp = 1; checkUp <= 2; checkUp++) {
-                        const upRow = princeFeetRow - checkUp;
-                        if (upRow >= 1 && isSolid(upRow, princeCol)) {
-                            shouldJump = true;
-                            break;
-                        }
-                        // Also check one column in move direction
-                        if (upRow >= 1 && isSolid(upRow, princeCol + moveDir)) {
-                            shouldJump = true;
-                            break;
-                        }
+                // 1. Gap ahead — no floor tile in movement direction
+                if (!isSolid(feetRow, aheadCol) && !isFallingTile(feetRow, aheadCol)) {
+                    // Only jump if waypoint is ahead (not behind the gap)
+                    if (Math.abs(tdx) > TILE * 0.5) {
+                        shouldJump = true;
                     }
                 }
 
-                // Reason 5: on the path, target is 1-2 rows above and close
-                if (onPath && dy < -TILE * 0.8 && Math.abs(dx) < TILE * 2) {
+                // 2. Spikes ahead
+                if (getTile(bodyRow, aheadCol) === 3 || getTile(princeRow - 1, aheadCol) === 3) {
+                    shouldJump = true;
+                }
+
+                // 3. Waypoint is above — check there's actually a platform to land on
+                if (tdy < -TILE * 0.5 && Math.abs(tdx) < TILE * 3) {
+                    // Verify a solid tile exists 1-2 rows above that we can reach
+                    let canLand = false;
+                    for (let up = 1; up <= 2; up++) {
+                        const checkRow = princeRow - up;
+                        if (checkRow < 1) continue;
+                        // Check current col and adjacent
+                        for (let dc = -1; dc <= 1; dc++) {
+                            if (isSolid(checkRow, princeCol + dc)) {
+                                canLand = true;
+                                break;
+                            }
+                        }
+                        if (canLand) break;
+                    }
+                    if (canLand) shouldJump = true;
+                }
+
+                // 4. Wall blocking horizontal movement (but NOT ceiling above)
+                const headRow = Math.floor(prince.y / TILE);
+                if (isSolid(bodyRow, aheadCol) && !isSolid(headRow - 1, princeCol)) {
                     shouldJump = true;
                 }
 
                 if (shouldJump) {
                     keys[' '] = true;
-                    aiJumpCooldown = 0.6;
+                    aiJumpCooldown = 0.5;
                 }
             }
 
-            // === Stuck recovery ===
-            if (aiStuckTimer > 1.0 && prince.onGround) {
-                if (aiStuckTimer < 2.0) {
-                    // Try jumping
-                    keys[' '] = true;
-                    aiJumpCooldown = 0.7;
-                } else if (aiStuckTimer < 3.5) {
-                    // Backtrack along path
-                    const backIdx = Math.max(0, closestPathIdx - 10);
-                    const backTarget = path[backIdx];
-                    const bdx = (backTarget.c * TILE + TILE / 2) - pcx;
-                    keys['ArrowLeft'] = bdx < 0;
-                    keys['ArrowRight'] = bdx > 0;
-                    // Only jump if there's an obstacle
-                    const bDir = bdx >= 0 ? 1 : -1;
-                    const bCol = Math.floor((prince.x + bDir * (prince.w + 8)) / TILE);
-                    const bRow = Math.floor((prince.y + prince.h - 5) / TILE);
-                    if (isSolid(bRow, bCol) || !isSolid(Math.floor((prince.y + prince.h + 2) / TILE), bCol)) {
-                        keys[' '] = true;
-                        aiJumpCooldown = 0.6;
-                    }
-                } else {
-                    aiStuckTimer = 0;
-                }
-            }
-
-            // === Avoid guillotines ===
-            const lookCol = princeCol + moveDir;
-            if (getTile(princeRow, lookCol) === 5) {
+            // === Avoid guillotines: pause briefly ===
+            if (getTile(princeRow - 1, princeCol + moveDir) === 5 ||
+                getTile(princeRow, princeCol + moveDir) === 5) {
                 keys['ArrowLeft'] = false;
                 keys['ArrowRight'] = false;
+                keys[' '] = false;
             }
         }
 

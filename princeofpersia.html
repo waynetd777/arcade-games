@@ -1775,19 +1775,29 @@
         }
 
         // === AI / Cheat Mode ===
-        // Follows the path array realistically:
-        //   - Walks horizontally along floors (with run animation)
-        //   - Jumps up to higher platforms (with arc)
-        //   - Falls down through gaps (with gravity)
-        //   - Never moves diagonally through solid tiles
-        // Kills guards and collects potions for points.
+        // Follows the path array using realistic movement.
+        // Key insight: consecutive path tiles define transitions. When tiles change
+        // row, the PREVIOUS tile's position is where we jump/fall FROM, and the
+        // NEXT tile is where we land. We never jump straight up — always a
+        // directional running jump from one platform toward the next.
 
         let aiPathIdx = 0;
         const AI_RUN_SPEED = 150;
         const AI_JUMP_VEL = -420;
         let aiState = 'walk'; // 'walk', 'jump', 'fall'
         let aiVY = 0;
+        let aiJumpTargetY = 0; // Y to land at during jump/fall
+        let aiJumpDir = 1;     // horizontal direction during jump
         let aiAttackCooldown = 0;
+
+        function aiGetTargetPos(idx) {
+            if (idx >= path.length) {
+                if (exitDoor) return { x: exitDoor.c * TILE + TILE / 2 - prince.w / 2, y: (exitDoor.r) * TILE + TILE - prince.h, r: exitDoor.r };
+                return { x: prince.x, y: prince.y, r: 0 };
+            }
+            const p = path[idx];
+            return { x: p.c * TILE + TILE / 2 - prince.w / 2, y: (p.r - 1) * TILE + TILE - prince.h, r: p.r };
+        }
 
         function runAI(dt) {
             if (prince.dead || path.length === 0) return;
@@ -1817,57 +1827,22 @@
                 }
             });
 
-            // Target position from current path tile
-            let target;
-            if (aiPathIdx >= path.length) {
-                // Past the path — head to exit
-                if (!exitDoor) return;
-                target = { c: exitDoor.c, r: exitDoor.r + 1 }; // floor row under exit
-            } else {
-                target = path[aiPathIdx];
-            }
-
-            const targetX = target.c * TILE + TILE / 2 - prince.w / 2;
-            const targetY = (target.r - 1) * TILE + TILE - prince.h;
-            const tdx = targetX - prince.x;
-            const tdy = targetY - prince.y;
-
-            // Check if we've reached this path tile
-            if (Math.abs(tdx) < 4 && Math.abs(tdy) < 4) {
-                prince.x = targetX;
-                prince.y = targetY;
-                aiState = 'walk';
-                aiVY = 0;
-                prince.onGround = true;
-                prince.jumping = false;
-
-                if (aiPathIdx < path.length) {
-                    aiPathIdx++;
-                    // Skip consecutive same-row tiles for smoother movement
-                    while (aiPathIdx < path.length - 1 &&
-                           path[aiPathIdx].r === target.r &&
-                           Math.abs(path[aiPathIdx].c - target.c) <= 2) {
-                        target = path[aiPathIdx];
-                        aiPathIdx++;
-                    }
-                }
-                return;
-            }
-
-            // === Movement depends on relative position of target ===
-
-            if (aiState === 'jump') {
-                // In a jump arc — apply gravity, move horizontally
+            // === In-flight states (jump/fall) — just animate the arc ===
+            if (aiState === 'jump' || aiState === 'fall') {
                 aiVY += GRAVITY * dt;
+                if (aiVY > 600) aiVY = 600;
                 prince.y += aiVY * dt;
-                prince.x += (tdx > 0 ? 1 : -1) * AI_RUN_SPEED * dt;
-                prince.facingRight = tdx > 0;
-                prince.jumping = true;
+                prince.x += aiJumpDir * AI_RUN_SPEED * dt;
+                prince.facingRight = aiJumpDir > 0;
+                prince.jumping = aiState === 'jump';
                 prince.onGround = false;
+                prince.vx = aiJumpDir * AI_RUN_SPEED;
+                prince.runTimer += dt;
+                prince.runFrame = prince.runTimer;
 
-                // Landed? Check if we've reached or passed the target Y
-                if (aiVY > 0 && prince.y >= targetY) {
-                    prince.y = targetY;
+                // Landed when we reach or pass the landing Y
+                if (aiVY > 0 && prince.y >= aiJumpTargetY) {
+                    prince.y = aiJumpTargetY;
                     aiVY = 0;
                     aiState = 'walk';
                     prince.onGround = true;
@@ -1875,71 +1850,57 @@
                     sfxLand();
                 }
 
-                // Run animation
-                prince.vx = (tdx > 0 ? 1 : -1) * AI_RUN_SPEED;
-                prince.runTimer += dt;
-                prince.runFrame = prince.runTimer;
-
-            } else if (aiState === 'fall') {
-                // Falling — gravity only, slight horizontal drift toward target
-                aiVY += GRAVITY * dt;
-                if (aiVY > 600) aiVY = 600;
-                prince.y += aiVY * dt;
-                // Gentle horizontal movement toward target column
-                if (Math.abs(tdx) > 4) {
-                    prince.x += (tdx > 0 ? 1 : -1) * AI_RUN_SPEED * 0.5 * dt;
-                }
-                prince.onGround = false;
-                prince.facingRight = tdx > 0;
-
-                // Landed?
-                if (prince.y >= targetY) {
-                    prince.y = targetY;
+                // Safety: if fallen way below target, snap
+                if (prince.y > aiJumpTargetY + TILE * 3) {
+                    prince.y = aiJumpTargetY;
                     aiVY = 0;
                     aiState = 'walk';
                     prince.onGround = true;
-                    sfxLand();
                 }
-
             } else {
-                // 'walk' state — decide what to do based on target position
+                // === Walk state ===
+                const cur = aiGetTargetPos(aiPathIdx);
+                const tdx = cur.x - prince.x;
+                const tdy = cur.y - prince.y;
 
-                if (Math.abs(tdy) < 4) {
-                    // Same level — just walk horizontally
+                // Reached current target?
+                if (Math.abs(tdx) < 4 && Math.abs(tdy) < 4) {
+                    prince.x = cur.x;
+                    prince.y = cur.y;
+                    prince.onGround = true;
+
+                    // Advance index, skipping same-row consecutive tiles
+                    if (aiPathIdx < path.length) {
+                        const curR = path[Math.min(aiPathIdx, path.length - 1)].r;
+                        aiPathIdx++;
+                        while (aiPathIdx < path.length - 1 && path[aiPathIdx].r === curR) {
+                            aiPathIdx++;
+                        }
+                    }
+                } else if (Math.abs(tdy) < 4 || (Math.abs(tdx) > TILE * 0.5 && tdy < 0)) {
+                    // Same level, OR target is above but we're not underneath yet:
+                    // Walk horizontally toward it
                     const speed = AI_RUN_SPEED * dt;
                     const step = Math.min(speed, Math.abs(tdx));
                     prince.x += (tdx > 0 ? 1 : -1) * step;
                     prince.facingRight = tdx > 0;
                     prince.onGround = true;
-
-                    // Run animation
                     prince.vx = (tdx > 0 ? 1 : -1) * AI_RUN_SPEED;
                     prince.runTimer += dt;
                     prince.runFrame = prince.runTimer;
 
-                } else if (tdy < -4) {
-                    // Target is ABOVE — need to jump
-                    // First walk to roughly below the target column
-                    if (Math.abs(tdx) > TILE * 1.5) {
-                        // Walk toward target X first
-                        const speed = AI_RUN_SPEED * dt;
-                        prince.x += (tdx > 0 ? 1 : -1) * speed;
-                        prince.facingRight = tdx > 0;
-                        prince.vx = (tdx > 0 ? 1 : -1) * AI_RUN_SPEED;
-                        prince.runTimer += dt;
-                        prince.runFrame = prince.runTimer;
-                    } else {
-                        // Close enough horizontally — jump!
+                    // If target is above and we're now close horizontally, jump!
+                    if (tdy < -4 && Math.abs(tdx) <= TILE * 0.5) {
                         aiState = 'jump';
                         aiVY = AI_JUMP_VEL;
+                        aiJumpTargetY = cur.y;
+                        aiJumpDir = tdx >= 0 ? 1 : (tdx < -4 ? -1 : (prince.facingRight ? 1 : -1));
                         prince.jumping = true;
                         prince.onGround = false;
                         sfxJump();
                     }
-
-                } else {
-                    // Target is BELOW — walk to the edge then fall
-                    // Walk horizontally toward target X
+                } else if (tdy > 4) {
+                    // Target is below — walk toward its X, then fall
                     if (Math.abs(tdx) > 4) {
                         const speed = AI_RUN_SPEED * dt;
                         prince.x += (tdx > 0 ? 1 : -1) * speed;
@@ -1948,15 +1909,26 @@
                         prince.runTimer += dt;
                         prince.runFrame = prince.runTimer;
                     } else {
-                        // At the edge — start falling
+                        // Step off edge
                         aiState = 'fall';
-                        aiVY = 0;
+                        aiVY = 20; // small initial downward velocity
+                        aiJumpTargetY = cur.y;
+                        aiJumpDir = tdx >= 0 ? 1 : -1;
                         prince.onGround = false;
                     }
+                } else {
+                    // Target is above and we're right under it — jump straight up
+                    aiState = 'jump';
+                    aiVY = AI_JUMP_VEL;
+                    aiJumpTargetY = cur.y;
+                    aiJumpDir = prince.facingRight ? 1 : -1;
+                    prince.jumping = true;
+                    prince.onGround = false;
+                    sfxJump();
                 }
             }
 
-            // Collect potions
+            // === Collect potions ===
             const princeCol = Math.floor((prince.x + prince.w / 2) / TILE);
             const princeRow = Math.floor((prince.y + prince.h / 2) / TILE);
             if (princeRow >= 0 && princeRow < levelMap.length &&
@@ -1968,6 +1940,20 @@
                 sfxPickup();
                 floatingTexts.push({x: prince.x + prince.w / 2, y: prince.y - 10, t: '+HEALTH', life: 1.0, c: '#ff3366'});
                 updateHUD();
+            }
+
+            // === Exit check (since updatePrince is skipped in AI mode) ===
+            if (exitDoor) {
+                const princeTileR = Math.floor((prince.y + prince.h / 2) / TILE);
+                const princeTileC = Math.floor((prince.x + prince.w / 2) / TILE);
+                if (princeTileR === exitDoor.r && princeTileC === exitDoor.c && levelCompleteTimer <= 0) {
+                    levelCompleteTimer = 2.0;
+                    const timeBonus = Math.floor(timeLeft) * 10;
+                    score += 1000 + timeBonus;
+                    floatingTexts.push({x: camX + W / 2, y: camY + H / 2 - 40, t: 'LEVEL CLEAR! +' + (1000 + timeBonus), life: 2.0, c: '#c084fc'});
+                    sfxLevelClear();
+                    updateHUD();
+                }
             }
 
             // Invincible in AI mode

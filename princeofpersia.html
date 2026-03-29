@@ -325,36 +325,52 @@
             }
 
             // === Build the main path ===
-            // The path zigzags vertically across the full map height.
-            // Structure: climb up to near the ceiling, run across, drop down, run, climb again.
-            // This ensures the full screen is used and vertical traversal is required.
             path = [];
-            let curRow = mapH - 1; // start on ground floor
             let col = 1;
 
-            // Place floor under spawn
-            for (let c = 1; c < 4; c++) {
+            // Varied spawn positions — not always ground floor
+            const spawnTypes = ['ground', 'mid', 'high'];
+            const spawnType = spawnTypes[lvl % 3];
+            let curRow;
+            if (spawnType === 'high') {
+                curRow = 5 + Math.floor(Math.random() * 3); // row 5-7
+            } else if (spawnType === 'mid') {
+                curRow = 9 + Math.floor(Math.random() * 3); // row 9-11
+            } else {
+                curRow = mapH - 1; // ground
+            }
+
+            // Place spawn platform
+            const spawnLen = 3 + Math.floor(Math.random() * 3);
+            for (let c = 1; c < 1 + spawnLen && c < mapW - 2; c++) {
                 map[curRow][c] = 1;
                 path.push({r: curRow, c: c});
             }
-            col = 4;
+            col = 1 + spawnLen;
 
-            // Define zigzag waypoints with more variety
-            const numZigs = 2 + Math.min(lvl, 3);
+            // Define zigzag waypoints with variety
+            const numZigs = 3 + Math.min(lvl, 3);
             const waypoints = [];
-            const minHigh = 5;  // highest row (3 below ceiling)
-            const maxLow = mapH - 2; // lowest non-ground row
-            let lastWasHigh = false;
+            const minHigh = 5;
+            const maxLow = mapH - 2;
+            let lastRow = curRow;
             for (let i = 0; i < numZigs; i++) {
-                if (!lastWasHigh && Math.random() < 0.7) {
-                    // Go high — random height between row 5 and 8
-                    waypoints.push(minHigh + Math.floor(Math.random() * 4));
-                    lastWasHigh = true;
+                // Alternate between going far up and far down from current position
+                let target;
+                if (lastRow > 8) {
+                    // Currently low — go high
+                    target = minHigh + Math.floor(Math.random() * 4);
+                } else if (lastRow < 8) {
+                    // Currently high — go low
+                    target = 10 + Math.floor(Math.random() * (maxLow - 9));
                 } else {
-                    // Go low — random between row 9 and 13
-                    waypoints.push(9 + Math.floor(Math.random() * (maxLow - 8)));
-                    lastWasHigh = false;
+                    // Mid — random direction
+                    target = Math.random() < 0.5
+                        ? minHigh + Math.floor(Math.random() * 3)
+                        : 10 + Math.floor(Math.random() * 4);
                 }
+                waypoints.push(target);
+                lastRow = target;
             }
             // Final waypoint: random exit height (row 5 to 12, clamped later)
             const exitTargetRow = 5 + Math.floor(Math.random() * 8);
@@ -664,31 +680,31 @@
             const highPath = path.slice().sort(function(a, b) { return a.r - b.r; });
 
             // Potions: on elevated paths
-            const numPotions = 2 + Math.floor(lvl / 2) + Math.floor(Math.random() * 2);
+            const numPotions = 3 + lvl + Math.floor(Math.random() * 2);
             let potionsPlaced = 0;
             for (let hp = 0; hp < highPath.length && potionsPlaced < numPotions; hp++) {
                 const p = highPath[hp];
-                if (p.r >= mapH - 2) continue;
-                if (map[p.r - 1][p.c] !== 0) continue;
+                if (p.r >= mapH - 1) continue;
+                if (p.r - 1 < 1 || map[p.r - 1][p.c] !== 0) continue;
                 if (p.c < 4 || p.c > mapW - 4) continue;
                 map[p.r - 1][p.c] = 7;
                 potionsPlaced++;
             }
 
             // Gems: scattered along elevated sections (+500 each)
-            const numGems = 3 + lvl * 2 + Math.floor(Math.random() * 3);
+            const numGems = 5 + lvl * 3 + Math.floor(Math.random() * 4);
             let gemsPlaced = 0;
             for (let hp = 0; hp < highPath.length && gemsPlaced < numGems; hp++) {
                 const p = highPath[hp];
-                if (p.r >= mapH - 3) continue;
-                if (map[p.r - 1][p.c] !== 0) continue;
-                if (p.c < 4 || p.c > mapW - 4) continue;
+                if (p.r >= mapH - 1) continue; // everywhere except ground floor
+                if (p.r - 1 < 1 || map[p.r - 1][p.c] !== 0) continue;
+                if (p.c < 3 || p.c > mapW - 3) continue;
                 map[p.r - 1][p.c] = 8;
                 gemsPlaced++;
             }
 
             // Treasure chests (tile 9): rare, only at the very highest points (+2000)
-            const numTreasures = 1 + Math.floor(lvl / 3);
+            const numTreasures = 1 + Math.floor(lvl / 2);
             let treasurePlaced = 0;
             for (let hp = 0; hp < highPath.length && treasurePlaced < numTreasures; hp++) {
                 const p = highPath[hp];
@@ -755,12 +771,10 @@
             prince.hangingLedge = false;
             prince.carefulStep = false;
 
-            // Find a good starting position (on ground)
-            for (let r = 0; r < levelMap.length; r++) {
-                if (levelMap[r][2] === 1 && (r === 0 || levelMap[r - 1][2] === 0)) {
-                    prince.y = (r - 1) * TILE + TILE - prince.h;
-                    break;
-                }
+            // Find starting position from first path tile
+            if (path.length > 0) {
+                prince.x = path[0].c * TILE + TILE / 2 - prince.w / 2;
+                prince.y = (path[0].r - 1) * TILE + TILE - prince.h;
             }
 
             camX = 0;
@@ -1073,7 +1087,7 @@
             if (prince.dead && prince.deathAnim > 1.5) return;
             const px = prince.x - camX;
             const py = prince.y - camY;
-            const dir = prince.facingRight ? -1 : 1;
+            const dir = prince.facingRight ? 1 : -1;
 
             // Flicker when invincible (but not in AI mode — always visible)
             if (prince.invincible > 0 && Math.floor(prince.invincible * 10) % 2 === 0) return;
@@ -1134,8 +1148,7 @@
                 ctx.restore();
             } else if (running) {
                 // Running: alternating leg swing with knee bend
-                // Negate swing when sprite is flipped so legs move in the correct direction
-                const legSwing = sinP * 0.6 * dir;
+                const legSwing = -sinP * 0.6;
                 const kneeBack = Math.max(0, -cosP) * 0.8;   // back leg bends knee
                 const kneeFront = Math.max(0, cosP) * 0.8;
                 // Left leg (swings with +sinP)
@@ -1202,7 +1215,7 @@
                 ctx.fillRect(7, -30 + crouch, 4, 3);
             } else if (running) {
                 // Arms swing opposite to legs
-                const armSwing = sinP * 0.55 * dir;
+                const armSwing = -sinP * 0.55;
                 // Back arm
                 ctx.save();
                 ctx.translate(-7, -28 + crouch);
@@ -1236,9 +1249,9 @@
             ctx.fillStyle = '#c084fc';
             ctx.fillRect(-6, -40 + crouch, 12, 5);
             ctx.fillRect(-4, -41 + crouch, 8, 2);
-            // Eye (on the front of the face)
+            // Eye
             ctx.fillStyle = '#000';
-            ctx.fillRect(-4, -35 + crouch, 2, 2);
+            ctx.fillRect(2, -35 + crouch, 2, 2);
 
             ctx.restore(); // undo body lean/bob
             ctx.restore(); // undo main transform

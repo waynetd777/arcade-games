@@ -1839,100 +1839,167 @@
             aiLastY = prince.y;
 
             // === Find where we are on the path ===
-            // Find the closest path tile to the prince
-            let closestPathIdx = 0;
-            let closestDist = Infinity;
+            // Two searches:
+            // 1. Closest path tile on the SAME floor (strongly preferred)
+            // 2. Closest path tile overall (fallback)
+            const princeFeetRow = Math.floor((prince.y + prince.h) / TILE);
+            let sameFloorIdx = -1;
+            let sameFloorDist = Infinity;
+            let anyIdx = 0;
+            let anyDist = Infinity;
+
             for (let i = 0; i < path.length; i++) {
                 const px = path[i].c * TILE + TILE / 2;
                 const py = path[i].r * TILE;
-                const d = Math.abs(px - pcx) + Math.abs(py - pcy) * 0.5; // weight X more than Y
-                if (d < closestDist) {
-                    closestDist = d;
-                    closestPathIdx = i;
+                const d = Math.abs(px - pcx) + Math.abs(py - pcy);
+                if (d < anyDist) {
+                    anyDist = d;
+                    anyIdx = i;
+                }
+                // Same floor = path floor tile is within 1 row of prince's feet
+                if (Math.abs(path[i].r - princeFeetRow) <= 1) {
+                    const sd = Math.abs(px - pcx);
+                    if (sd < sameFloorDist) {
+                        sameFloorDist = sd;
+                        sameFloorIdx = i;
+                    }
                 }
             }
 
-            // Update our high-water mark of progress
+            const closestPathIdx = sameFloorIdx >= 0 ? sameFloorIdx : anyIdx;
+            const onPath = sameFloorIdx >= 0 && sameFloorDist < TILE * 3;
+
+            // Update progress high-water mark
             if (closestPathIdx > aiProgressIdx) {
                 aiProgressIdx = closestPathIdx;
             }
 
             // === Pick next target ===
-            // Target the NEXT path tile beyond our closest one.
-            // Use a small look-ahead (2-3 tiles) so we follow the path precisely
-            // rather than cutting corners and falling off.
-            const targetIdx = Math.min(closestPathIdx + 3, path.length - 1);
-            const target = path[targetIdx];
-            const targetX = target.c * TILE + TILE / 2;
-            const targetY = target.r * TILE;
-            const dx = targetX - pcx;
-            const dy = targetY - pcy; // negative = target is above us
+            let targetIdx, target, targetX, targetY, dx, dy;
 
-            // === Move toward target (can be left OR right) ===
-            if (Math.abs(dx) > 8) {
-                if (dx > 0) {
-                    keys['ArrowRight'] = true;
-                } else {
-                    keys['ArrowLeft'] = true;
+            if (onPath) {
+                // On the path: target a few tiles ahead
+                targetIdx = Math.min(closestPathIdx + 3, path.length - 1);
+                target = path[targetIdx];
+                targetX = target.c * TILE + TILE / 2;
+                targetY = target.r * TILE;
+                dx = targetX - pcx;
+                dy = targetY - pcy;
+            } else {
+                // OFF the path (fell to ground floor or different level).
+                // Find the nearest path tile that is ABOVE us — we need to
+                // get underneath it then jump up via recovery ramps.
+                // Scan path for the closest tile that's above and reachable-ish.
+                let bestRampIdx = -1;
+                let bestRampDist = Infinity;
+                for (let i = 0; i < path.length; i++) {
+                    const pr = path[i].r;
+                    const pc = path[i].c;
+                    // Must be above the prince
+                    if (pr >= princeFeetRow) continue;
+                    const hd = Math.abs(pc * TILE + TILE / 2 - pcx);
+                    if (hd < bestRampDist) {
+                        bestRampDist = hd;
+                        bestRampIdx = i;
+                    }
                 }
+
+                if (bestRampIdx >= 0) {
+                    // Walk toward the X of that path tile — recovery ramps should be nearby
+                    target = path[bestRampIdx];
+                    targetX = target.c * TILE + TILE / 2;
+                    targetY = target.r * TILE;
+                    dx = targetX - pcx;
+                    dy = targetY - pcy;
+                } else {
+                    // No path above us — just head right toward exit
+                    dx = (exitDoor ? exitDoor.c * TILE : mapW * TILE) - pcx;
+                    dy = 0;
+                    targetY = prince.y;
+                }
+            }
+
+            // === Move toward target ===
+            if (Math.abs(dx) > 8) {
+                keys[dx > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
             }
             const moveDir = dx >= 0 ? 1 : -1;
 
-            // === Jumping — only when there's a clear reason ===
+            // === Jumping — only with a specific reason ===
             if (prince.onGround && aiJumpCooldown <= 0) {
                 let shouldJump = false;
                 const aheadCol = Math.floor((prince.x + moveDir * (prince.w + 8)) / TILE);
                 const feetRow = Math.floor((prince.y + prince.h + 2) / TILE);
+                const bodyRow = Math.floor((prince.y + prince.h - 5) / TILE);
 
-                // Reason 1: gap ahead (no floor in movement direction)
+                // Reason 1: gap ahead (no floor where we're walking)
                 const floorAhead = isSolid(feetRow, aheadCol) || isFallingTile(feetRow, aheadCol);
-                if (!floorAhead && Math.abs(dx) > TILE * 0.5) {
+                if (!floorAhead && Math.abs(dx) > TILE) {
                     shouldJump = true;
                 }
 
-                // Reason 2: spikes ahead at foot level
-                const bodyRow = Math.floor((prince.y + prince.h - 5) / TILE);
+                // Reason 2: spikes ahead
                 if (getTile(bodyRow, aheadCol) === 3) {
                     shouldJump = true;
                 }
 
-                // Reason 3: wall blocking horizontal movement
+                // Reason 3: wall blocking us
                 const headRow = Math.floor(prince.y / TILE);
                 if (isSolid(headRow, aheadCol) || isSolid(bodyRow, aheadCol)) {
                     shouldJump = true;
                 }
 
-                // Reason 4: target is directly above us AND close horizontally
-                // (we're at the base of a step-up)
-                if (dy < -TILE * 1.2 && Math.abs(dx) < TILE * 2) {
+                // Reason 4: there's a platform directly above within jump reach
+                // (look for solid tile 1-2 rows up that we can land on)
+                if (!onPath && dy < -TILE) {
+                    for (let checkUp = 1; checkUp <= 2; checkUp++) {
+                        const upRow = princeFeetRow - checkUp;
+                        if (upRow >= 1 && isSolid(upRow, princeCol)) {
+                            shouldJump = true;
+                            break;
+                        }
+                        // Also check one column in move direction
+                        if (upRow >= 1 && isSolid(upRow, princeCol + moveDir)) {
+                            shouldJump = true;
+                            break;
+                        }
+                    }
+                }
+
+                // Reason 5: on the path, target is 1-2 rows above and close
+                if (onPath && dy < -TILE * 0.8 && Math.abs(dx) < TILE * 2) {
                     shouldJump = true;
                 }
 
                 if (shouldJump) {
                     keys[' '] = true;
-                    aiJumpCooldown = 0.5;
+                    aiJumpCooldown = 0.6;
                 }
             }
 
             // === Stuck recovery ===
             if (aiStuckTimer > 1.0 && prince.onGround) {
-                // First: try jumping in current direction
                 if (aiStuckTimer < 2.0) {
+                    // Try jumping
                     keys[' '] = true;
-                    aiJumpCooldown = 0.6;
-                } else {
-                    // Backtrack: target an earlier path tile to find a new route
-                    // Move toward a tile a few steps BACK along the path
-                    const backIdx = Math.max(0, closestPathIdx - 8);
+                    aiJumpCooldown = 0.7;
+                } else if (aiStuckTimer < 3.5) {
+                    // Backtrack along path
+                    const backIdx = Math.max(0, closestPathIdx - 10);
                     const backTarget = path[backIdx];
                     const bdx = (backTarget.c * TILE + TILE / 2) - pcx;
                     keys['ArrowLeft'] = bdx < 0;
                     keys['ArrowRight'] = bdx > 0;
-                    keys[' '] = true;
-                    aiJumpCooldown = 0.5;
-                    if (aiStuckTimer > 3.5) {
-                        aiStuckTimer = 0;
+                    // Only jump if there's an obstacle
+                    const bDir = bdx >= 0 ? 1 : -1;
+                    const bCol = Math.floor((prince.x + bDir * (prince.w + 8)) / TILE);
+                    const bRow = Math.floor((prince.y + prince.h - 5) / TILE);
+                    if (isSolid(bRow, bCol) || !isSolid(Math.floor((prince.y + prince.h + 2) / TILE), bCol)) {
+                        keys[' '] = true;
+                        aiJumpCooldown = 0.6;
                     }
+                } else {
+                    aiStuckTimer = 0;
                 }
             }
 

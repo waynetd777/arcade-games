@@ -2055,7 +2055,7 @@
             }
 
             // Update
-            updatePrince(dt);
+            if (!aiMode) updatePrince(dt);
             updateGuards(dt);
             updateFallingTiles(dt);
             updateCamera();

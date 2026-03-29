@@ -2133,7 +2133,7 @@
                 return;
             }
 
-            if (aiMode) runAI(dt);
+            if (aiMode) { try { runAI(dt); } catch(e) { console.error('AI error:', e); } }
 
             // Timer (disabled in AI mode — AI needs time to traverse)
             if (!aiMode) {

@@ -53,7 +53,7 @@
         <button id="pause-btn">PAUSE</button>
         <button id="ai-btn">AI: OFF</button>
         <button id="mute-btn" style="background:#222;color:#0ff;border:2px solid #0ff;line-height:0;padding:6px;"><svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><path d="M14,9.5 Q17,12 14,14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M16,7.5 Q21,12 16,16.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
-        <a href="index.html" style="padding: 12px 25px; font-size: 16px; font-family: 'Courier New', Courier, monospace; font-weight: bold; cursor: pointer; border: none; border-radius: 4px; text-transform: uppercase; background: #222; color: #fff; border: 2px solid #fff; text-decoration: none; display: inline-block; transition: 0.2s;">MENU</a>
+        <a id="menu-btn" href="index.html" style="padding: 12px 25px; font-size: 16px; font-family: 'Courier New', Courier, monospace; font-weight: bold; cursor: pointer; border: none; border-radius: 4px; text-transform: uppercase; background: #222; color: #fff; border: 2px solid #fff; text-decoration: none; display: inline-block; transition: 0.2s;">MENU</a>
     </div>
 
     <div class="dpad">
@@ -76,6 +76,7 @@
         const btn = document.getElementById('b');
         const aiBtn = document.getElementById('ai-btn');
         const pauseBtn = document.getElementById('pause-btn');
+        const menuBtn = document.getElementById('menu-btn');
         let muted = localStorage.getItem('arcade_muted') === 'true';
         const _mob = window.innerWidth <= 580;
         const muteBtn = document.getElementById('mute-btn');
@@ -502,6 +503,8 @@
 
             if (lives <= 0) {
                 state = 'OVER';
+                menuBtn.innerText = 'MENU';
+                menuBtn.href = 'index.html';
                 titleFrogTimer = 0;
                 stopMusic();
                 sfxGameOver();
@@ -1001,6 +1004,8 @@
             initGoalSlots();
             initLevel();
             state = 'PLAY';
+            menuBtn.innerText = 'HOME';
+            menuBtn.href = '#';
             lastTime = performance.now();
             playMusic('game');
             canvas.focus();
@@ -1022,6 +1027,22 @@
             pauseBtn.className = paused ? "pause-active" : "";
             pauseBtn.innerText = paused ? "RESUME" : "PAUSE";
             if (!paused) lastTime = performance.now(); // reset dt to avoid time jump
+        };
+
+        menuBtn.onclick = function(e) {
+            if (state === 'PLAY') {
+                e.preventDefault();
+                haptic(30);
+                state = 'START';
+                paused = false;
+                pauseBtn.innerText = 'PAUSE';
+                pauseBtn.className = '';
+                if (gameOverTimeout) { clearTimeout(gameOverTimeout); gameOverTimeout = null; }
+                stopMusic();
+                playMusic('home');
+                menuBtn.innerText = 'MENU';
+                menuBtn.href = 'index.html';
+            }
         };
 
         window.addEventListener('keydown', (e) => {

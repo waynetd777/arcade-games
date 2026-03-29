@@ -144,7 +144,8 @@
         let levelStartTimer = 0;
         let levelCompleteTimer = 0;
         const GRAVITY = 800;
-        const JUMP_VEL = -340;
+        const JUMP_VEL = -340;           // standing jump (~1.8 tiles high)
+        const RUNNING_JUMP_VEL = -440;   // running jump (~2.4 tiles high)
         const RUN_SPEED = 130;
         const CAREFUL_SPEED = 40;
 
@@ -294,8 +295,9 @@
         // then place traps and enemies only where the path has validated clearance.
         //
         // Physics constraints:
-        //   Max jump height: ~1.8 tiles (72px). So max step-up = 1 row.
-        //   Max horizontal jump: ~3 tiles at full run.
+        //   Standing jump: ~1.8 tiles high (JUMP_VEL=340).
+        //   Running jump:  ~2.4 tiles high (RUNNING_JUMP_VEL=440). Step-up = 2 rows.
+        //   Max horizontal jump: ~4 tiles at full running jump.
         //   Prince height: 36px (~1 tile). Needs 2 clear rows to walk.
 
         function generateLevel(lvl) {
@@ -354,16 +356,16 @@
                 }
 
                 if (action === 'up') {
-                    // Step up 1 row: place a short platform 1 row higher
-                    // First, flat run of 2-3 tiles at current level
+                    // Step up 1-2 rows: running jump can reach 2 rows
                     const runLen = 2 + Math.floor(Math.random() * 2);
                     for (let i = 0; i < runLen && col < mapW - 3; i++) {
                         map[curRow][col] = 1;
                         path.push({r: curRow, c: col});
                         col++;
                     }
-                    // Step up: place platform 1 row above
-                    curRow -= 1;
+                    // Step up 1 or 2 rows (2 requires a running jump)
+                    const stepUp = curRow > 4 ? (1 + Math.floor(Math.random() * 2)) : 1;
+                    curRow -= stepUp;
                     const platLen = 3 + Math.floor(Math.random() * 3);
                     for (let i = 0; i < platLen && col < mapW - 3; i++) {
                         map[curRow][col] = 1;
@@ -445,8 +447,9 @@
                 const seg = segments[si];
                 if (seg.row >= mapH - 1) continue; // already on ground, no ramp needed
 
-                // How many 1-row steps from ground to this segment?
-                const stepsNeeded = (mapH - 1) - seg.row;
+                // How many 2-row steps from ground to this segment? (running jump = 2 rows)
+                const rowsUp = (mapH - 1) - seg.row;
+                const stepsNeeded = Math.ceil(rowsUp / 2);
 
                 // Place ramp to the left of the segment (or right if no room)
                 let rampCol = seg.startC - 2;
@@ -456,22 +459,29 @@
                     rampDir = 1; // build ramp going right
                 }
 
-                // Build stepping stones: one 2-tile platform per row, each 1 row higher
+                // Build stepping stones: 3-tile platforms every 2 rows up
                 for (let step = 0; step < stepsNeeded; step++) {
-                    const stepRow = (mapH - 1) - step - 1; // one row above previous step
-                    const stepC = rampCol + (step * rampDir * 2);
-                    if (stepC < 1 || stepC >= mapW - 2) break;
-                    // Place 2-tile platform if space is empty
-                    for (let dc = 0; dc < 2; dc++) {
+                    const stepRow = (mapH - 1) - (step + 1) * 2; // 2 rows per step
+                    if (stepRow < 1) break;
+                    const stepC = rampCol + (step * rampDir * 3);
+                    if (stepC < 1 || stepC >= mapW - 3) break;
+                    // Place 3-tile platform if space is empty
+                    for (let dc = 0; dc < 3; dc++) {
                         const c = stepC + dc;
                         if (c >= 1 && c < mapW - 1 && map[stepRow][c] === 0) {
                             map[stepRow][c] = 1;
                         }
                     }
-                    // Ensure 2 rows above are clear for the prince to stand
-                    for (let dr = 1; dr <= 2; dr++) {
-                        if (stepRow - dr >= 1 && (map[stepRow - dr][stepC] === 1 || map[stepRow - dr][stepC] === 2)) {
-                            map[stepRow - dr][stepC] = 0;
+                    // Ensure 3 rows above are clear (room to land + stand)
+                    for (let dr = 1; dr <= 3; dr++) {
+                        const cr = stepRow - dr;
+                        if (cr >= 1) {
+                            for (let dc = 0; dc < 3; dc++) {
+                                const c = stepC + dc;
+                                if (c >= 1 && c < mapW - 1 && map[cr][c] !== 0 && map[cr][c] !== 2) {
+                                    map[cr][c] = 0;
+                                }
+                            }
                         }
                     }
                 }
@@ -1275,9 +1285,14 @@
             prince.crouching = keys['ArrowDown'] && prince.onGround && !prince.attacking;
             prince.carefulStep = keys['ArrowDown'] && prince.onGround;
 
-            // Jumping
+            // Jumping — running jump goes higher and further (like original PoP)
             if (keys[' '] && prince.onGround && !prince.attacking && !prince.crouching) {
-                prince.vy = JUMP_VEL;
+                const isRunning = Math.abs(prince.vx) > 50;
+                prince.vy = isRunning ? RUNNING_JUMP_VEL : JUMP_VEL;
+                // Running jump also gets a horizontal boost
+                if (isRunning) {
+                    prince.vx *= 1.3;
+                }
                 prince.onGround = false;
                 prince.jumping = true;
                 sfxJump();

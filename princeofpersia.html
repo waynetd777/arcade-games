@@ -339,21 +339,26 @@
             }
             col = 4;
 
-            // Define zigzag waypoints: alternate between high (row 3-4) and low (row 12-13)
-            // Each waypoint is a target row the path must reach
-            const numZigs = 2 + Math.min(lvl, 2);
+            // Define zigzag waypoints with more variety
+            const numZigs = 2 + Math.min(lvl, 3);
             const waypoints = [];
+            const minHigh = 5;  // highest row (3 below ceiling)
+            const maxLow = mapH - 2; // lowest non-ground row
+            let lastWasHigh = false;
             for (let i = 0; i < numZigs; i++) {
-                if (i % 2 === 0) {
-                    // Go high
-                    waypoints.push(5 + Math.floor(Math.random() * 2));
+                if (!lastWasHigh && Math.random() < 0.7) {
+                    // Go high — random height between row 5 and 8
+                    waypoints.push(minHigh + Math.floor(Math.random() * 4));
+                    lastWasHigh = true;
                 } else {
-                    // Go low
-                    waypoints.push(mapH - 2 - Math.floor(Math.random() * 2));
+                    // Go low — random between row 9 and 13
+                    waypoints.push(9 + Math.floor(Math.random() * (maxLow - 8)));
+                    lastWasHigh = false;
                 }
             }
-            // End low for the exit
-            waypoints.push(mapH - 1);
+            // Final waypoint: random exit height (row 5 to 12, clamped later)
+            const exitTargetRow = 5 + Math.floor(Math.random() * 8);
+            waypoints.push(exitTargetRow);
 
             function placeTiles(row, startCol, count) {
                 let placed = 0;
@@ -370,57 +375,55 @@
                 const rowDiff = targetRow - curRow; // negative = go up, positive = go down
 
                 if (Math.abs(rowDiff) <= 1) {
-                    // Already near target — flat run with optional 1-row step
-                    const runLen = 3 + Math.floor(Math.random() * 3);
+                    // Near target — varied flat run length
+                    const runLen = 2 + Math.floor(Math.random() * 5);
                     col += placeTiles(curRow, col, runLen);
                     if (rowDiff !== 0) {
                         curRow = targetRow;
-                        col += placeTiles(curRow, col, 2);
+                        col += placeTiles(curRow, col, 2 + Math.floor(Math.random() * 2));
+                    }
+                    // Random gap sometimes
+                    if (Math.random() < 0.3 && col < mapW - 8) {
+                        col += 1 + Math.floor(Math.random() * 2);
                     }
                 } else if (rowDiff < 0) {
-                    // CLIMB UP — staircase platforms, each offset horizontally
-                    // so the prince has room for a running jump arc.
-                    // Layout: each step is 3-4 tiles wide, placed 3+ columns
-                    // to the RIGHT of the previous one, and 2 rows higher.
-                    // This ensures the ceiling of the upper platform doesn't
-                    // block the jump from the lower one.
+                    // CLIMB UP — 1-row steps with 3-col gaps
+                    // Vary the run-up length
+                    col += placeTiles(curRow, col, 2 + Math.floor(Math.random() * 4));
 
-                    // Run-up on current floor
-                    col += placeTiles(curRow, col, 3 + Math.floor(Math.random() * 2));
-
-                    // 1-row steps with 3-col gaps — proven traversable by simulation.
-                    // Each step: 3 empty columns (gap), then 3-4 tile platform 1 row up.
-                    // Running jump covers 4.6 tiles horizontally and 1.8 tiles high,
-                    // easily clearing a 3-col gap with 1-row rise.
                     while (curRow > targetRow && col < mapW - 8) {
-                        col += 3; // gap
-                        curRow -= 1; // 1 row up
-                        const platLen = 3 + Math.floor(Math.random() * 2);
+                        col += 3; // gap for running jump
+                        curRow -= 1;
+                        // Vary platform widths more (2-5 tiles)
+                        const platLen = 2 + Math.floor(Math.random() * 4);
                         col += placeTiles(curRow, col, platLen);
                     }
-                    // Horizontal run at the top
-                    const topRun = 3 + Math.floor(Math.random() * 4);
+                    // Varied run at the top
+                    const topRun = 2 + Math.floor(Math.random() * 6);
                     col += placeTiles(curRow, col, topRun);
+                    // Sometimes add a gap at the top
+                    if (Math.random() < 0.3 && col < mapW - 8) {
+                        col += 1 + Math.floor(Math.random() * 2);
+                    }
 
                 } else {
-                    // DROP DOWN — gaps and falls
-                    // Run to edge
-                    col += placeTiles(curRow, col, 2 + Math.floor(Math.random() * 2));
+                    // DROP DOWN — varied drops
+                    col += placeTiles(curRow, col, 2 + Math.floor(Math.random() * 3));
 
                     while (curRow < targetRow && col < mapW - 4) {
-                        // Gap then landing below
-                        col += 2; // gap to fall through
-                        const drop = Math.min(2 + Math.floor(Math.random() * 2), targetRow - curRow);
+                        // Varied gap width (1-3)
+                        col += 1 + Math.floor(Math.random() * 3);
+                        // Varied drop height (1-3 rows)
+                        const drop = Math.min(1 + Math.floor(Math.random() * 3), targetRow - curRow);
                         curRow += drop;
                         if (curRow > mapH - 1) curRow = mapH - 1;
-                        const landLen = 3 + Math.floor(Math.random() * 2);
+                        // Varied landing platform
+                        const landLen = 2 + Math.floor(Math.random() * 4);
                         col += placeTiles(curRow, col, landLen);
                     }
-                    // Horizontal run at the bottom
-                    const bottomRun = 2 + Math.floor(Math.random() * 3);
+                    const bottomRun = 1 + Math.floor(Math.random() * 4);
                     col += placeTiles(curRow, col, bottomRun);
 
-                    // Small horizontal gap sometimes
                     if (col < mapW - 6 && Math.random() < 0.4) {
                         col += 1 + Math.floor(Math.random() * 2);
                     }
@@ -678,13 +681,13 @@
                 gemsPlaced++;
             }
 
-            // Exit door at end of path — must be at least 3 rows below ceiling
-            // so the player can jump to reach it
+            // Exit door — at the height where the path ends (randomized by waypoints)
+            // Clamped to at least 3 rows below ceiling for jump headroom
             exitDoor = null;
             const exitC = mapW - 3;
-            let exitRow = curRow; // floor row where path ends
-            // If path ends too close to ceiling (row 0), move exit down
-            if (exitRow < 6) exitRow = 6;
+            let exitRow = curRow;
+            if (exitRow < 4) exitRow = 4; // minimum 3 rows below ceiling (row 0)
+            if (exitRow > mapH - 2) exitRow = mapH - 2;
             // Ensure there's a floor tile under the exit
             if (map[exitRow][exitC] !== 1) map[exitRow][exitC] = 1;
             // Place exit above the floor

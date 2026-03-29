@@ -1846,11 +1846,17 @@
                 const p = path[aiPathIdx];
                 const px = p.c * TILE + TILE / 2;
                 const sameLvl = Math.abs(p.r - pFeetRow) <= 1;
-                const closeX = Math.abs(px - pcx) < TILE * 0.8;
-                const next = path[Math.min(aiPathIdx + 1, path.length - 1)];
+                // Skip this tile if we're on the same level AND either:
+                // - We're close to it, OR
+                // - We've already walked past it (it's behind us relative
+                //   to the direction of the NEXT path tile)
+                const nextP = path[Math.min(aiPathIdx + 1, path.length - 1)];
+                const tileX = p.c * TILE + TILE / 2;
+                const closeEnough = Math.abs(tileX - pcx) < TILE * 0.8;
+                const walkedPast = (nextP.c >= p.c && pcx > tileX + TILE * 0.3) ||
+                                   (nextP.c < p.c && pcx < tileX - TILE * 0.3);
 
-                if (sameLvl && closeX) {
-                    // Always advance past tiles we're standing on
+                if (sameLvl && (closeEnough || walkedPast)) {
                     aiPathIdx++;
                 } else {
                     break;

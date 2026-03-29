@@ -1838,45 +1838,28 @@
             });
             if (fighting) { aiStuckTimer = 0; return; }
 
-            // === Find target: next path tile we haven't reached ===
-            // Advance past tiles we're close to horizontally on the same floor.
-            // ALSO advance if we've reached the X of a ground-floor tile and the
-            // next tile is a step-up — we need to target the upper tile to jump to it.
-            while (aiPathIdx < path.length - 1) {
-                const p = path[aiPathIdx];
-                const px = p.c * TILE + TILE / 2;
-                const sameLvl = Math.abs(p.r - pFeetRow) <= 1;
-                // Skip this tile if we're on the same level AND either:
-                // - We're close to it, OR
-                // - We've already walked past it (it's behind us relative
-                //   to the direction of the NEXT path tile)
-                const nextP = path[Math.min(aiPathIdx + 1, path.length - 1)];
-                const tileX = p.c * TILE + TILE / 2;
-                const closeEnough = Math.abs(tileX - pcx) < TILE * 0.8;
-                const walkedPast = (nextP.c >= p.c && pcx > tileX + TILE * 0.3) ||
-                                   (nextP.c < p.c && pcx < tileX - TILE * 0.3);
-
-                if (sameLvl && (closeEnough || walkedPast)) {
-                    aiPathIdx++;
-                } else {
-                    break;
+            // === Target: find nearest unvisited path tile ===
+            // Simple: find the path tile closest to our POSITION that we haven't
+            // already passed. "Passed" = we've been within 1 tile of it.
+            const t = aiPathIdx < path.length ? path[aiPathIdx] : null;
+            if (!t) {
+                // Past all path tiles — walk to exit
+                if (exitDoor) {
+                    const edx = exitDoor.c * TILE + TILE / 2 - pcx;
+                    if (Math.abs(edx) > 6) keys[edx > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
                 }
-            }
-
-            // If past all path tiles, target the exit door directly
-            let t, tx, dx;
-            if (aiPathIdx >= path.length && exitDoor) {
-                t = { r: exitDoor.r + 1, c: exitDoor.c }; // floor tile under exit
-                tx = exitDoor.c * TILE + TILE / 2;
-                dx = tx - pcx;
-            } else if (aiPathIdx < path.length) {
-                t = path[aiPathIdx];
-                tx = t.c * TILE + TILE / 2;
-                dx = tx - pcx;
-            } else {
+                prince.invincible = 0.5;
                 return;
             }
+            const tx = t.c * TILE + TILE / 2;
+            const dx = tx - pcx;
             const moveDir = dx >= 0 ? 1 : -1;
+            const dist = Math.abs(dx);
+
+            // Advance path when we reach the target tile (within 1 tile)
+            if (dist < TILE * 0.8 && Math.abs(t.r - pFeetRow) <= 1) {
+                aiPathIdx++;
+            }
 
             // === Stuck detection ===
             const moved = Math.abs(prince.x - aiLastX) + Math.abs(prince.y - aiLastY);
@@ -1887,79 +1870,51 @@
             }
             aiLastX = prince.x;
             aiLastY = prince.y;
-
             if (aiStuckTimer > 2.0) {
                 aiPathIdx = Math.min(aiPathIdx + 2, path.length - 1);
                 aiStuckTimer = 0;
-                return;
             }
 
-            // === Movement + Jump logic ===
+            // === ALWAYS walk toward target ===
+            if (dist > 6) {
+                keys[moveDir > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
+            }
+
+            // === Jump logic ===
             if (prince.onGround) {
-                const aheadCol = Math.floor((prince.x + moveDir * (prince.w + 6)) / TILE);
+                const headRow = Math.floor(prince.y / TILE);
                 const feetRow = Math.floor((prince.y + prince.h + 2) / TILE);
                 const bodyRow = Math.floor((prince.y + prince.h - 5) / TILE);
-                const headRow = Math.floor(prince.y / TILE);
-                const wallAhead = isSolid(bodyRow, aheadCol) || isSolid(headRow, aheadCol);
-                const needsJumpUp = t.r < pFeetRow;
+                const aheadCol = Math.floor((prince.x + moveDir * (prince.w + 6)) / TILE);
 
-                // === Jump-up detection: jump BEFORE walking under the ledge ===
-                // When the target is above, check if we're about to walk under
-                // the target platform. If the target platform's column is only
-                // 2-4 tiles ahead AND there's clear sky above us now, jump!
                 const hasHeadroom = !isSolid(headRow - 1, princeCol) &&
                                     !isSolid(headRow - 2, princeCol);
 
-                // Distance to the target platform in columns
-                const targetCol = t.c;
-                const colsToTarget = (targetCol - princeCol) * (moveDir > 0 ? 1 : -1);
+                if (hasHeadroom) {
+                    let wantJump = false;
 
-                // We should jump when:
-                // 1. Target is above us
-                // 2. We're 2-4 columns away from the target column (approaching the overhang)
-                // 3. We have headroom right now
-                // 4. There IS an overhang ahead (solid tile above in the next 1-2 cols)
-                let aboutToGoUnder = false;
-                if (needsJumpUp && colsToTarget > 0 && colsToTarget <= 4 && hasHeadroom) {
-                    // Check if the next 1-2 columns have a ceiling
-                    for (let la = 1; la <= 2; la++) {
-                        const cc = princeCol + moveDir * la;
-                        if (isSolid(headRow - 1, cc) || isSolid(pFeetRow - 1, cc)) {
-                            aboutToGoUnder = true;
-                            break;
-                        }
+                    // Target is above — jump if we're 2-5 tiles away (running jump distance)
+                    if (t.r < pFeetRow && dist > TILE * 1.5 && dist < TILE * 5) {
+                        wantJump = true;
                     }
-                }
-
-                if (aboutToGoUnder) {
-                    // Jump NOW — approaching overhang with clear sky
-                    keys[' '] = true;
-                    aiJumpDir = moveDir;
-                    keys[moveDir > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
-                } else if (needsJumpUp && !hasHeadroom) {
-                    // Already under the ledge — back up until headroom restored
-                    keys[moveDir > 0 ? 'ArrowLeft' : 'ArrowRight'] = true;
-                } else {
-                    // Normal: walk toward target
-                    if (Math.abs(dx) > 6) {
-                        keys[dx > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
+                    // Gap ahead
+                    if (!isSolid(feetRow, aheadCol) && !isFallingTile(feetRow, aheadCol) && dist > TILE) {
+                        wantJump = true;
+                    }
+                    // Spikes ahead
+                    if (getTile(bodyRow, aheadCol) === 3) {
+                        wantJump = true;
                     }
 
-                    if (hasHeadroom) {
-                        let wantJump = false;
-                        // Gap ahead
-                        if (!isSolid(feetRow, aheadCol) && !isFallingTile(feetRow, aheadCol) && Math.abs(dx) > TILE) wantJump = true;
-                        // Spikes ahead
-                        if (getTile(bodyRow, aheadCol) === 3) wantJump = true;
-                        // Stuck
-                        if (aiStuckTimer > 1.0 && !wallAhead) wantJump = true;
-
-                        if (wantJump) {
-                            keys[' '] = true;
-                            aiJumpDir = moveDir;
-                            keys[moveDir > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
-                        }
+                    if (wantJump) {
+                        keys[' '] = true;
+                        aiJumpDir = moveDir;
+                        keys[moveDir > 0 ? 'ArrowRight' : 'ArrowLeft'] = true;
                     }
+                } else if (t.r < pFeetRow) {
+                    // No headroom but target is above — we're under the ledge, back up
+                    keys['ArrowLeft'] = moveDir < 0 ? false : true;
+                    keys['ArrowRight'] = moveDir > 0 ? false : true;
                 }
             }
 

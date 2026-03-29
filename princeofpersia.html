@@ -302,8 +302,8 @@
         //   Prince height: 36px (~1 tile). Needs 2 clear rows to walk.
 
         function generateLevel(lvl) {
-            let mapW = 30 + lvl * 4;
-            if (mapW > 60) mapW = 60;
+            let mapW = 40 + lvl * 5;
+            if (mapW > 70) mapW = 70;
             const mapH = 15;
             const map = [];
             for (let r = 0; r < mapH; r++) {
@@ -324,9 +324,10 @@
             }
 
             // === Build the main path ===
-            // Walk left-to-right, placing floor segments. Occasionally go up or down 1 row.
-            // Track the path so we know every tile the player must traverse.
-            const path = []; // [{r, c}] — floor tiles the player walks ON (stands on top of)
+            // The path zigzags vertically across the full map height.
+            // Structure: climb up to near the ceiling, run across, drop down, run, climb again.
+            // This ensures the full screen is used and vertical traversal is required.
+            const path = [];
             let curRow = mapH - 1; // start on ground floor
             let col = 1;
 
@@ -337,73 +338,82 @@
             }
             col = 4;
 
-            // How many height changes per level
-            const numClimbs = 2 + Math.min(lvl, 4);
-            let climbsUsed = 0;
-            const climbInterval = Math.floor((mapW - 8) / (numClimbs + 1));
-
-            while (col < mapW - 3) {
-                // Decide: flat run, or height change?
-                let action = 'flat';
-                if (climbsUsed < numClimbs && col > 3 + climbsUsed * climbInterval && Math.random() < 0.5) {
-                    // Try to go up or down
-                    const canGoUp = curRow > 3; // need room above
-                    const canGoDown = curRow < mapH - 2;
-                    if (canGoUp && (!canGoDown || Math.random() < 0.6)) {
-                        action = 'up';
-                    } else if (canGoDown) {
-                        action = 'down';
-                    }
-                }
-
-                if (action === 'up') {
-                    // Step up 1-2 rows: running jump can reach 2 rows
-                    const runLen = 2 + Math.floor(Math.random() * 2);
-                    for (let i = 0; i < runLen && col < mapW - 3; i++) {
-                        map[curRow][col] = 1;
-                        path.push({r: curRow, c: col});
-                        col++;
-                    }
-                    // Step up 1 or 2 rows (2 requires a running jump)
-                    const stepUp = curRow > 4 ? (1 + Math.floor(Math.random() * 2)) : 1;
-                    curRow -= stepUp;
-                    const platLen = 3 + Math.floor(Math.random() * 3);
-                    for (let i = 0; i < platLen && col < mapW - 3; i++) {
-                        map[curRow][col] = 1;
-                        path.push({r: curRow, c: col});
-                        col++;
-                    }
-                    climbsUsed++;
-                } else if (action === 'down') {
-                    // Drop down: leave a gap in the floor, land 1-2 rows below
-                    const runLen = 2 + Math.floor(Math.random() * 2);
-                    for (let i = 0; i < runLen && col < mapW - 3; i++) {
-                        map[curRow][col] = 1;
-                        path.push({r: curRow, c: col});
-                        col++;
-                    }
-                    // Gap (2 tiles — prince falls through)
-                    col += 2;
-                    // Land 1-2 rows lower
-                    const drop = 1 + (curRow < mapH - 3 ? Math.floor(Math.random() * 2) : 0);
-                    curRow = Math.min(curRow + drop, mapH - 1);
-                    const platLen = 3 + Math.floor(Math.random() * 3);
-                    for (let i = 0; i < platLen && col < mapW - 3; i++) {
-                        map[curRow][col] = 1;
-                        path.push({r: curRow, c: col});
-                        col++;
-                    }
-                    climbsUsed++;
+            // Define zigzag waypoints: alternate between high (row 3-4) and low (row 12-13)
+            // Each waypoint is a target row the path must reach
+            const numZigs = 3 + Math.min(lvl, 3);
+            const waypoints = [];
+            for (let i = 0; i < numZigs; i++) {
+                if (i % 2 === 0) {
+                    // Go high
+                    waypoints.push(3 + Math.floor(Math.random() * 2));
                 } else {
-                    // Flat run: 4-8 tiles
-                    const runLen = 4 + Math.floor(Math.random() * 5);
-                    for (let i = 0; i < runLen && col < mapW - 3; i++) {
-                        map[curRow][col] = 1;
-                        path.push({r: curRow, c: col});
-                        col++;
+                    // Go low
+                    waypoints.push(mapH - 2 - Math.floor(Math.random() * 2));
+                }
+            }
+            // End low for the exit
+            waypoints.push(mapH - 1);
+
+            function placeTiles(row, startCol, count) {
+                let placed = 0;
+                for (let i = 0; i < count && startCol + i < mapW - 2; i++) {
+                    map[row][startCol + i] = 1;
+                    path.push({r: row, c: startCol + i});
+                    placed++;
+                }
+                return placed;
+            }
+
+            for (let wi = 0; wi < waypoints.length && col < mapW - 4; wi++) {
+                const targetRow = waypoints[wi];
+                const rowDiff = targetRow - curRow; // negative = go up, positive = go down
+
+                if (Math.abs(rowDiff) <= 1) {
+                    // Already near target — flat run with optional 1-row step
+                    const runLen = 3 + Math.floor(Math.random() * 3);
+                    col += placeTiles(curRow, col, runLen);
+                    if (rowDiff !== 0) {
+                        curRow = targetRow;
+                        col += placeTiles(curRow, col, 2);
                     }
-                    // Small gap (1-2 tiles — easy jump)
-                    if (col < mapW - 6 && Math.random() < 0.3) {
+                } else if (rowDiff < 0) {
+                    // CLIMB UP — build stepping stones upward
+                    // Short run first
+                    col += placeTiles(curRow, col, 2 + Math.floor(Math.random() * 2));
+
+                    const stepsUp = Math.abs(rowDiff);
+                    // Climb in 2-row jumps (running jump height)
+                    while (curRow > targetRow && col < mapW - 4) {
+                        const step = Math.min(2, curRow - targetRow);
+                        curRow -= step;
+                        // Platform at new height (3-4 tiles, offset slightly right)
+                        const platLen = 3 + Math.floor(Math.random() * 2);
+                        col += placeTiles(curRow, col, platLen);
+                    }
+                    // Horizontal run at the top
+                    const topRun = 3 + Math.floor(Math.random() * 4);
+                    col += placeTiles(curRow, col, topRun);
+
+                } else {
+                    // DROP DOWN — gaps and falls
+                    // Run to edge
+                    col += placeTiles(curRow, col, 2 + Math.floor(Math.random() * 2));
+
+                    while (curRow < targetRow && col < mapW - 4) {
+                        // Gap then landing below
+                        col += 2; // gap to fall through
+                        const drop = Math.min(2 + Math.floor(Math.random() * 2), targetRow - curRow);
+                        curRow += drop;
+                        if (curRow > mapH - 1) curRow = mapH - 1;
+                        const landLen = 3 + Math.floor(Math.random() * 2);
+                        col += placeTiles(curRow, col, landLen);
+                    }
+                    // Horizontal run at the bottom
+                    const bottomRun = 2 + Math.floor(Math.random() * 3);
+                    col += placeTiles(curRow, col, bottomRun);
+
+                    // Small horizontal gap sometimes
+                    if (col < mapW - 6 && Math.random() < 0.4) {
                         col += 1 + Math.floor(Math.random() * 2);
                     }
                 }

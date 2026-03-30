@@ -825,27 +825,6 @@
             ghosts.forEach((g, i) => moveGhost(g, i, dt));
 
             // === Collision ===
-            ghosts.forEach((g, i) => {
-                if (g.home) return;
-                if (deathTimer > 0) return;
-                if (Math.abs(g.x - pac.x) + Math.abs(g.y - pac.y) < 1.0) {
-                    if (g.mode === 'frightened') {
-                        g.mode = 'eaten';
-                        ghostsEaten++;
-                        const pts = 200 * Math.pow(2, ghostsEaten - 1);
-                        score += pts;
-                        floatingTexts.push({ x: g.x * TILE + TILE / 2, y: g.y * TILE, t: '' + pts, life: 1, c: '#00ffff' });
-                        sfxEatGhost();
-                    } else if (g.mode !== 'eaten') {
-                        // Die
-                        lives--;
-                        deathTimer = 1.0;
-                        sfxDie();
-                        updateHUD();
-                    }
-                }
-            });
-
             // === Level clear ===
             if (dots <= 0) {
                 level++;

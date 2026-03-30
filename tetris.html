@@ -1057,7 +1057,7 @@
                 lockTimer += dt;
                 if (lockTimer >= 0.5) {
                     lockPiece();
-                    if (state !== 'PLAY') return;
+                    if (state !== 'PLAY') { requestAnimationFrame(loop); return; }
                 }
             } else {
                 lockTimer = 0;

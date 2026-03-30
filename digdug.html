@@ -1076,14 +1076,14 @@
 
             // If currently pumping:
             if (player.pumping) {
-                if (player.pumpTarget) {
-                    // Locked on to enemy -- keep holding to inflate (inflates every 0.25s)
+                if (player.pumpTarget && player.pumpTarget.alive) {
+                    // Locked on -- just hold space, inflation happens every 0.25s
                     keys[' '] = true;
-                } else if (player.pumpDist < 2.5) {
+                } else if (!player.pumpTarget && player.pumpDist < 2.5) {
                     // Still extending toward enemy -- give it time to reach
                     keys[' '] = true;
                 } else {
-                    // Fully extended with no target -- missed, release and cooldown
+                    // Missed or target dead -- release and cooldown
                     keys[' '] = false;
                     aiPumpCooldown = 0.8;
                 }
@@ -1354,8 +1354,8 @@
                     player.pumpTarget = null;
                 }
                 player.pumpTimer += dt;
-                // Extend pump
-                if (player.pumpDist < 3) {
+                // Extend pump (stop extending once locked onto a target)
+                if (player.pumpDist < 3 && !player.pumpTarget) {
                     player.pumpDist += dt * 6;
                 }
                 // Check if pump hits enemy

@@ -490,6 +490,22 @@
                 }
             }
 
+            // Check for falling power-ups near paddle height
+            var nearestPU = null, nearestPUDist = Infinity;
+            powerups.forEach(function(pu) {
+                var timeToReachPU = (PADDLE_Y - pu.y) / PU_SPEED;
+                if (timeToReachPU > 0 && timeToReachPU < 1.5) {
+                    var dist = Math.abs(pu.x - paddle.x);
+                    if (dist < nearestPUDist) { nearestPUDist = dist; nearestPU = pu; }
+                }
+            });
+
+            // Catch power-up if ball isn't in immediate danger
+            var ballSafe = !targetBall || targetBall.vy <= 0 || (PADDLE_Y - targetBall.y) > 120;
+            if (nearestPU && (ballSafe || Math.abs(nearestPU.x - targetX) < 40)) {
+                targetX = nearestPU.x;
+            }
+
             var diff = targetX - paddle.x;
             if (Math.abs(diff) > 8) {
                 keys['ArrowLeft'] = diff < 0;

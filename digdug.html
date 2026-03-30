@@ -1060,7 +1060,9 @@
         }
 
         // === AI ===
+        var aiPumpCooldown = 0;
         function runAI(dt) {
+            if (aiPumpCooldown > 0) aiPumpCooldown -= dt;
             // Find nearest alive enemy
             var nearestEnemy = null, nearestDist = Infinity;
             for (var i = 0; i < enemies.length; i++) {
@@ -1081,8 +1083,9 @@
                     // Still extending toward enemy -- give it time to reach
                     keys[' '] = true;
                 } else {
-                    // Fully extended with no target -- missed, release to retract
+                    // Fully extended with no target -- missed, release and cooldown
                     keys[' '] = false;
+                    aiPumpCooldown = 0.8;
                 }
                 keys['ArrowLeft'] = false;
                 keys['ArrowRight'] = false;
@@ -1106,15 +1109,15 @@
             var rowAligned = ady < 0.5 && adx > 0.8 && adx <= 3;
             var colAligned = adx < 0.5 && ady > 0.8 && ady <= 3;
 
-            if (rowAligned) {
-                // Aligned on same row -- face enemy and pump
-                if (dx > 0) keys['ArrowRight'] = true;
-                else keys['ArrowLeft'] = true;
-                keys[' '] = true;
-            } else if (colAligned) {
-                // Aligned on same column -- face enemy and pump
-                if (dy > 0) keys['ArrowDown'] = true;
-                else keys['ArrowUp'] = true;
+            if ((rowAligned || colAligned) && aiPumpCooldown <= 0) {
+                // Aligned and ready -- face enemy and pump
+                if (rowAligned) {
+                    if (dx > 0) keys['ArrowRight'] = true;
+                    else keys['ArrowLeft'] = true;
+                } else {
+                    if (dy > 0) keys['ArrowDown'] = true;
+                    else keys['ArrowUp'] = true;
+                }
                 keys[' '] = true;
             } else if (nearestDist < 2.5) {
                 // Close but not aligned -- strafe to line up, do NOT move closer

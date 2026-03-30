@@ -428,7 +428,7 @@
             if (ny === GOAL_Y) {
                 let onSlot = false;
                 goalSlots.forEach(slot => {
-                    if (!slot.filled && nx >= slot.x - 10 && nx <= slot.x + 50 - GRID + 10) {
+                    if (!slot.filled && nx >= slot.x - 25 && nx <= slot.x + 50 - GRID + 25) {
                         onSlot = true;
                         s += 5000;
                     }
@@ -490,6 +490,7 @@
                 frog.y = ny;
                 frog.x = Math.round(frog.x / GRID) * GRID;
                 frog.jump = 12;
+                sfxJump();
             }
         }
 

@@ -125,6 +125,20 @@
         let exitDoor = null;
         let path = [];
 
+        // Decorations (generated per level)
+        let decorations = { torches: [], chains: [], cobwebs: [], banners: [], tileVariants: {} };
+        let ambientParticles = [];
+
+        // Level theme palettes: dungeon, cave, palace, tower, crypt
+        const LEVEL_THEMES = [
+            { name: 'dungeon', floor: '#3a3040', floorAlt: '#352c3a', floorLine: '#4a4050', wall: '#2a2030', wallLine: '#3a2040', wallBorder: '#1a1020', bg1: '#0a0515', bg2: '#0a0a20', bg3: '#050510', pillarColor: '#1a1528', windowColor: '#0d0820', archColor: '#2a2040', liquidColor: null },
+            { name: 'cave', floor: '#3a3428', floorAlt: '#34302a', floorLine: '#4a4438', wall: '#2a2418', wallLine: '#3a3020', wallBorder: '#1a1810', bg1: '#0a0800', bg2: '#0a0a06', bg3: '#050500', pillarColor: '#1a1810', windowColor: '#0d0a04', archColor: '#2a2418', liquidColor: '#1a4a2a' },
+            { name: 'palace', floor: '#3a2840', floorAlt: '#382640', floorLine: '#4a3850', wall: '#2a1830', wallLine: '#3a2040', wallBorder: '#1a0820', bg1: '#10051a', bg2: '#0a0a20', bg3: '#050510', pillarColor: '#201030', windowColor: '#100820', archColor: '#302050', liquidColor: null },
+            { name: 'tower', floor: '#2a3040', floorAlt: '#283040', floorLine: '#3a4050', wall: '#1a2030', wallLine: '#2a3040', wallBorder: '#0a1020', bg1: '#050a15', bg2: '#060a1a', bg3: '#030510', pillarColor: '#101828', windowColor: '#080d1a', archColor: '#1a2a40', liquidColor: '#0a2a4a' },
+            { name: 'crypt', floor: '#302830', floorAlt: '#2c2428', floorLine: '#403840', wall: '#201820', wallLine: '#302030', wallBorder: '#100810', bg1: '#080508', bg2: '#060406', bg3: '#030203', pillarColor: '#181018', windowColor: '#0a060a', archColor: '#281828', liquidColor: '#2a1a2a' }
+        ];
+        let currentTheme = LEVEL_THEMES[0];
+
         // Prince
         const prince = {
             x: 80, y: 0, vx: 0, vy: 0,
@@ -718,14 +732,150 @@
                 }
             }
 
+            // === Generate decorations ===
+            decorations = { torches: [], chains: [], cobwebs: [], banners: [], tileVariants: {} };
+
+            // Tile variants: assign random visual style to each floor tile
+            for (let r = 0; r < mapH; r++) {
+                for (let c = 0; c < mapW; c++) {
+                    if (map[r][c] === 1) {
+                        const rng = Math.random();
+                        // 0=normal, 1=cracked, 2=mossy, 3=weathered, 4=skull
+                        if (rng < 0.15) decorations.tileVariants[r + ',' + c] = 1;
+                        else if (rng < 0.25) decorations.tileVariants[r + ',' + c] = 2;
+                        else if (rng < 0.35) decorations.tileVariants[r + ',' + c] = 3;
+                        else if (rng < 0.38) decorations.tileVariants[r + ',' + c] = 4;
+                        // else 0 (default) — no entry needed
+                    }
+                }
+            }
+
+            // Wall torches: place on walls adjacent to empty space
+            for (let c = 1; c < mapW - 1; c += 3 + Math.floor(Math.random() * 4)) {
+                for (let r = 2; r < mapH - 1; r++) {
+                    if (map[r][c] === 2 && map[r][c + 1] === 0 && map[r - 1][c] === 2) {
+                        decorations.torches.push({ r: r, c: c, side: 'right', phase: Math.random() * Math.PI * 2 });
+                        break;
+                    }
+                    if (map[r][c] === 2 && c > 0 && map[r][c - 1] === 0 && map[r - 1][c] === 2) {
+                        decorations.torches.push({ r: r, c: c, side: 'left', phase: Math.random() * Math.PI * 2 });
+                        break;
+                    }
+                }
+            }
+            // Also place torches near platforms at intervals
+            for (let pi = 0; pi < path.length; pi += 8 + Math.floor(Math.random() * 6)) {
+                const p = path[pi];
+                if (p.r >= 2 && map[p.r][p.c] === 1) {
+                    // Check for wall above or nearby
+                    let placed = false;
+                    for (let dc = -2; dc <= 2 && !placed; dc++) {
+                        const cc = p.c + dc;
+                        if (cc >= 0 && cc < mapW && map[p.r - 1][cc] === 2) {
+                            decorations.torches.push({ r: p.r - 1, c: cc, side: dc <= 0 ? 'right' : 'left', phase: Math.random() * Math.PI * 2 });
+                            placed = true;
+                        }
+                    }
+                    // Freestanding torch on the platform
+                    if (!placed && map[p.r - 1][p.c] === 0) {
+                        decorations.torches.push({ r: p.r, c: p.c, side: 'stand', phase: Math.random() * Math.PI * 2 });
+                    }
+                }
+            }
+
+            // Hanging chains: from ceilings above empty space
+            for (let c = 3; c < mapW - 3; c += 4 + Math.floor(Math.random() * 8)) {
+                for (let r = 1; r < mapH - 2; r++) {
+                    if ((map[r][c] === 1 || map[r][c] === 2) && map[r + 1][c] === 0 && map[r + 2][c] === 0) {
+                        const len = 2 + Math.floor(Math.random() * 3);
+                        decorations.chains.push({ r: r, c: c, length: len, swing: Math.random() * Math.PI * 2 });
+                        break;
+                    }
+                }
+            }
+
+            // Cobwebs: in corners where floor meets wall or ceiling
+            for (let r = 1; r < mapH - 1; r++) {
+                for (let c = 1; c < mapW - 1; c++) {
+                    if (Math.random() > 0.03) continue;
+                    const isFloor = map[r][c] === 1 || map[r][c] === 2;
+                    const aboveEmpty = map[r - 1][c] === 0;
+                    const sideWall = (map[r][c - 1] === 2 || map[r][c + 1] === 2);
+                    // Corner: ceiling tile with wall beside it
+                    if (isFloor && aboveEmpty && sideWall) {
+                        const corner = map[r][c - 1] === 2 ? 'left' : 'right';
+                        decorations.cobwebs.push({ r: r, c: c, corner: corner });
+                    }
+                }
+            }
+
+            // Banners/tapestries: on walls with space in front
+            for (let c = 2; c < mapW - 2; c += 6 + Math.floor(Math.random() * 10)) {
+                for (let r = 2; r < mapH - 2; r++) {
+                    if (map[r][c] === 2 && map[r][c + 1] === 0 && map[r + 1][c + 1] === 0) {
+                        const colors = ['#8b2252', '#2a4a8b', '#6b4a2a', '#2a6b4a', '#6b2a6b'];
+                        decorations.banners.push({ r: r, c: c, side: 'right', color: colors[Math.floor(Math.random() * colors.length)], length: 1 + Math.floor(Math.random() * 2), sway: Math.random() * Math.PI * 2 });
+                        break;
+                    }
+                    if (map[r][c] === 2 && map[r][c - 1] === 0 && map[r + 1][c - 1] === 0) {
+                        const colors = ['#8b2252', '#2a4a8b', '#6b4a2a', '#2a6b4a', '#6b2a6b'];
+                        decorations.banners.push({ r: r, c: c, side: 'left', color: colors[Math.floor(Math.random() * colors.length)], length: 1 + Math.floor(Math.random() * 2), sway: Math.random() * Math.PI * 2 });
+                        break;
+                    }
+                }
+            }
+
             return map;
+        }
+
+        // Parallax background elements (generated per level)
+        let bgElements = [];
+        function generateBgElements(mapW) {
+            bgElements = [];
+            // Layer 1 (far): large arched windows
+            for (let c = 5; c < mapW; c += 10 + Math.floor(Math.random() * 8)) {
+                const r = 3 + Math.floor(Math.random() * 8);
+                bgElements.push({ type: 'window', c: c, r: r, layer: 0.3 });
+            }
+            // Layer 2 (mid): pillars
+            for (let c = 2; c < mapW; c += 6 + Math.floor(Math.random() * 5)) {
+                bgElements.push({ type: 'pillar', c: c, r: 2, layer: 0.5, height: 8 + Math.floor(Math.random() * 5) });
+            }
+            // Layer 3 (near): distant stone walls
+            for (let c = 0; c < mapW; c += 3 + Math.floor(Math.random() * 3)) {
+                bgElements.push({ type: 'wall', c: c, r: 0, layer: 0.7, height: 15 });
+            }
         }
 
         function initLevel() {
             floatingTexts = [];
             particles = [];
+            ambientParticles = [];
             timeLeft = DIFF_TIME[difficulty];
+
+            // Set level theme
+            currentTheme = LEVEL_THEMES[(level - 1) % LEVEL_THEMES.length];
+            if (typeof rebuildGameGradient === 'function') rebuildGameGradient();
+
             levelMap = generateLevel(level);
+
+            // Generate parallax background
+            generateBgElements(levelMap[0] ? levelMap[0].length : 70);
+
+            // Spawn initial ambient particles
+            for (let i = 0; i < 30; i++) {
+                const mapPxW = (levelMap[0] ? levelMap[0].length : 70) * TILE;
+                ambientParticles.push({
+                    x: Math.random() * mapPxW,
+                    y: Math.random() * levelMap.length * TILE,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: -Math.random() * 6 - 2,
+                    life: Math.random() * 10 + 5,
+                    maxLife: 10,
+                    size: Math.random() * 1.5 + 0.5,
+                    type: Math.random() < 0.3 ? 'ember' : 'dust'
+                });
+            }
             // AI mode not available for this game
 
             prince.x = 2 * TILE + 10;
@@ -849,6 +999,271 @@
             });
         }
 
+        // === Parallax Background ===
+        function drawParallax() {
+            const theme = currentTheme;
+            ctx.globalAlpha = 0.25;
+
+            for (let i = 0; i < bgElements.length; i++) {
+                const el = bgElements[i];
+                const parallaxX = el.c * TILE - camX * el.layer;
+                const parallaxY = el.r * TILE - camY * el.layer;
+
+                if (parallaxX < -TILE * 3 || parallaxX > W + TILE * 3) continue;
+                if (parallaxY < -TILE * 10 || parallaxY > H + TILE * 3) continue;
+
+                if (el.type === 'window') {
+                    // Arched window
+                    ctx.fillStyle = theme.windowColor;
+                    ctx.fillRect(parallaxX, parallaxY, TILE * 1.5, TILE * 2.5);
+                    ctx.strokeStyle = theme.archColor;
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(parallaxX, parallaxY, TILE * 1.5, TILE * 2.5);
+                    // Arch top
+                    ctx.beginPath();
+                    ctx.arc(parallaxX + TILE * 0.75, parallaxY, TILE * 0.75, Math.PI, 0);
+                    ctx.stroke();
+                    // Mullion
+                    ctx.beginPath();
+                    ctx.moveTo(parallaxX + TILE * 0.75, parallaxY);
+                    ctx.lineTo(parallaxX + TILE * 0.75, parallaxY + TILE * 2.5);
+                    ctx.stroke();
+                } else if (el.type === 'pillar') {
+                    // Stone pillar
+                    ctx.fillStyle = theme.pillarColor;
+                    const pillarH = el.height * TILE;
+                    ctx.fillRect(parallaxX + 12, parallaxY, TILE - 24, pillarH);
+                    // Capital and base
+                    ctx.fillRect(parallaxX + 6, parallaxY, TILE - 12, 8);
+                    ctx.fillRect(parallaxX + 6, parallaxY + pillarH - 8, TILE - 12, 8);
+                } else if (el.type === 'wall') {
+                    // Distant stone wall texture
+                    ctx.fillStyle = theme.pillarColor;
+                    const wallH = el.height * TILE;
+                    ctx.fillRect(parallaxX, parallaxY, TILE, wallH);
+                    // Faint brick lines
+                    ctx.strokeStyle = theme.archColor;
+                    ctx.lineWidth = 0.5;
+                    for (let row = 0; row < el.height; row++) {
+                        const wy = parallaxY + row * TILE;
+                        ctx.beginPath();
+                        ctx.moveTo(parallaxX, wy);
+                        ctx.lineTo(parallaxX + TILE, wy);
+                        ctx.stroke();
+                    }
+                }
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        // === Decorations Drawing ===
+        function drawDecorations() {
+            const theme = currentTheme;
+
+            // Hanging chains
+            for (let i = 0; i < decorations.chains.length; i++) {
+                const ch = decorations.chains[i];
+                const cx = ch.c * TILE + TILE / 2 - camX;
+                const cy = (ch.r + 1) * TILE - camY;
+                if (cx < -TILE || cx > W + TILE) continue;
+
+                const swing = Math.sin(gameTime * 1.5 + ch.swing) * 3;
+                ctx.strokeStyle = '#555';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                for (let li = 1; li <= ch.length; li++) {
+                    const lx = cx + swing * li * 0.3;
+                    const ly = cy + li * 12;
+                    ctx.lineTo(lx, ly);
+                    // Chain link circles
+                    ctx.moveTo(lx + 3, ly);
+                    ctx.arc(lx, ly, 3, 0, Math.PI * 2);
+                    ctx.moveTo(lx, ly);
+                }
+                ctx.stroke();
+            }
+
+            // Cobwebs
+            ctx.strokeStyle = 'rgba(200,200,200,0.15)';
+            ctx.lineWidth = 0.5;
+            for (let i = 0; i < decorations.cobwebs.length; i++) {
+                const cw = decorations.cobwebs[i];
+                const wx = cw.c * TILE - camX;
+                const wy = cw.r * TILE - camY;
+                if (wx < -TILE * 2 || wx > W + TILE * 2) continue;
+
+                const cornerX = cw.corner === 'left' ? wx : wx + TILE;
+                const cornerY = wy;
+                ctx.beginPath();
+                // Fan of web lines
+                for (let a = 0; a < 5; a++) {
+                    const angle = cw.corner === 'left' ? (a * 0.4) : (Math.PI - a * 0.4);
+                    ctx.moveTo(cornerX, cornerY);
+                    ctx.lineTo(cornerX + Math.cos(angle) * 20, cornerY + Math.sin(angle) * 20);
+                }
+                // Connecting arcs
+                for (let ring = 1; ring <= 2; ring++) {
+                    const rd = ring * 8;
+                    for (let a = 0; a < 4; a++) {
+                        const a1 = cw.corner === 'left' ? (a * 0.4) : (Math.PI - a * 0.4);
+                        const a2 = cw.corner === 'left' ? ((a + 1) * 0.4) : (Math.PI - (a + 1) * 0.4);
+                        ctx.moveTo(cornerX + Math.cos(a1) * rd, cornerY + Math.sin(a1) * rd);
+                        ctx.lineTo(cornerX + Math.cos(a2) * rd, cornerY + Math.sin(a2) * rd);
+                    }
+                }
+                ctx.stroke();
+            }
+
+            // Banners/tapestries
+            for (let i = 0; i < decorations.banners.length; i++) {
+                const bn = decorations.banners[i];
+                const bx = bn.side === 'right' ? (bn.c + 1) * TILE - camX + 2 : (bn.c - 1) * TILE - camX + TILE - 10;
+                const by = bn.r * TILE - camY + 4;
+                if (bx < -TILE || bx > W + TILE) continue;
+
+                const sway = Math.sin(gameTime * 0.8 + bn.sway) * 2;
+                const bannerH = TILE * bn.length;
+                ctx.fillStyle = bn.color;
+                ctx.globalAlpha = 0.7;
+                ctx.beginPath();
+                ctx.moveTo(bx, by);
+                ctx.lineTo(bx + 8, by);
+                ctx.lineTo(bx + 8 + sway, by + bannerH);
+                ctx.lineTo(bx + 4 + sway, by + bannerH + 8); // pointed bottom
+                ctx.lineTo(bx + sway, by + bannerH);
+                ctx.closePath();
+                ctx.fill();
+                // Gold trim at top
+                ctx.fillStyle = '#aa8833';
+                ctx.fillRect(bx - 1, by, 10, 3);
+                ctx.globalAlpha = 1;
+            }
+
+            // Wall torches
+            for (let i = 0; i < decorations.torches.length; i++) {
+                const torch = decorations.torches[i];
+                let tx, ty;
+                if (torch.side === 'stand') {
+                    tx = torch.c * TILE + TILE / 2 - camX;
+                    ty = (torch.r - 1) * TILE + TILE - 4 - camY;
+                } else if (torch.side === 'right') {
+                    tx = (torch.c + 1) * TILE - camX + 2;
+                    ty = torch.r * TILE + TILE / 2 - camY;
+                } else {
+                    tx = torch.c * TILE - camX - 2;
+                    ty = torch.r * TILE + TILE / 2 - camY;
+                }
+                if (tx < -TILE || tx > W + TILE) continue;
+
+                const flicker = Math.sin(gameTime * 8 + torch.phase) * 2;
+                const flicker2 = Math.cos(gameTime * 6 + torch.phase * 1.5) * 1.5;
+
+                // Bracket
+                ctx.fillStyle = '#666';
+                ctx.fillRect(tx - 2, ty, 4, 10);
+
+                // Flame outer
+                ctx.fillStyle = '#ff6600';
+                ctx.beginPath();
+                ctx.ellipse(tx, ty - 2 + flicker2, Math.max(2, 5 + flicker), Math.max(4, 8 + flicker), 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Flame inner
+                ctx.fillStyle = '#ffcc00';
+                ctx.beginPath();
+                ctx.ellipse(tx, ty - 3 + flicker2, 3, 5 + flicker * 0.5, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Light pool (warm glow)
+                ctx.save();
+                ctx.globalAlpha = 0.08 + Math.sin(gameTime * 4 + torch.phase) * 0.03;
+                const lightGrad = ctx.createRadialGradient(tx, ty, 0, tx, ty, TILE * 3);
+                lightGrad.addColorStop(0, '#ff8833');
+                lightGrad.addColorStop(1, 'transparent');
+                ctx.fillStyle = lightGrad;
+                ctx.fillRect(tx - TILE * 3, ty - TILE * 3, TILE * 6, TILE * 6);
+                ctx.restore();
+            }
+        }
+
+        // === Water/Lava pools at bottom of pits ===
+        function drawLiquidPools() {
+            if (!currentTheme.liquidColor) return;
+            const mapH = levelMap.length;
+            const startCol = Math.floor(camX / TILE);
+            const endCol = startCol + Math.ceil(W / TILE) + 2;
+            const bottomRow = mapH - 1;
+
+            for (let c = startCol; c <= endCol; c++) {
+                if (getTile(bottomRow, c) !== 1) continue;
+                // Check if this ground tile is at the bottom of a tall open space
+                let openAbove = 0;
+                for (let r = bottomRow - 1; r >= 1; r--) {
+                    if (getTile(r, c) === 0) openAbove++;
+                    else break;
+                }
+                if (openAbove < 4) continue; // only in deep pits
+
+                const sx = c * TILE - camX;
+                const sy = bottomRow * TILE - camY;
+
+                // Animated liquid surface
+                const wave1 = Math.sin(gameTime * 2 + c * 0.5) * 3;
+                const wave2 = Math.sin(gameTime * 3 + c * 0.8) * 2;
+                ctx.fillStyle = currentTheme.liquidColor;
+                ctx.globalAlpha = 0.4;
+                ctx.beginPath();
+                ctx.moveTo(sx, sy + 4 + wave1);
+                ctx.quadraticCurveTo(sx + TILE / 2, sy + wave2, sx + TILE, sy + 4 + wave1);
+                ctx.lineTo(sx + TILE, sy);
+                ctx.lineTo(sx, sy);
+                ctx.closePath();
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        // === Ambient Particles (dust motes / embers) ===
+        function updateAmbientParticles(dt) {
+            const mapPxW = (levelMap[0] ? levelMap[0].length : 70) * TILE;
+            const mapPxH = levelMap.length * TILE;
+
+            for (let i = ambientParticles.length - 1; i >= 0; i--) {
+                const p = ambientParticles[i];
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
+                p.vx += (Math.random() - 0.5) * 2 * dt;
+                p.life -= dt;
+                if (p.life <= 0) {
+                    // Respawn
+                    p.x = camX + Math.random() * W;
+                    p.y = camY + Math.random() * H;
+                    p.vx = (Math.random() - 0.5) * 8;
+                    p.vy = p.type === 'ember' ? -Math.random() * 10 - 4 : (Math.random() - 0.5) * 4;
+                    p.life = Math.random() * 8 + 4;
+                    p.maxLife = p.life;
+                }
+            }
+        }
+
+        function drawAmbientParticles() {
+            for (let i = 0; i < ambientParticles.length; i++) {
+                const p = ambientParticles[i];
+                const sx = p.x - camX;
+                const sy = p.y - camY;
+                if (sx < -5 || sx > W + 5 || sy < -5 || sy > H + 5) continue;
+
+                const alpha = Math.min(1, p.life / 2) * 0.4;
+                if (p.type === 'ember') {
+                    ctx.fillStyle = 'rgba(255,150,50,' + alpha + ')';
+                } else {
+                    ctx.fillStyle = 'rgba(200,200,220,' + alpha * 0.5 + ')';
+                }
+                ctx.fillRect(sx, sy, p.size, p.size);
+            }
+        }
+
         function drawTiles() {
             const startCol = Math.floor(camX / TILE);
             const endCol = startCol + Math.ceil(W / TILE) + 2;
@@ -863,31 +1278,75 @@
                     const sy = r * TILE - camY;
 
                     if (t === 1) {
-                        // Floor tile - dungeon stone
-                        ctx.fillStyle = '#3a3040';
+                        // Floor tile - themed stone with variants
+                        const variant = decorations.tileVariants[r + ',' + c] || 0;
+                        ctx.fillStyle = variant === 2 ? currentTheme.floorAlt : currentTheme.floor;
                         ctx.fillRect(sx, sy, TILE, TILE);
-                        ctx.strokeStyle = '#2a2030';
+                        ctx.strokeStyle = currentTheme.wall;
                         ctx.lineWidth = 1;
                         ctx.strokeRect(sx + 1, sy + 1, TILE - 2, TILE - 2);
                         // Stone texture lines
-                        ctx.strokeStyle = '#4a4050';
+                        ctx.strokeStyle = currentTheme.floorLine;
                         ctx.beginPath();
-                        ctx.moveTo(sx + TILE / 2, sy);
-                        ctx.lineTo(sx + TILE / 2, sy + TILE);
-                        ctx.stroke();
-                        ctx.beginPath();
-                        ctx.moveTo(sx, sy + TILE / 2);
-                        ctx.lineTo(sx + TILE, sy + TILE / 2);
+                        if (variant === 1) {
+                            // Cracked: diagonal crack lines
+                            ctx.moveTo(sx + 8, sy + 4);
+                            ctx.lineTo(sx + TILE / 2 + 2, sy + TILE / 2);
+                            ctx.lineTo(sx + TILE - 6, sy + TILE - 8);
+                            ctx.moveTo(sx + TILE / 2 + 2, sy + TILE / 2);
+                            ctx.lineTo(sx + 12, sy + TILE - 4);
+                        } else if (variant === 2) {
+                            // Mossy: normal grid + green patches
+                            ctx.moveTo(sx + TILE / 2, sy);
+                            ctx.lineTo(sx + TILE / 2, sy + TILE);
+                            ctx.moveTo(sx, sy + TILE / 2);
+                            ctx.lineTo(sx + TILE, sy + TILE / 2);
+                            ctx.stroke();
+                            ctx.fillStyle = 'rgba(40,100,40,0.3)';
+                            ctx.fillRect(sx + 2, sy + TILE - 10, 12, 8);
+                            ctx.fillRect(sx + TILE - 16, sy + TILE - 8, 14, 6);
+                            ctx.beginPath(); // reset path
+                        } else if (variant === 3) {
+                            // Weathered: irregular lines
+                            ctx.moveTo(sx + TILE / 3, sy);
+                            ctx.lineTo(sx + TILE / 3 + 4, sy + TILE);
+                            ctx.moveTo(sx + 2 * TILE / 3, sy);
+                            ctx.lineTo(sx + 2 * TILE / 3 - 3, sy + TILE);
+                            ctx.moveTo(sx, sy + TILE / 3);
+                            ctx.lineTo(sx + TILE, sy + TILE / 3 + 3);
+                        } else if (variant === 4) {
+                            // Skull decoration
+                            ctx.moveTo(sx + TILE / 2, sy);
+                            ctx.lineTo(sx + TILE / 2, sy + TILE);
+                            ctx.moveTo(sx, sy + TILE / 2);
+                            ctx.lineTo(sx + TILE, sy + TILE / 2);
+                            ctx.stroke();
+                            // Tiny skull
+                            ctx.fillStyle = 'rgba(180,170,160,0.4)';
+                            ctx.beginPath();
+                            ctx.arc(sx + TILE / 2, sy + TILE / 2, 6, 0, Math.PI * 2);
+                            ctx.fill();
+                            ctx.fillStyle = 'rgba(40,30,30,0.6)';
+                            ctx.fillRect(sx + TILE / 2 - 4, sy + TILE / 2 - 2, 2, 2);
+                            ctx.fillRect(sx + TILE / 2 + 2, sy + TILE / 2 - 2, 2, 2);
+                            ctx.beginPath(); // reset path
+                        } else {
+                            // Normal: cross pattern
+                            ctx.moveTo(sx + TILE / 2, sy);
+                            ctx.lineTo(sx + TILE / 2, sy + TILE);
+                            ctx.moveTo(sx, sy + TILE / 2);
+                            ctx.lineTo(sx + TILE, sy + TILE / 2);
+                        }
                         ctx.stroke();
                     } else if (t === 2) {
-                        // Wall
-                        ctx.fillStyle = '#2a2030';
+                        // Wall - themed
+                        ctx.fillStyle = currentTheme.wall;
                         ctx.fillRect(sx, sy, TILE, TILE);
-                        ctx.strokeStyle = '#1a1020';
+                        ctx.strokeStyle = currentTheme.wallBorder;
                         ctx.lineWidth = 1;
                         ctx.strokeRect(sx, sy, TILE, TILE);
                         // Brick pattern
-                        ctx.strokeStyle = '#3a2040';
+                        ctx.strokeStyle = currentTheme.wallLine;
                         ctx.beginPath();
                         ctx.moveTo(sx, sy + TILE / 3);
                         ctx.lineTo(sx + TILE, sy + TILE / 3);
@@ -1869,10 +2328,17 @@
         // AI removed — level geometry too complex for automated navigation
 
         // Cached background gradients (created once, reused every frame)
-        const bgGradGame = ctx.createLinearGradient(0, 0, 0, H);
+        let bgGradGame = ctx.createLinearGradient(0, 0, 0, H);
         bgGradGame.addColorStop(0, '#0a0515');
         bgGradGame.addColorStop(0.5, '#0a0a20');
         bgGradGame.addColorStop(1, '#050510');
+
+        function rebuildGameGradient() {
+            bgGradGame = ctx.createLinearGradient(0, 0, 0, H);
+            bgGradGame.addColorStop(0, currentTheme.bg1);
+            bgGradGame.addColorStop(0.5, currentTheme.bg2);
+            bgGradGame.addColorStop(1, currentTheme.bg3);
+        }
 
         const bgGradHome = ctx.createLinearGradient(0, 0, 0, H);
         bgGradHome.addColorStop(0, '#150010');
@@ -1918,13 +2384,17 @@
             if (levelStartTimer > 0) {
                 levelStartTimer -= dt;
                 drawStars(0);
+                drawParallax();
                 drawTiles();
+                drawLiquidPools();
+                drawDecorations();
                 drawPrince();
                 guards.forEach(function(g) { drawGuard(g); });
                 ctx.textAlign = 'center';
                 ctx.fillStyle = '#c084fc';
                 ctx.font = 'bold 28px Courier';
-                ctx.fillText("DUNGEON " + level, W / 2, H / 2 - 10);
+                const themeNames = { dungeon: 'DUNGEON', cave: 'CAVERN', palace: 'PALACE', tower: 'TOWER', crypt: 'CRYPT' };
+                ctx.fillText((themeNames[currentTheme.name] || 'DUNGEON') + " " + level, W / 2, H / 2 - 10);
                 ctx.font = '14px Courier';
                 ctx.fillStyle = '#aaa';
                 ctx.fillText("FIND THE EXIT!", W / 2, H / 2 + 20);
@@ -1938,7 +2408,10 @@
             if (levelCompleteTimer > 0) {
                 levelCompleteTimer -= dt;
                 drawStars(dt);
+                drawParallax();
                 drawTiles();
+                drawLiquidPools();
+                drawDecorations();
                 drawPrince();
                 ctx.textAlign = 'center';
                 ctx.fillStyle = '#c084fc';
@@ -1972,7 +2445,10 @@
             if (deathTimer > 0) {
                 deathTimer -= dt;
                 drawStars(dt);
+                drawParallax();
                 drawTiles();
+                drawLiquidPools();
+                drawDecorations();
                 drawPrince();
                 guards.forEach(function(g) { drawGuard(g); });
                 // Particles
@@ -2037,13 +2513,18 @@
             updateGuards(dt);
             updateFallingTiles(dt);
             updateCamera();
+            updateAmbientParticles(dt);
 
             // === Draw ===
             // Background gradient (cached)
             ctx.fillStyle = bgGradGame;
             ctx.fillRect(0, 0, W, H);
 
+            drawParallax();
             drawTiles();
+            drawLiquidPools();
+            drawDecorations();
+            drawAmbientParticles();
 
             // Guards
             guards.forEach(function(g) { drawGuard(g); });
@@ -2084,7 +2565,11 @@
         }
 
         function drawGameContent() {
+            drawParallax();
             drawTiles();
+            drawLiquidPools();
+            drawDecorations();
+            drawAmbientParticles();
             guards.forEach(function(g) { drawGuard(g); });
             drawPrince();
             drawHUD();

@@ -1091,6 +1091,7 @@
             // Navigate toward enemy
             var dx = nearestEnemy.col - player.x;
             var dy = nearestEnemy.row - player.y;
+            var adx = Math.abs(dx), ady = Math.abs(dy);
 
             keys['ArrowLeft'] = false;
             keys['ArrowRight'] = false;
@@ -1098,31 +1099,41 @@
             keys['ArrowDown'] = false;
             keys[' '] = false;
 
-            // Prefer horizontal if further away horizontally
-            if (Math.abs(dx) > Math.abs(dy)) {
-                if (dx > 0) keys['ArrowRight'] = true;
-                else if (dx < 0) keys['ArrowLeft'] = true;
-            } else {
-                if (dy > 0) keys['ArrowDown'] = true;
-                else if (dy < 0) keys['ArrowUp'] = true;
-            }
+            // Check if aligned on same row or column for pumping
+            var rowAligned = ady < 0.5 && adx > 0.8 && adx <= 3;
+            var colAligned = adx < 0.5 && ady > 0.8 && ady <= 3;
 
-            // Only pump when aligned with enemy on same row or column AND close
-            var aligned = false;
-            if (Math.abs(dy) < 0.5 && Math.abs(dx) <= 3 && Math.abs(dx) > 0.2) {
-                // Same row, enemy within 3 tiles horizontally
-                aligned = true;
-                // Face the enemy
-                if (dx > 0) { keys['ArrowRight'] = true; keys['ArrowLeft'] = false; }
-                else { keys['ArrowLeft'] = true; keys['ArrowRight'] = false; }
-            } else if (Math.abs(dx) < 0.5 && Math.abs(dy) <= 3 && Math.abs(dy) > 0.2) {
-                // Same column, enemy within 3 tiles vertically
-                aligned = true;
-                if (dy > 0) { keys['ArrowDown'] = true; keys['ArrowUp'] = false; }
-                else { keys['ArrowUp'] = true; keys['ArrowDown'] = false; }
-            }
-            if (aligned) {
+            if (rowAligned) {
+                // Aligned on same row -- face enemy and pump
+                if (dx > 0) keys['ArrowRight'] = true;
+                else keys['ArrowLeft'] = true;
                 keys[' '] = true;
+            } else if (colAligned) {
+                // Aligned on same column -- face enemy and pump
+                if (dy > 0) keys['ArrowDown'] = true;
+                else keys['ArrowUp'] = true;
+                keys[' '] = true;
+            } else if (nearestDist < 2.5) {
+                // Close but not aligned -- strafe to line up, do NOT move closer
+                // Try to align on the axis where we're closer to aligned
+                if (ady < adx) {
+                    // Nearly same row -- adjust vertically to match row
+                    if (dy > 0.1) keys['ArrowDown'] = true;
+                    else if (dy < -0.1) keys['ArrowUp'] = true;
+                } else {
+                    // Nearly same column -- adjust horizontally to match column
+                    if (dx > 0.1) keys['ArrowRight'] = true;
+                    else if (dx < -0.1) keys['ArrowLeft'] = true;
+                }
+            } else {
+                // Far away -- navigate toward enemy
+                if (adx > ady) {
+                    if (dx > 0) keys['ArrowRight'] = true;
+                    else keys['ArrowLeft'] = true;
+                } else {
+                    if (dy > 0) keys['ArrowDown'] = true;
+                    else keys['ArrowUp'] = true;
+                }
             }
 
             // Avoid fire from Fygars

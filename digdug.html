@@ -637,15 +637,18 @@
             if (player.pumping && player.pumpDist > 0) {
                 ctx.strokeStyle = '#ff4444';
                 ctx.lineWidth = 2;
-                var pumpEndX = px + player.facing * player.pumpDist * TILE;
+                var pdx = player.dir === 0 ? 1 : player.dir === 2 ? -1 : 0;
+                var pdy = player.dir === 1 ? 1 : player.dir === 3 ? -1 : 0;
+                var pumpEndX = px + pdx * player.pumpDist * TILE;
+                var pumpEndY = py + pdy * player.pumpDist * TILE;
                 ctx.beginPath();
-                ctx.moveTo(px + player.facing * 8, py);
-                ctx.lineTo(pumpEndX, py);
+                ctx.moveTo(px + pdx * 8, py + pdy * 8);
+                ctx.lineTo(pumpEndX, pumpEndY);
                 ctx.stroke();
                 // Pump head
                 ctx.fillStyle = '#ff4444';
                 ctx.beginPath();
-                ctx.arc(pumpEndX, py, 4, 0, Math.PI * 2);
+                ctx.arc(pumpEndX, pumpEndY, 4, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.lineWidth = 1;
             }
@@ -1320,8 +1323,10 @@
                     player.pumpDist += dt * 6;
                 }
                 // Check if pump hits enemy
-                var pumpX = gx(player.x) + player.facing * player.pumpDist * TILE;
-                var pumpY = gy(player.y);
+                var pDirX = player.dir === 0 ? 1 : player.dir === 2 ? -1 : 0;
+                var pDirY = player.dir === 1 ? 1 : player.dir === 3 ? -1 : 0;
+                var pumpX = gx(player.x) + pDirX * player.pumpDist * TILE;
+                var pumpY = gy(player.y) + pDirY * player.pumpDist * TILE;
                 for (var i = 0; i < enemies.length; i++) {
                     var e = enemies[i];
                     if (!e.alive || e.squished) continue;

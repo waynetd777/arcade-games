@@ -2205,12 +2205,6 @@
                     }
                 }
 
-                // Gravity for guards
-                if (!g.onGround) {
-                    g.vy += GRAVITY * dt;
-                    if (g.vy > 600) g.vy = 600;
-                }
-
                 // Move guard X — check both wall collision AND edge detection
                 const gnx = g.x + g.vx * dt;
                 if (!entityCollides(gnx, g.y, g.w, g.h - 2)) {

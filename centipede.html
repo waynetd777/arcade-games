@@ -1569,10 +1569,19 @@
             touchTotalMove += Math.abs(e.touches[0].clientX - touchStartX) + Math.abs(e.touches[0].clientY - touchStartY);
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
-            player.x += dx;
-            player.y += dy;
-            player.x = Math.max(TILE / 2, Math.min(W - TILE / 2, player.x));
-            player.y = Math.max(H - PLAYER_ZONE_ROWS * TILE, Math.min(H - TILE / 2, player.y));
+            var newPx = player.x + dx;
+            var newPy = player.y + dy;
+            newPx = Math.max(TILE / 2, Math.min(W - TILE / 2, newPx));
+            newPy = Math.max(H - PLAYER_ZONE_ROWS * TILE, Math.min(H - TILE / 2, newPy));
+            // Check mushroom collision (matching keyboard path)
+            var tCol = gridCol(newPx);
+            var tRow = gridRow(newPy);
+            if (tCol >= 0 && tCol < COLS && tRow >= 0 && tRow < ROWS && mushrooms[tRow][tCol] !== 0) {
+                // Block movement into mushroom
+            } else {
+                player.x = newPx;
+                player.y = newPy;
+            }
         }, { passive: false });
         document.addEventListener('touchend', function() {
             // Only fire on tap (minimal movement)

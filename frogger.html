@@ -911,7 +911,7 @@
             if (!dyingThisFrame && frog.y === GOAL_Y) {
                 let landed = false;
                 goalSlots.forEach(slot => {
-                    if (!slot.filled && frog.x >= slot.x - 10 && frog.x <= slot.x + 50 - GRID + 10) {
+                    if (!slot.filled && frog.x >= slot.x - 25 && frog.x <= slot.x + 50 - GRID + 25) {
                         slot.filled = true;
                         landed = true;
                         score += 50 * level + Math.ceil(timeLeft) * 5;

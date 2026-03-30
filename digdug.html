@@ -1072,13 +1072,16 @@
 
             if (!nearestEnemy) return;
 
-            // If currently pumping: keep going only if we have a target locked on
+            // If currently pumping:
             if (player.pumping) {
                 if (player.pumpTarget) {
-                    // Locked on -- keep pumping
+                    // Locked on to enemy -- keep holding to inflate (inflates every 0.25s)
+                    keys[' '] = true;
+                } else if (player.pumpDist < 2.5) {
+                    // Still extending toward enemy -- give it time to reach
                     keys[' '] = true;
                 } else {
-                    // No target -- stop pumping immediately so we can move
+                    // Fully extended with no target -- missed, release to retract
                     keys[' '] = false;
                 }
                 keys['ArrowLeft'] = false;

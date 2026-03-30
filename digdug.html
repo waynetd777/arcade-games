@@ -1072,13 +1072,14 @@
 
             if (!nearestEnemy) return;
 
-            // If currently pumping, keep holding space -- but release if pump missed (fully extended with no target)
-            if (player.pumping && player.pumpDist > 0) {
-                if (player.pumpDist >= 2.8 && !player.pumpTarget) {
-                    // Pump missed -- release to retract
-                    keys[' '] = false;
-                } else {
+            // If currently pumping: keep going only if we have a target locked on
+            if (player.pumping) {
+                if (player.pumpTarget) {
+                    // Locked on -- keep pumping
                     keys[' '] = true;
+                } else {
+                    // No target -- stop pumping immediately so we can move
+                    keys[' '] = false;
                 }
                 keys['ArrowLeft'] = false;
                 keys['ArrowRight'] = false;
@@ -1106,14 +1107,22 @@
                 else if (dy < 0) keys['ArrowUp'] = true;
             }
 
-            // If adjacent to enemy, pump
-            if (Math.abs(dx) <= 1 && Math.abs(dy) <= 1) {
-                keys[' '] = true;
+            // Only pump when aligned with enemy on same row or column AND close
+            var aligned = false;
+            if (Math.abs(dy) < 0.5 && Math.abs(dx) <= 3 && Math.abs(dx) > 0.2) {
+                // Same row, enemy within 3 tiles horizontally
+                aligned = true;
                 // Face the enemy
-                if (Math.abs(dx) >= Math.abs(dy)) {
-                    if (dx > 0) { keys['ArrowRight'] = true; keys['ArrowLeft'] = false; }
-                    else { keys['ArrowLeft'] = true; keys['ArrowRight'] = false; }
-                }
+                if (dx > 0) { keys['ArrowRight'] = true; keys['ArrowLeft'] = false; }
+                else { keys['ArrowLeft'] = true; keys['ArrowRight'] = false; }
+            } else if (Math.abs(dx) < 0.5 && Math.abs(dy) <= 3 && Math.abs(dy) > 0.2) {
+                // Same column, enemy within 3 tiles vertically
+                aligned = true;
+                if (dy > 0) { keys['ArrowDown'] = true; keys['ArrowUp'] = false; }
+                else { keys['ArrowUp'] = true; keys['ArrowDown'] = false; }
+            }
+            if (aligned) {
+                keys[' '] = true;
             }
 
             // Avoid fire from Fygars

@@ -1072,9 +1072,14 @@
 
             if (!nearestEnemy) return;
 
-            // If currently pumping, keep holding space until enemy dies or deflates away
+            // If currently pumping, keep holding space -- but release if pump missed (fully extended with no target)
             if (player.pumping && player.pumpDist > 0) {
-                keys[' '] = true;
+                if (player.pumpDist >= 2.8 && !player.pumpTarget) {
+                    // Pump missed -- release to retract
+                    keys[' '] = false;
+                } else {
+                    keys[' '] = true;
+                }
                 keys['ArrowLeft'] = false;
                 keys['ArrowRight'] = false;
                 keys['ArrowUp'] = false;

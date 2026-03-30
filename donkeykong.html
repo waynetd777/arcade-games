@@ -622,21 +622,34 @@
             keys['ArrowDown'] = false;
             jumpPressed = false;
 
-            // Find nearest barrel threat
+            // Find nearest barrel threat (check ALL directions)
             var nearestBarrel = null;
             var nearestBarrelDist = 9999;
             for (var i = 0; i < barrels.length; i++) {
                 var b = barrels[i];
-                if (b.falling) continue;
                 var dx = b.x - mario.x;
                 var dy = b.y - (mario.y + mario.h);
-                if (Math.abs(dy) < 30 && dx * mario.facing >= -10 && Math.abs(dx) < 80) {
-                    var dist = Math.abs(dx);
-                    if (dist < nearestBarrelDist) {
-                        nearestBarrelDist = dist;
-                        nearestBarrel = b;
+                if (b.falling) {
+                    // Detect barrels falling from above
+                    if (Math.abs(dx) < 30 && dy < 0 && dy > -80) {
+                        var dist = Math.abs(dy);
+                        if (dist < nearestBarrelDist) { nearestBarrelDist = dist; nearestBarrel = b; }
                     }
+                    continue;
                 }
+                // Detect barrels on the same platform from any direction
+                if (Math.abs(dy) < 30 && Math.abs(dx) < 80) {
+                    var dist = Math.abs(dx);
+                    if (dist < nearestBarrelDist) { nearestBarrelDist = dist; nearestBarrel = b; }
+                }
+            }
+
+            // If we have a hammer, seek barrels to smash
+            if (mario.hasHammer && nearestBarrel && nearestBarrelDist < 80) {
+                var bx = nearestBarrel.x - mario.x;
+                if (bx > 5) keys['ArrowRight'] = true;
+                else if (bx < -5) keys['ArrowLeft'] = true;
+                return;
             }
 
             // Jump over nearby barrels
@@ -645,26 +658,40 @@
                 return;
             }
 
-            // If on ladder, keep climbing up
+            // If on ladder, keep climbing up (or down if needed)
             if (mario.onLadder) {
                 keys['ArrowUp'] = true;
                 return;
             }
 
-            // Find nearest ladder going up
+            // Find best ladder going up -- prefer ladders closer to Pauline's X
             var bestLadder = null;
-            var bestLadderDist = 9999;
+            var bestLadderScore = 9999;
+            var marioFoot = mario.y + mario.h;
             for (var i = 0; i < ladders.length; i++) {
                 var lad = ladders[i];
                 if (lad.broken) continue;
-                // Ladder must be reachable from current platform level
                 var ladBot = lad.y2;
-                var marioFoot = mario.y + mario.h;
                 if (Math.abs(ladBot - marioFoot) < 15) {
-                    var dist = Math.abs(lad.x + 10 - (mario.x + mario.w / 2));
-                    if (dist < bestLadderDist) {
-                        bestLadderDist = dist;
+                    var walkDist = Math.abs(lad.x + 10 - (mario.x + mario.w / 2));
+                    // Score: distance to walk + how far the ladder top is from Pauline horizontally
+                    var ladTopDistToPauline = Math.abs(lad.x + 10 - pauline.x);
+                    var score = walkDist * 1.0 + ladTopDistToPauline * 0.5;
+                    if (score < bestLadderScore) {
+                        bestLadderScore = score;
                         bestLadder = lad;
+                    }
+                }
+            }
+
+            // Collect nearby hammer on the same platform
+            for (var i = 0; i < hammers.length; i++) {
+                var hm = hammers[i];
+                if (!hm.collected && Math.abs(hm.y - mario.y) < 20 && Math.abs(hm.x - mario.x) < 60) {
+                    if (Math.abs(hm.x - mario.x) > 5) {
+                        if (hm.x < mario.x) keys['ArrowLeft'] = true;
+                        else keys['ArrowRight'] = true;
+                        return;
                     }
                 }
             }
@@ -679,18 +706,9 @@
                     keys['ArrowLeft'] = true;
                 }
             } else {
-                // Move right generally (toward pauline)
+                // Move toward Pauline
                 if (mario.x < pauline.x) keys['ArrowRight'] = true;
                 else keys['ArrowLeft'] = true;
-            }
-
-            // Collect nearby hammer
-            for (var i = 0; i < hammers.length; i++) {
-                var hm = hammers[i];
-                if (!hm.collected && Math.abs(hm.x - mario.x) < 40 && Math.abs(hm.y - mario.y) < 30) {
-                    if (hm.x < mario.x) keys['ArrowLeft'] = true;
-                    else keys['ArrowRight'] = true;
-                }
             }
         }
 

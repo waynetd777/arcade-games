@@ -640,21 +640,50 @@
             var targetX = player.x;
             var targetY = player.y;
 
+            // Check for flea threat
+            var dodgeFlea = false;
+            var fleaDodgeDir = 0;
+            if (flea) {
+                var fdist = Math.abs(flea.x - player.x);
+                if (fdist < 30 && flea.y > player.y - 80 && flea.y < player.y) {
+                    dodgeFlea = true;
+                    fleaDodgeDir = flea.x > player.x ? -1 : 1;
+                }
+            }
+
             if (dodgeSpider) {
                 targetX = player.x + dodgeDir * 80;
                 targetY = H - TILE * 2;
+            } else if (dodgeFlea) {
+                targetX = player.x + fleaDodgeDir * 60;
+                targetY = player.y;
             } else if (nearestSeg) {
                 targetX = nearestSeg.x;
-                // Stay in player zone
-                targetY = Math.max(H - PLAYER_ZONE_ROWS * TILE, Math.min(H - TILE, player.y));
+                // Position vertically to intercept descending centipedes
+                var segY = Math.max(H - PLAYER_ZONE_ROWS * TILE, Math.min(H - TILE, nearestSeg.y > H - PLAYER_ZONE_ROWS * TILE ? nearestSeg.y + TILE * 2 : H - TILE * 2));
+                targetY = segY;
             }
 
             var dx = targetX - player.x;
             var dy = targetY - player.y;
-            keys['ArrowLeft'] = dx < -5;
-            keys['ArrowRight'] = dx > 5;
-            keys['ArrowUp'] = dy < -5;
-            keys['ArrowDown'] = dy > 5;
+
+            // Check if target direction is blocked by mushroom
+            var nextCol = gridCol(player.x + (dx > 0 ? TILE / 2 + 2 : -TILE / 2 - 2));
+            var nextRow = gridRow(player.y + (dy > 0 ? TILE / 2 + 2 : -TILE / 2 - 2));
+            var pCol = gridCol(player.x);
+            var pRow = gridRow(player.y);
+            var hBlocked = nextCol >= 0 && nextCol < COLS && pRow >= 0 && pRow < ROWS && mushrooms[pRow][nextCol] !== 0;
+            var vBlocked = pCol >= 0 && pCol < COLS && nextRow >= 0 && nextRow < ROWS && mushrooms[nextRow][pCol] !== 0;
+
+            keys['ArrowLeft'] = dx < -5 && !hBlocked;
+            keys['ArrowRight'] = dx > 5 && !hBlocked;
+            // If horizontally blocked, try to go around vertically
+            if (hBlocked && Math.abs(dx) > 5) {
+                keys['ArrowUp'] = true;
+            } else {
+                keys['ArrowUp'] = dy < -5 && !vBlocked;
+            }
+            keys['ArrowDown'] = dy > 5 && !vBlocked;
 
             // Fire when roughly aligned
             var aligned = false;

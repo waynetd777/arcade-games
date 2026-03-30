@@ -1072,8 +1072,8 @@
 
             if (!nearestEnemy) return;
 
-            // If close enough and facing enemy, pump
-            if (nearestDist < 3 && player.pumping && player.pumpTarget === nearestEnemy) {
+            // If currently pumping, keep holding space until enemy dies or deflates away
+            if (player.pumping && player.pumpDist > 0) {
                 keys[' '] = true;
                 keys['ArrowLeft'] = false;
                 keys['ArrowRight'] = false;
@@ -1120,9 +1120,14 @@
                 if (fireMinX > fireMaxX) { var tmp = fireMinX; fireMinX = fireMaxX; fireMaxX = tmp; }
                 var px = gx(player.x), py = gy(player.y);
                 if (px > fireMinX - 10 && px < fireMaxX + 10 && Math.abs(py - e.y) < 20) {
-                    // Dodge vertically
-                    keys['ArrowUp'] = true;
-                    keys['ArrowDown'] = false;
+                    // Dodge vertically -- prefer direction away from fire
+                    if (py <= e.y) {
+                        keys['ArrowUp'] = true;
+                        keys['ArrowDown'] = false;
+                    } else {
+                        keys['ArrowDown'] = true;
+                        keys['ArrowUp'] = false;
+                    }
                     keys['ArrowLeft'] = false;
                     keys['ArrowRight'] = false;
                     keys[' '] = false;

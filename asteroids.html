@@ -484,6 +484,14 @@
         }
 
         // === AI ===
+        function wrappedAngle(fromX, fromY, toX, toY) {
+            var dx = toX - fromX;
+            var dy = toY - fromY;
+            if (dx > W / 2) dx -= W; else if (dx < -W / 2) dx += W;
+            if (dy > H / 2) dy -= H; else if (dy < -H / 2) dy += H;
+            return Math.atan2(dy, dx);
+        }
+
         function runAI(dt) {
             // Find nearest asteroid threat
             var nearestAst = null, nearestDist = Infinity;
@@ -528,7 +536,7 @@
 
             if (dodge && nearestThreatDist < 120) {
                 // Thrust away from nearest threat
-                var awayAngle = Math.atan2(ship.y - nearestThreatY, ship.x - nearestThreatX);
+                var awayAngle = wrappedAngle(nearestThreatX, nearestThreatY, ship.x, ship.y);
                 var angleDiff = awayAngle - ship.angle;
                 while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
                 while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
@@ -537,7 +545,7 @@
                 else keys['ArrowUp'] = true;
             } else if (targetX !== null) {
                 // Rotate toward target
-                var desiredAngle = Math.atan2(targetY - ship.y, targetX - ship.x);
+                var desiredAngle = wrappedAngle(ship.x, ship.y, targetX, targetY);
                 var angleDiff2 = desiredAngle - ship.angle;
                 while (angleDiff2 > Math.PI) angleDiff2 -= Math.PI * 2;
                 while (angleDiff2 < -Math.PI) angleDiff2 += Math.PI * 2;
@@ -559,7 +567,7 @@
 
             // Fire logic runs after edge correction so thrusting toward center doesn't prevent firing
             if (targetX !== null) {
-                var fireAngle = Math.atan2(targetY - ship.y, targetX - ship.x);
+                var fireAngle = wrappedAngle(ship.x, ship.y, targetX, targetY);
                 var fireDiff = fireAngle - ship.angle;
                 while (fireDiff > Math.PI) fireDiff -= Math.PI * 2;
                 while (fireDiff < -Math.PI) fireDiff += Math.PI * 2;

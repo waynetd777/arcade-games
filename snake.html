@@ -38,7 +38,7 @@
 
     <div class="stats">
         <div>SCORE: <span id="s">0</span></div>
-        <div>LENGTH: <span id="l">3</span></div>
+        <div>LIVES: <span id="l">3</span></div>
         <div>LVL: <span id="v">1</span></div>
     </div>
 
@@ -90,12 +90,13 @@
         const OFFSET_Y = Math.floor((H - GRID_H) / 2);
 
         let state = 'START', aiMode = false, paused = false;
-        let score = 0, length = 3, level = 1, lastTime = performance.now(), gameTime = 0;
+        let score = 0, lives = 3, length = 3, level = 1, lastTime = performance.now(), gameTime = 0;
         let floatingTexts = [], particles = [];
         let difficulty = 1;
         const DIFF_NAMES = ['E: EASY', 'M: MEDIUM', 'H: HARD'];
         const DIFF_COLORS = ['#4ae04a', '#ffaa00', '#ff3333'];
         const DIFF_SPEEDS = [0.14, 0.10, 0.07]; // seconds per move
+        const DIFF_LIVES = [4, 3, 2];
         let highScores = JSON.parse(localStorage.getItem('snake_deluxe_scores')) || [{n:'CPU', s:500}];
         highScores = highScores.slice(0, 10);
 
@@ -124,7 +125,8 @@
             strawberry: { points: 30, color: '#ff4488', glow: '#ff4488', life: 8,  spawnMin: 15, spawnMax: 25, label: 'STRAWBERRY' },
             diamond:    { points: 100, color: '#00ffff', glow: '#00ffff', life: 4,  spawnMin: 25, spawnMax: 40, label: 'DIAMOND' },
             lightning:  { points: 10, color: '#ffee00', glow: '#ffee00', life: 7,  spawnMin: 20, spawnMax: 35, label: '2x SCORE', effect: 'multiplier', duration: 6 },
-            shield:     { points: 10, color: '#4488ff', glow: '#4488ff', life: 6,  spawnMin: 30, spawnMax: 45, label: 'SHIELD', effect: 'shield', duration: 5 }
+            shield:     { points: 10, color: '#4488ff', glow: '#4488ff', life: 6,  spawnMin: 30, spawnMax: 45, label: 'SHIELD', effect: 'shield', duration: 5 },
+            heart:      { points: 0,  color: '#ff4488', glow: '#ff4488', life: 5,  spawnMin: 40, spawnMax: 60, label: '+1 LIFE', effect: 'extralife' }
         };
 
         // Active powerup effects
@@ -315,6 +317,7 @@
 
         function startGame() {
             score = 0;
+            lives = DIFF_LIVES[difficulty];
             length = 3;
             level = 1;
             foodEaten = 0;
@@ -927,6 +930,24 @@
                     ctx.fillRect(-3 * s, -1, 6 * s, 2);
                     ctx.restore();
                 }
+                else if (item.type === 'heart') {
+                    // Heart shape
+                    ctx.fillStyle = '#ff4488';
+                    ctx.save();
+                    ctx.translate(px, py);
+                    var s = pulse;
+                    ctx.beginPath();
+                    ctx.moveTo(0, 3 * s);
+                    ctx.bezierCurveTo(-7 * s, -3 * s, -7 * s, -8 * s, 0, -4 * s);
+                    ctx.bezierCurveTo(7 * s, -8 * s, 7 * s, -3 * s, 0, 3 * s);
+                    ctx.fill();
+                    // Inner shine
+                    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+                    ctx.beginPath();
+                    ctx.arc(-3 * s, -4 * s, 2 * s, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
                 ctx.shadowBlur = 0;
             });
         }
@@ -955,7 +976,7 @@
 
         function updateHUD() {
             document.getElementById('s').innerText = score;
-            document.getElementById('l').innerText = snake.length;
+            document.getElementById('l').innerText = lives;
             document.getElementById('v').innerText = level;
         }
 
@@ -1092,9 +1113,9 @@
             ctx.textAlign = 'center';
             ctx.font = '12px Courier';
             ctx.fillStyle = '#888';
-            if (difficulty === 0) ctx.fillText("ALL WALLS WRAP | SLOW SPEED", W / 2, 468);
-            else if (difficulty === 1) ctx.fillText("SIDE WALLS WRAP | TOP/BOTTOM DEADLY", W / 2, 468);
-            else ctx.fillText("ALL WALLS DEADLY | MAX SPEED", W / 2, 468);
+            if (difficulty === 0) ctx.fillText("ALL WALLS WRAP | SLOW SPEED | 4 LIVES", W / 2, 468);
+            else if (difficulty === 1) ctx.fillText("SIDES WRAP | TOP/BOT DEADLY | 3 LIVES", W / 2, 468);
+            else ctx.fillText("ALL WALLS DEADLY | MAX SPEED | 2 LIVES", W / 2, 468);
 
             // Score info - items grid
             ctx.fillStyle = '#888';
@@ -1111,7 +1132,8 @@
             var itemsRow2 = [
                 { color: '#00ffff', glow: '#00ffff', label: '100', x: -90 },
                 { color: '#ffee00', glow: '#ffee00', label: '2x', x: -10 },
-                { color: '#4488ff', glow: '#4488ff', label: 'INV', x: 70 }
+                { color: '#4488ff', glow: '#4488ff', label: 'INV', x: 50 },
+                { color: '#ff4488', glow: '#ff4488', label: '+1UP', x: 110 }
             ];
 
             itemsRow1.forEach(function(item) {
@@ -1227,28 +1249,35 @@
                 ctx.globalAlpha = 1;
 
                 if (deathTimer <= 0) {
-                    state = 'OVER';
-                    menuBtn.innerText = 'MENU';
-                    menuBtn.href = 'index.html';
-                    titleTimer = 0;
-                    stopMusic();
-                    sfxGameOver();
-                    gameOverTimeoutId = setTimeout(function() {
-                        if (state !== 'OVER') return;
-                        if (!aiMode && score > 0 && (highScores.length < 10 || score > highScores[highScores.length - 1].s)) {
-                            stopMusic();
-                            var n = prompt("LEGENDARY SCORE! Enter Initials:", "ACE");
-                            if (n) {
-                                highScores.push({ n: n.substring(0, 3).toUpperCase(), s: score });
-                                highScores.sort(function(a, b) { return b.s - a.s; });
-                                highScores = highScores.slice(0, 10);
-                                localStorage.setItem('snake_deluxe_scores', JSON.stringify(highScores));
+                    lives--;
+                    updateHUD();
+                    if (lives <= 0) {
+                        state = 'OVER';
+                        menuBtn.innerText = 'MENU';
+                        menuBtn.href = 'index.html';
+                        titleTimer = 0;
+                        stopMusic();
+                        sfxGameOver();
+                        gameOverTimeoutId = setTimeout(function() {
+                            if (state !== 'OVER') return;
+                            if (!aiMode && score > 0 && (highScores.length < 10 || score > highScores[highScores.length - 1].s)) {
+                                stopMusic();
+                                var n = prompt("LEGENDARY SCORE! Enter Initials:", "ACE");
+                                if (n) {
+                                    highScores.push({ n: n.substring(0, 3).toUpperCase(), s: score });
+                                    highScores.sort(function(a, b) { return b.s - a.s; });
+                                    highScores = highScores.slice(0, 10);
+                                    localStorage.setItem('snake_deluxe_scores', JSON.stringify(highScores));
+                                }
                             }
-                        }
-                        playMusic('home');
-                    }, 1000);
+                            playMusic('home');
+                        }, 1000);
+                    } else {
+                        // Respawn snake keeping score and level
+                        initLevel();
+                        floatingTexts.push({x: W / 2, y: H / 2, t: lives + ' LIVES LEFT', life: 1.5, c: '#ff4444'});
+                    }
                 }
-                updateHUD();
                 requestAnimationFrame(loop);
                 return;
             }
@@ -1380,7 +1409,11 @@
                         else if (item.type === 'diamond') sfxDiamond();
                         else sfxPowerup();
                         // Apply effect
-                        if (t.effect) {
+                        if (t.effect === 'extralife') {
+                            lives++;
+                            updateHUD();
+                            floatingTexts.push({x: W / 2, y: H / 2 - 30, t: '+1 LIFE!', life: 1.5, c: t.color});
+                        } else if (t.effect) {
                             activeEffects[t.effect] = t.duration;
                             floatingTexts.push({x: W / 2, y: H / 2 - 30, t: t.label + ' ACTIVE!', life: 1.5, c: t.color});
                         }

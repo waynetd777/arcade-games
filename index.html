@@ -929,10 +929,15 @@
                 ctx.strokeRect(ladders[l][0], ladders[l][1], 8, 18);
                 for (var rr = 3; rr < 18; rr += 4) rect(ctx, ladders[l][0], ladders[l][1] + rr, 8, 1, '#88f');
             }
-            // DK
-            rect(ctx, 18, 5, 14, 12, '#8B4513');
-            px(ctx, 21, 7, 3, 2, '#000'); px(ctx, 26, 7, 3, 2, '#000');
-            px(ctx, 22, 11, 6, 2, '#fff');
+            // DK - gorilla shape
+            ctx.fillStyle = '#884400';
+            ctx.beginPath(); ctx.arc(25, 6, 7, 0, Math.PI * 2); ctx.fill(); // round head
+            rect(ctx, 18, 10, 14, 10, '#884400'); // body
+            ctx.fillStyle = '#aa6622';
+            ctx.beginPath(); ctx.ellipse(25, 8, 5, 4, 0, 0, Math.PI * 2); ctx.fill(); // muzzle
+            px(ctx, 21, 3, 2, 2, '#fff'); px(ctx, 26, 3, 2, 2, '#fff'); // eyes
+            px(ctx, 22, 4, 1, 1, '#000'); px(ctx, 27, 4, 1, 1, '#000');
+            rect(ctx, 14, 12, 5, 6, '#884400'); rect(ctx, 31, 12, 5, 6, '#884400'); // arms
             // Barrels rolling
             var b1x = (t * 35) % (W + 20) - 10;
             var b2x = W - (t * 28) % (W + 20) + 10;

@@ -628,15 +628,22 @@
 
         // =================================================================
         // FROGGER - AI navigates through traffic and logs to reach home
+        // Row layout (10px jumps): 90=start, 80/70=cars, 60=median,
+        //   50/40/30=logs(water), 20=bank, 10=home row
         // =================================================================
         (function() {
+            // Rows the frog can land on, from bottom to top
+            var ROWS = [90, 80, 70, 60, 50, 40, 30, 20, 10];
+            var CAR_ROWS = { 80: true, 70: true };
+            var LOG_ROWS = { 50: true, 40: true, 30: true };
             function init() {
                 var cars = [], logs = [];
-                for (var i = 0; i < 3; i++) cars.push({ x: i * 55, y: 65, spd: 35, w: 18 });
-                for (var i = 0; i < 3; i++) cars.push({ x: i * 55 + 20, y: 45, spd: -28, w: 22 });
-                for (var i = 0; i < 3; i++) logs.push({ x: i * 60, y: 18, spd: 22, w: 36 });
-                for (var i = 0; i < 2; i++) logs.push({ x: i * 80, y: 8, spd: -18, w: 44 });
-                return { fx: 76, fy: 88, wait: 0, cars: cars, logs: logs, homes: [0,0,0,0,0], filled: 0 };
+                for (var i = 0; i < 3; i++) cars.push({ x: i * 55, y: 80, spd: 35, w: 18 });
+                for (var i = 0; i < 3; i++) cars.push({ x: i * 55 + 20, y: 70, spd: -28, w: 22 });
+                for (var i = 0; i < 3; i++) logs.push({ x: i * 60, y: 50, spd: 22, w: 36 });
+                for (var i = 0; i < 2; i++) logs.push({ x: i * 80 + 10, y: 40, spd: -18, w: 44 });
+                for (var i = 0; i < 3; i++) logs.push({ x: i * 55 + 5, y: 30, spd: 25, w: 38 });
+                return { fx: 76, fy: 90, wait: 0, cars: cars, logs: logs, homes: [0,0,0,0,0], filled: 0 };
             }
             gs.frogger = init();
 
@@ -654,40 +661,40 @@
                     if (s.logs[i].spd < 0 && s.logs[i].x < -s.logs[i].w - 5) s.logs[i].x = W;
                 }
                 // Ride logs in water zone
-                if (s.fy < 30 && s.fy > 2) {
+                if (LOG_ROWS[s.fy]) {
                     var onLog = false;
                     for (var i = 0; i < s.logs.length; i++) {
                         var l = s.logs[i];
-                        if (Math.abs(l.y - s.fy) < 6 && s.fx > l.x - 4 && s.fx < l.x + l.w - 4) {
+                        if (l.y === s.fy && s.fx > l.x - 4 && s.fx < l.x + l.w - 4) {
                             s.fx += l.spd * dt; onLog = true; break;
                         }
                     }
-                    if (!onLog && s.fy > 5) { s.fx = 76; s.fy = 88; } // fell in water
+                    if (!onLog) { s.fx = 76; s.fy = 90; } // fell in water
                 }
                 // AI movement
                 s.wait -= dt;
                 if (s.wait <= 0) {
                     s.wait = 0.22;
                     var safe = function(x, y) {
-                        if (y >= 35 && y <= 75) {
+                        if (x < 4 || x > W - 12) return false;
+                        if (CAR_ROWS[y]) {
                             for (var i = 0; i < s.cars.length; i++) {
                                 var c = s.cars[i];
-                                if (Math.abs(c.y - y) < 7 && x > c.x - 10 && x < c.x + c.w + 2) return false;
+                                if (c.y === y && x > c.x - 10 && x < c.x + c.w + 2) return false;
                             }
                         }
-                        if (y > 2 && y < 30) {
+                        if (LOG_ROWS[y]) {
                             var on = false;
                             for (var i = 0; i < s.logs.length; i++) {
                                 var l = s.logs[i];
-                                if (Math.abs(l.y - y) < 6 && x > l.x - 2 && x < l.x + l.w - 2) on = true;
+                                if (l.y === y && x > l.x - 2 && x < l.x + l.w - 2) on = true;
                             }
                             if (!on) return false;
                         }
-                        return x > 4 && x < W - 12;
+                        return true;
                     };
-                    // Prefer moving up, dodge sideways if blocked
                     var ny = s.fy - 10;
-                    if (ny <= 2) {
+                    if (ny < 10) {
                         // Heading home — find unfilled slot
                         var slot = -1, bestD = 999;
                         for (var i = 0; i < 5; i++) {
@@ -705,28 +712,30 @@
                     } else if (safe(s.fx - 12, s.fy)) {
                         s.fx -= 12;
                     }
+                    // Avoid staying stuck — if blocked for too long, try bigger sideways moves
                 }
                 // Car collision
-                if (s.fy >= 35 && s.fy <= 75) {
+                if (CAR_ROWS[s.fy]) {
                     for (var i = 0; i < s.cars.length; i++) {
                         var c = s.cars[i];
-                        if (Math.abs(c.y - s.fy) < 6 && s.fx > c.x - 6 && s.fx < c.x + c.w) { s.fx = 76; s.fy = 88; }
+                        if (c.y === s.fy && s.fx > c.x - 6 && s.fx < c.x + c.w) { s.fx = 76; s.fy = 90; }
                     }
                 }
                 // Reached home
-                if (s.fy <= 2) {
+                if (s.fy <= 5) {
                     var slot = clamp(Math.round((s.fx - 10) / 32), 0, 4);
                     s.homes[slot] = 1; s.filled++;
-                    s.fx = 76; s.fy = 88;
+                    s.fx = 76; s.fy = 90;
                     if (s.filled >= 5) gs.frogger = init();
                 }
                 s.fx = clamp(s.fx, 4, W - 12);
                 // Draw
                 rect(ctx, 0, 0, W, H, '#111');
-                rect(ctx, 0, 0, W, 30, '#003366');
-                rect(ctx, 0, 60, W, 2, '#555'); rect(ctx, 0, 40, W, 2, '#555');
-                rect(ctx, 0, 88, W, 12, '#444');
-                for (var i = 0; i < 5; i++) rect(ctx, 10 + i * 32, 0, 12, 6, s.homes[i] ? '#4ae04a' : '#2a6e2a');
+                rect(ctx, 0, 24, W, 36, '#003366'); // water zone (rows 30-50)
+                rect(ctx, 0, 75, W, 2, '#555'); // lane divider
+                rect(ctx, 0, 63, W, 2, '#555');
+                rect(ctx, 0, 90, W, 12, '#444'); // sidewalk
+                for (var i = 0; i < 5; i++) rect(ctx, 10 + i * 32, 4, 12, 6, s.homes[i] ? '#4ae04a' : '#2a6e2a');
                 for (var i = 0; i < s.logs.length; i++) rect(ctx, s.logs[i].x, s.logs[i].y, s.logs[i].w, 8, '#8B4513');
                 for (var i = 0; i < s.cars.length; i++) {
                     var c = s.cars[i];
@@ -1277,9 +1286,9 @@
 
             previews.breakout = function(ctx, dt) {
                 var s = gs.breakout;
-                // AI: paddle follows ball
-                var diff = (s.bx - s.padX);
-                s.padX += clamp(diff, -100 * dt, 100 * dt);
+                // AI: paddle follows ball with slight offset to avoid dead-center hits
+                var aim = s.bx + (s.bvx > 0 ? 4 : -4);
+                s.padX += clamp(aim - s.padX, -100 * dt, 100 * dt);
                 s.padX = clamp(s.padX, 14, W - 14);
                 // Move ball
                 s.bx += s.bvx * dt; s.by += s.bvy * dt;
@@ -1289,7 +1298,10 @@
                 // Paddle bounce
                 if (s.by > 88 && s.by < 95 && s.bvy > 0 && Math.abs(s.bx - s.padX) < 16) {
                     s.bvy = -Math.abs(s.bvy);
-                    s.bvx = (s.bx - s.padX) * 3;
+                    var offset = s.bx - s.padX;
+                    s.bvx = offset * 3;
+                    // Ensure ball always has some horizontal velocity
+                    if (Math.abs(s.bvx) < 15) s.bvx = (offset >= 0 ? 1 : -1) * (15 + Math.random() * 20);
                 }
                 // Ball lost
                 if (s.by > H + 5) { gs.breakout = init(); return; }

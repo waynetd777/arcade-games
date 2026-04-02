@@ -1,6 +1,6 @@
 # Wayne's Retro Arcade
 
-A collection of 12 classic arcade games built entirely with HTML5 Canvas and vanilla JavaScript. No frameworks, no dependencies — just open `index.html` in a browser and play.
+A collection of 15 classic arcade games built entirely with HTML5 Canvas and vanilla JavaScript. No frameworks, no dependencies — just open `index.html` in a browser and play.
 
 **Live:** [waynetd777.github.io/arcade-games](https://waynetd777.github.io/arcade-games/)
 
@@ -26,6 +26,9 @@ A collection of 12 classic arcade games built entirely with HTML5 Canvas and van
 | **Donkey Kong** | Climb girders, dodge barrels, rescue Pauline |
 | **Prince of Persia** | Fight guards and escape the dungeon |
 | **Dig Dug** | Tunnel underground, pump and pop enemies |
+| **Galaga** | Blast diving aliens, rescue captured ships |
+| **Q*bert** | Hop cubes, change colors, dodge Coily |
+| **Missile Command** | Defend cities from nuclear annihilation |
 
 ## Features
 

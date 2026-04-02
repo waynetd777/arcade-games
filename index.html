@@ -316,6 +316,24 @@
                 <div class="card-desc">Tunnel underground, pump and pop enemies</div>
                 <div class="card-play">&#9654; PLAY</div>
             </a>
+            <a href="galaga.html" class="card" style="--glow: #ff1744;" tabindex="0" data-game="galaga">
+                <canvas class="card-preview" width="160" height="100"></canvas>
+                <div class="card-name">GALAGA</div>
+                <div class="card-desc">Blast diving aliens, rescue captured ships</div>
+                <div class="card-play">&#9654; PLAY</div>
+            </a>
+            <a href="qbert.html" class="card" style="--glow: #e040fb;" tabindex="0" data-game="qbert">
+                <canvas class="card-preview" width="160" height="100"></canvas>
+                <div class="card-name">Q*BERT</div>
+                <div class="card-desc">Hop cubes, change colors, dodge Coily</div>
+                <div class="card-play">&#9654; PLAY</div>
+            </a>
+            <a href="missilecommand.html" class="card" style="--glow: #40c4ff;" tabindex="0" data-game="missilecommand">
+                <canvas class="card-preview" width="160" height="100"></canvas>
+                <div class="card-name">MISSILE COMMAND</div>
+                <div class="card-desc">Defend cities from nuclear annihilation</div>
+                <div class="card-play">&#9654; PLAY</div>
+            </a>
         </div>
 
         <div class="footer">
@@ -323,7 +341,7 @@
                 <img id="qr-img" alt="QR Code" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
                 <div class="qr-label">SCAN TO PLAY ON PHONE</div>
             </div>
-            12 CLASSIC ARCADE GAMES &nbsp;|&nbsp; BUILT WITH HTML5 CANVAS
+            15 CLASSIC ARCADE GAMES &nbsp;|&nbsp; BUILT WITH HTML5 CANVAS
         </div>
     </div>
 
@@ -1954,6 +1972,340 @@
                         rect(ctx, ex - 7, ey + 2, 4, 1, '#ffcc00');
                     }
                 }
+            };
+        })();
+
+        // =================================================================
+        // GALAGA - AI shoots diving aliens from formation
+        // =================================================================
+        (function() {
+            var invColors = ['#ff4444','#ffaa00','#44ff44','#00ccff','#ffffff'];
+            function init() {
+                var enemies = [];
+                for (var r = 0; r < 5; r++) for (var c = 0; c < 8; c++)
+                    enemies.push({ x: 16 + c * 16, y: 6 + r * 10, alive: true, row: r, homeX: 16 + c * 16, homeY: 6 + r * 10, diving: false, dx: 0, dy: 0, dt: 0 });
+                return { enemies: enemies, plx: 76, bullets: [], eBullets: [], sway: 0, diveT: 0, shootT: 0 };
+            }
+            gs.galaga = init();
+
+            previews.galaga = function(ctx, dt) {
+                var s = gs.galaga;
+                s.sway += dt; s.diveT += dt; s.shootT += dt;
+                var swayOff = Math.sin(s.sway * 1.2) * 8;
+                // Trigger dives
+                if (s.diveT > 1.5) {
+                    s.diveT = 0;
+                    var alive = [];
+                    for (var i = 0; i < s.enemies.length; i++) if (s.enemies[i].alive && !s.enemies[i].diving) alive.push(s.enemies[i]);
+                    if (alive.length > 0) {
+                        var e = alive[Math.floor(Math.random() * alive.length)];
+                        e.diving = true; e.dt = 0; e.dx = (s.plx - e.x) * 0.02; e.dy = 2;
+                    }
+                }
+                // Update enemies
+                for (var i = 0; i < s.enemies.length; i++) {
+                    var e = s.enemies[i];
+                    if (!e.alive) continue;
+                    if (e.diving) {
+                        e.dt += dt;
+                        e.x += (Math.sin(e.dt * 4) * 40 + e.dx * 20) * dt;
+                        e.y += e.dy * 45 * dt;
+                        if (e.y > H + 5) { e.y = -5; e.diving = false; e.x = e.homeX; e.y = e.homeY; }
+                        // Dive shooting
+                        if (Math.random() < 0.01) s.eBullets.push({ x: e.x + 4, y: e.y + 8 });
+                    }
+                }
+                // Enemy bullets
+                for (var i = s.eBullets.length - 1; i >= 0; i--) {
+                    s.eBullets[i].y += 70 * dt;
+                    if (s.eBullets[i].y > H) s.eBullets.splice(i, 1);
+                }
+                // AI: dodge + target
+                var target = null, minD = 999;
+                for (var i = 0; i < s.enemies.length; i++) {
+                    if (!s.enemies[i].alive) continue;
+                    var e = s.enemies[i], ex = e.diving ? e.x : e.homeX + swayOff;
+                    var d = Math.abs(ex - s.plx);
+                    if (d < minD) { minD = d; target = e; }
+                }
+                // Dodge
+                var dodge = 0;
+                for (var i = 0; i < s.eBullets.length; i++) {
+                    if (s.eBullets[i].y > 70 && Math.abs(s.eBullets[i].x - s.plx - 4) < 12) {
+                        dodge = s.eBullets[i].x > s.plx + 4 ? -3 : 3;
+                    }
+                }
+                if (dodge) s.plx += dodge;
+                else if (target) {
+                    var tx = target.diving ? target.x : target.homeX + swayOff;
+                    s.plx += clamp(tx - s.plx - 2, -2, 2);
+                }
+                s.plx = clamp(s.plx, 4, W - 12);
+                // Shoot
+                if (s.shootT > 0.2 && s.bullets.length < 2) {
+                    s.shootT = 0;
+                    s.bullets.push({ x: s.plx + 3, y: 90 });
+                }
+                // Update bullets
+                for (var i = s.bullets.length - 1; i >= 0; i--) {
+                    s.bullets[i].y -= 130 * dt;
+                    if (s.bullets[i].y < 0) { s.bullets.splice(i, 1); continue; }
+                    for (var j = 0; j < s.enemies.length; j++) {
+                        var e = s.enemies[j]; if (!e.alive) continue;
+                        var ex = e.diving ? e.x : e.homeX + swayOff, ey = e.diving ? e.y : e.homeY;
+                        if (Math.abs(s.bullets[i].x - ex - 4) < 7 && Math.abs(s.bullets[i].y - ey - 4) < 7) {
+                            e.alive = false; s.bullets.splice(i, 1); break;
+                        }
+                    }
+                }
+                // Reset if all dead
+                var aliveCount = 0;
+                for (var i = 0; i < s.enemies.length; i++) if (s.enemies[i].alive) aliveCount++;
+                if (aliveCount === 0) { gs.galaga = init(); return; }
+                // Draw
+                rect(ctx, 0, 0, W, H, '#000');
+                for (var i = 0; i < s.enemies.length; i++) {
+                    var e = s.enemies[i]; if (!e.alive) continue;
+                    var ex = e.diving ? e.x : e.homeX + swayOff, ey = e.diving ? e.y : e.homeY;
+                    var c = invColors[e.row];
+                    px(ctx, ex + 2, ey, 4, 2, c); px(ctx, ex, ey + 2, 8, 3, c);
+                    px(ctx, ex + 1, ey + 5, 2, 2, c); px(ctx, ex + 5, ey + 5, 2, 2, c);
+                }
+                // Player ship
+                ctx.fillStyle = '#4ae04a';
+                ctx.beginPath(); ctx.moveTo(s.plx + 4, 88); ctx.lineTo(s.plx - 1, 96); ctx.lineTo(s.plx + 9, 96); ctx.fill();
+                // Bullets
+                for (var i = 0; i < s.bullets.length; i++) rect(ctx, s.bullets[i].x, s.bullets[i].y, 2, 5, '#fff');
+                for (var i = 0; i < s.eBullets.length; i++) rect(ctx, s.eBullets[i].x, s.eBullets[i].y, 2, 4, '#ff4444');
+            };
+        })();
+
+        // =================================================================
+        // Q*BERT - AI hops cubes on isometric pyramid to change colors
+        // =================================================================
+        (function() {
+            var ROWS = 7, CW = 16, CH = 12;
+            var startColor = '#666', targetColor = '#ffcc00';
+            function cubePos(row, col) {
+                var ox = W / 2 - (row + 1) * CW / 2;
+                return { x: ox + col * CW, y: 8 + row * (CH - 2) };
+            }
+            function init() {
+                var cubes = [];
+                for (var r = 0; r < ROWS; r++) for (var c = 0; c <= r; c++)
+                    cubes.push({ row: r, col: c, color: 0 }); // 0=start, 1=target
+                return { cubes: cubes, pr: 0, pc: 0, coily: { r: -1, c: 0, active: false, timer: 3 },
+                    moveT: 0, tick: 0, won: false, wonT: 0 };
+            }
+            gs.qbert = init();
+
+            function getCube(s, r, c) {
+                for (var i = 0; i < s.cubes.length; i++) if (s.cubes[i].row === r && s.cubes[i].col === c) return s.cubes[i];
+                return null;
+            }
+
+            previews.qbert = function(ctx, dt) {
+                var s = gs.qbert;
+                s.tick += dt; s.moveT += dt;
+                if (s.won) { s.wonT += dt; if (s.wonT > 1.5) { gs.qbert = init(); return; } }
+                if (!s.won && s.moveT > 0.3) {
+                    s.moveT = 0;
+                    // Coily logic
+                    if (!s.coily.active) {
+                        s.coily.timer -= 0.3;
+                        if (s.coily.timer <= 0) { s.coily.active = true; s.coily.r = 0; s.coily.c = 0; }
+                    } else {
+                        // Chase Q*bert
+                        var dr = s.pr > s.coily.r ? 1 : s.pr < s.coily.r ? -1 : 0;
+                        var dc = s.pc > s.coily.c ? 1 : s.pc < s.coily.c ? -1 : 0;
+                        if (dr > 0) { s.coily.r++; if (dc > 0) s.coily.c++; }
+                        else if (dr < 0) { s.coily.r--; s.coily.c += (dc >= 0 ? 0 : -1); }
+                        else { s.coily.r += (Math.random() < 0.5 ? 1 : -1); s.coily.c = clamp(s.coily.c, 0, s.coily.r); }
+                        s.coily.r = clamp(s.coily.r, 0, ROWS - 1);
+                        s.coily.c = clamp(s.coily.c, 0, s.coily.r);
+                        if (s.coily.r === s.pr && s.coily.c === s.pc) { gs.qbert = init(); return; }
+                    }
+                    // AI: find nearest uncolored cube, avoid Coily
+                    var bestR = -1, bestC = -1, bestD = 999;
+                    for (var i = 0; i < s.cubes.length; i++) {
+                        if (s.cubes[i].color === 0) {
+                            var d = Math.abs(s.cubes[i].row - s.pr) + Math.abs(s.cubes[i].col - s.pc);
+                            if (s.coily.active) {
+                                var cd = Math.abs(s.cubes[i].row - s.coily.r) + Math.abs(s.cubes[i].col - s.coily.c);
+                                if (cd < 2) d += 10; // avoid Coily's area
+                            }
+                            if (d < bestD) { bestD = d; bestR = s.cubes[i].row; bestC = s.cubes[i].col; }
+                        }
+                    }
+                    // Move toward target
+                    if (bestR >= 0) {
+                        if (bestR > s.pr) { s.pr++; if (bestC > s.pc) s.pc++; }
+                        else if (bestR < s.pr) { s.pr--; if (bestC < s.pc) s.pc--; }
+                        else if (bestC > s.pc) { s.pr++; s.pc++; }
+                        else if (bestC < s.pc) { s.pr--; s.pc--; }
+                    }
+                    s.pr = clamp(s.pr, 0, ROWS - 1); s.pc = clamp(s.pc, 0, s.pr);
+                    // Color the cube
+                    var cube = getCube(s, s.pr, s.pc);
+                    if (cube && cube.color === 0) cube.color = 1;
+                    // Check win
+                    var allDone = true;
+                    for (var i = 0; i < s.cubes.length; i++) if (s.cubes[i].color === 0) allDone = false;
+                    if (allDone) { s.won = true; s.wonT = 0; }
+                }
+                // Draw
+                rect(ctx, 0, 0, W, H, '#000');
+                // Cubes
+                for (var i = 0; i < s.cubes.length; i++) {
+                    var cb = s.cubes[i], p = cubePos(cb.row, cb.col);
+                    var topC = cb.color ? (s.won ? '#44ff44' : targetColor) : startColor;
+                    // Top face (diamond)
+                    ctx.fillStyle = topC; ctx.beginPath();
+                    ctx.moveTo(p.x + CW / 2, p.y); ctx.lineTo(p.x + CW, p.y + CH / 2);
+                    ctx.lineTo(p.x + CW / 2, p.y + CH); ctx.lineTo(p.x, p.y + CH / 2); ctx.fill();
+                    // Left face
+                    ctx.fillStyle = cb.color ? '#cc9900' : '#444'; ctx.beginPath();
+                    ctx.moveTo(p.x, p.y + CH / 2); ctx.lineTo(p.x + CW / 2, p.y + CH);
+                    ctx.lineTo(p.x + CW / 2, p.y + CH + 5); ctx.lineTo(p.x, p.y + CH / 2 + 5); ctx.fill();
+                    // Right face
+                    ctx.fillStyle = cb.color ? '#aa7700' : '#333'; ctx.beginPath();
+                    ctx.moveTo(p.x + CW, p.y + CH / 2); ctx.lineTo(p.x + CW / 2, p.y + CH);
+                    ctx.lineTo(p.x + CW / 2, p.y + CH + 5); ctx.lineTo(p.x + CW, p.y + CH / 2 + 5); ctx.fill();
+                }
+                // Q*bert
+                var pp = cubePos(s.pr, s.pc);
+                var qx = pp.x + CW / 2, qy = pp.y + 2;
+                ctx.fillStyle = '#ff8c00'; ctx.beginPath(); ctx.arc(qx, qy, 4, 0, Math.PI * 2); ctx.fill();
+                px(ctx, qx - 2, qy - 2, 2, 2, '#fff'); px(ctx, qx + 1, qy - 2, 2, 2, '#fff');
+                px(ctx, qx - 1, qy - 1, 1, 1, '#000'); px(ctx, qx + 1, qy - 1, 1, 1, '#000');
+                // Coily
+                if (s.coily.active) {
+                    var cp = cubePos(s.coily.r, s.coily.c);
+                    var cx2 = cp.x + CW / 2, cy2 = cp.y + 2;
+                    ctx.fillStyle = '#aa00ff'; ctx.beginPath(); ctx.arc(cx2, cy2, 4, 0, Math.PI * 2); ctx.fill();
+                    px(ctx, cx2 - 2, cy2 - 1, 2, 2, '#ff0'); px(ctx, cx2 + 1, cy2 - 1, 2, 2, '#ff0');
+                }
+            };
+        })();
+
+        // =================================================================
+        // MISSILE COMMAND - AI defends cities from incoming missiles
+        // =================================================================
+        (function() {
+            function init() {
+                var cities = [];
+                for (var i = 0; i < 6; i++) cities.push({ x: 15 + i * 24, alive: true });
+                return { cities: cities, missiles: [], counters: [], explosions: [],
+                    spawnT: 0, tick: 0, ammo: 30 };
+            }
+            gs.missilecommand = init();
+            var cityColors = ['#4488ff','#44ff44','#ffaa00','#ff4444','#ff88ff','#00ffff'];
+
+            previews.missilecommand = function(ctx, dt) {
+                var s = gs.missilecommand;
+                s.tick += dt; s.spawnT += dt;
+                // Spawn enemy missiles
+                if (s.spawnT > 0.7 && s.missiles.length < 6) {
+                    s.spawnT = 0;
+                    var tgt = s.cities[Math.floor(Math.random() * s.cities.length)];
+                    if (tgt.alive) s.missiles.push({ x: Math.random() * W, y: 0, tx: tgt.x + 5, ty: 88, spd: 15 + Math.random() * 10 });
+                }
+                // Update missiles
+                for (var i = s.missiles.length - 1; i >= 0; i--) {
+                    var m = s.missiles[i];
+                    var dx = m.tx - m.x, dy = m.ty - m.y, d = Math.sqrt(dx * dx + dy * dy);
+                    if (d < 2) {
+                        // Hit city
+                        for (var c = 0; c < s.cities.length; c++) {
+                            if (s.cities[c].alive && Math.abs(s.cities[c].x + 5 - m.tx) < 8) s.cities[c].alive = false;
+                        }
+                        s.missiles.splice(i, 1); continue;
+                    }
+                    m.x += (dx / d) * m.spd * dt; m.y += (dy / d) * m.spd * dt;
+                    // Check explosion collision
+                    for (var e = 0; e < s.explosions.length; e++) {
+                        var ex = s.explosions[e];
+                        var ed = Math.sqrt((m.x - ex.x) * (m.x - ex.x) + (m.y - ex.y) * (m.y - ex.y));
+                        if (ed < ex.r) { s.missiles.splice(i, 1); break; }
+                    }
+                }
+                // Update counter-missiles
+                for (var i = s.counters.length - 1; i >= 0; i--) {
+                    var c = s.counters[i];
+                    var dx = c.tx - c.x, dy = c.ty - c.y, d = Math.sqrt(dx * dx + dy * dy);
+                    if (d < 3) {
+                        s.explosions.push({ x: c.tx, y: c.ty, r: 0, maxR: 12, growing: true });
+                        s.counters.splice(i, 1); continue;
+                    }
+                    c.x += (dx / d) * 80 * dt; c.y += (dy / d) * 80 * dt;
+                }
+                // Update explosions
+                for (var i = s.explosions.length - 1; i >= 0; i--) {
+                    var e = s.explosions[i];
+                    if (e.growing) { e.r += 20 * dt; if (e.r >= e.maxR) e.growing = false; }
+                    else { e.r -= 15 * dt; if (e.r <= 0) { s.explosions.splice(i, 1); } }
+                }
+                // AI: target most threatening missile
+                if (s.ammo > 0 && s.counters.length < 3) {
+                    var best = null, bestThreat = -1;
+                    for (var i = 0; i < s.missiles.length; i++) {
+                        var m = s.missiles[i];
+                        if (m.y > 20 && m.y < 70) {
+                            var threat = m.y / H;
+                            if (threat > bestThreat) { bestThreat = threat; best = m; }
+                        }
+                    }
+                    if (best) {
+                        // Intercept point
+                        var iy = best.y + 10;
+                        var dx = best.tx - best.x, dy = best.ty - best.y, d = Math.sqrt(dx * dx + dy * dy);
+                        var ix = best.x + (dx / d) * 10;
+                        s.counters.push({ x: 80, y: 90, tx: ix, ty: iy });
+                        s.ammo--;
+                    }
+                }
+                // Check game over / wave complete
+                var allDead = true;
+                for (var i = 0; i < s.cities.length; i++) if (s.cities[i].alive) allDead = false;
+                if (allDead || (s.missiles.length === 0 && s.counters.length === 0 && s.tick > 5)) {
+                    gs.missilecommand = init(); return;
+                }
+                // Draw
+                rect(ctx, 0, 0, W, H, '#000022');
+                // Ground
+                rect(ctx, 0, 90, W, 10, '#553300');
+                // Cities
+                for (var i = 0; i < s.cities.length; i++) {
+                    var c = s.cities[i];
+                    if (!c.alive) continue;
+                    rect(ctx, c.x, 84, 3, 6, cityColors[i]); rect(ctx, c.x + 4, 82, 4, 8, cityColors[i]); rect(ctx, c.x + 8, 85, 3, 5, cityColors[i]);
+                }
+                // Battery
+                ctx.fillStyle = '#888';
+                ctx.beginPath(); ctx.moveTo(78, 90); ctx.lineTo(83, 82); ctx.lineTo(88, 90); ctx.fill();
+                // Missile trails
+                ctx.strokeStyle = '#ff3333'; ctx.lineWidth = 1;
+                for (var i = 0; i < s.missiles.length; i++) {
+                    var m = s.missiles[i]; ctx.beginPath(); ctx.moveTo(m.tx, m.ty - (m.ty - 0) * 0.1); ctx.lineTo(m.x, m.y); ctx.stroke();
+                    px(ctx, m.x - 1, m.y - 1, 3, 3, '#fff');
+                }
+                // Counter trails
+                ctx.strokeStyle = '#4488ff'; ctx.lineWidth = 1;
+                for (var i = 0; i < s.counters.length; i++) {
+                    var c = s.counters[i]; ctx.beginPath(); ctx.moveTo(83, 85); ctx.lineTo(c.x, c.y); ctx.stroke();
+                    px(ctx, c.x - 1, c.y - 1, 2, 2, '#fff');
+                }
+                // Explosions
+                for (var i = 0; i < s.explosions.length; i++) {
+                    var e = s.explosions[i];
+                    ctx.fillStyle = 'rgba(255,200,50,0.7)'; ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.beginPath(); ctx.arc(e.x, e.y, e.r * 0.4, 0, Math.PI * 2); ctx.fill();
+                }
+                // Crosshair
+                var chx = 80 + Math.sin(s.tick * 1.5) * 30, chy = 40 + Math.cos(s.tick * 1.1) * 15;
+                ctx.strokeStyle = '#0f0'; ctx.lineWidth = 0.5;
+                ctx.beginPath(); ctx.moveTo(chx - 4, chy); ctx.lineTo(chx + 4, chy); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(chx, chy - 4); ctx.lineTo(chx, chy + 4); ctx.stroke();
             };
         })();
 

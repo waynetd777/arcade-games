@@ -23,8 +23,9 @@
         button:active { transform: translateY(3px); box-shadow: none; }
         .ai-active { background: #00ccff !important; color: #000 !important; box-shadow: 0 0 20px #00ccff !important; }
         .pause-active { background: #ffaa00 !important; color: #000 !important; box-shadow: 0 0 20px #ffaa00 !important; }
-        .joystick-area { display: none; margin-top: 30px; position: relative; width: 130px; height: 130px; touch-action: none; }
-        @media (pointer: coarse) { .joystick-area { display: block; } }
+        .touch-controls { display: none; margin-top: 30px; width: 100%; max-width: 560px; justify-content: space-between; align-items: center; padding: 0 20px; box-sizing: border-box; }
+        @media (pointer: coarse) { .touch-controls { display: flex; } }
+        .joystick-area { position: relative; width: 130px; height: 130px; touch-action: none; flex-shrink: 0; }
         .joystick-base { position: absolute; top: 0; left: 0; width: 130px; height: 130px; border-radius: 50%; background: rgba(124, 77, 255, 0.08); border: 2px solid rgba(124, 77, 255, 0.25); }
         .joystick-knob { position: absolute; top: 40px; left: 40px; width: 50px; height: 50px; border-radius: 50%; background: radial-gradient(circle at 40% 38%, rgba(124, 77, 255, 0.45), rgba(124, 77, 255, 0.18)); border: 2px solid rgba(124, 77, 255, 0.5); transition: top 0.08s, left 0.08s; pointer-events: none; }
         .joystick-dir { position: absolute; font-size: 14px; color: rgba(124, 77, 255, 0.3); pointer-events: none; font-family: 'Courier New', monospace; font-weight: bold; }
@@ -32,6 +33,8 @@
         .joystick-dir.down { bottom: 4px; left: 50%; transform: translateX(-50%); }
         .joystick-dir.left { left: 8px; top: 50%; transform: translateY(-50%); }
         .joystick-dir.right { right: 8px; top: 50%; transform: translateY(-50%); }
+        .fire-btn { width: 80px; height: 80px; border-radius: 50%; background: rgba(124, 77, 255, 0.15); border: 3px solid rgba(124, 77, 255, 0.5); color: rgba(124, 77, 255, 0.8); font-family: 'Courier New', monospace; font-weight: bold; font-size: 14px; cursor: pointer; touch-action: none; flex-shrink: 0; text-transform: uppercase; display: flex; align-items: center; justify-content: center; padding: 0; line-height: 1; }
+        .fire-btn:active { background: rgba(124, 77, 255, 0.4); }
         @media (max-width: 580px) { .stats { font-size: 14px; gap: 10px; } .controls { display: flex; gap: 4px; margin-top: 8px; width: 100%; flex-wrap: nowrap; } .controls button, .controls a { padding: 8px 2px !important; font-size: 11px !important; text-align: center; box-sizing: border-box; flex: 1; min-width: 0; } }
         #transition-overlay { position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;opacity:1;pointer-events:none;background:repeating-linear-gradient(0deg,#000 0px,#000 2px,rgba(0,0,0,0.85) 2px,rgba(0,0,0,0.85) 4px);transition:opacity 0.4s; }
     </style>
@@ -57,13 +60,16 @@
         <a id="menu-btn" href="index.html" style="padding: 12px 25px; font-size: 16px; font-family: 'Courier New', Courier, monospace; font-weight: bold; cursor: pointer; border: none; border-radius: 4px; text-transform: uppercase; background: #222; color: #fff; border: 2px solid #fff; text-decoration: none; display: inline-block; transition: 0.2s;">MENU</a>
     </div>
 
-    <div class="joystick-area" id="joystick">
-        <div class="joystick-base"></div>
-        <div class="joystick-knob" id="joystick-knob"></div>
-        <div class="joystick-dir up">&#9650;</div>
-        <div class="joystick-dir down">&#9660;</div>
-        <div class="joystick-dir left">&#9664;</div>
-        <div class="joystick-dir right">&#9654;</div>
+    <div class="touch-controls">
+        <div class="joystick-area" id="joystick">
+            <div class="joystick-base"></div>
+            <div class="joystick-knob" id="joystick-knob"></div>
+            <div class="joystick-dir up">&#9650;</div>
+            <div class="joystick-dir down">&#9660;</div>
+            <div class="joystick-dir left">&#9664;</div>
+            <div class="joystick-dir right">&#9654;</div>
+        </div>
+        <button class="fire-btn" id="drop-btn">DROP</button>
     </div>
 
     <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');</script>
@@ -1332,10 +1338,11 @@
             }
         }, { passive: false });
 
-        // Virtual joystick
+        // Virtual joystick + drop button
         (function() {
             var joystick = document.getElementById('joystick');
             var knob = document.getElementById('joystick-knob');
+            var dropBtn = document.getElementById('drop-btn');
             if (!joystick || !knob) return;
             var BASE_R = 65, KNOB_R = 25, DEAD_ZONE = 12;
             var active = false, lastDir = null;
@@ -1405,6 +1412,14 @@
             }
             joystick.addEventListener('touchend', onEnd, { passive: false });
             joystick.addEventListener('touchcancel', onEnd, { passive: false });
+
+            if (dropBtn) {
+                dropBtn.addEventListener('touchstart', function(e) {
+                    e.preventDefault(); haptic(50);
+                    if (state !== 'PLAY' || paused || aiMode) return;
+                    hardDrop();
+                }, { passive: false });
+            }
         })();
 
         document.addEventListener('visibilitychange', () => {

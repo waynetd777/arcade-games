@@ -1110,9 +1110,9 @@
             if (!joystick || !knob) return;
             const BASE_R = 65; // base radius
             const KNOB_R = 25; // knob radius
-            const DEAD_ZONE = 18; // minimum drag to register direction
+            const DEAD_ZONE = 12; // minimum drag to register direction
             const MOVE_INTERVAL = 300; // ms between repeated moves
-            let active = false, moveTimer = null, lastDir = null;
+            let active = false, moveTimer = null, lastDir = null, lastMoveTime = 0;
 
             function getCenter() {
                 const r = joystick.getBoundingClientRect();
@@ -1150,11 +1150,22 @@
             }
 
             function startRepeat(dir) {
-                if (lastDir === dir && moveTimer) return;
-                stopRepeat();
-                lastDir = dir;
-                fireMove(dir);
-                moveTimer = setInterval(function() { fireMove(lastDir); }, MOVE_INTERVAL);
+                var now = Date.now();
+                if (dir !== lastDir) {
+                    // Direction changed — fire immediately
+                    lastDir = dir;
+                    fireMove(dir);
+                    lastMoveTime = now;
+                    // Reset the repeat timer
+                    if (moveTimer) clearInterval(moveTimer);
+                    moveTimer = setInterval(function() { fireMove(lastDir); lastMoveTime = Date.now(); }, MOVE_INTERVAL);
+                } else if (!moveTimer) {
+                    // Same direction, no timer running — start fresh
+                    lastDir = dir;
+                    fireMove(dir);
+                    lastMoveTime = now;
+                    moveTimer = setInterval(function() { fireMove(lastDir); lastMoveTime = Date.now(); }, MOVE_INTERVAL);
+                }
             }
 
             function stopRepeat() {

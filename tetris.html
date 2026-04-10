@@ -1384,7 +1384,10 @@
                 clearDir();
                 lastDir = dir;
                 haptic(30);
-                if (dir === 'up') keys['ArrowUp'] = true;
+                if (dir === 'up') {
+                    // Dispatch keydown event to trigger rotation handler
+                    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
+                }
                 else if (dir === 'down') { keys['ArrowDown'] = true; softDropping = true; }
                 else if (dir === 'left') keys['ArrowLeft'] = true;
                 else if (dir === 'right') keys['ArrowRight'] = true;

@@ -31,8 +31,8 @@
         .joystick-dir { position: absolute; font-size: 14px; color: rgba(255, 68, 68, 0.3); pointer-events: none; font-family: 'Courier New', monospace; font-weight: bold; }
         .joystick-dir.up { top: 4px; left: 50%; transform: translateX(-50%); }
         .joystick-dir.down { bottom: 4px; left: 50%; transform: translateX(-50%); }
-        .joystick-dir.left { left: 8px; top: 50%; transform: translateY(-50%); }
-        .joystick-dir.right { right: 8px; top: 50%; transform: translateY(-50%); }
+        .joystick-dir.left { left: 8px; top: 50%; transform: translateY(-50%); display: none; }
+        .joystick-dir.right { right: 8px; top: 50%; transform: translateY(-50%); display: none; }
         @media (max-width: 580px) { .stats { font-size: 14px; gap: 10px; } .controls { display: flex; gap: 4px; margin-top: 8px; width: 100%; flex-wrap: nowrap; } .controls button, .controls a { padding: 8px 2px !important; font-size: 11px !important; text-align: center; box-sizing: border-box; flex: 1; min-width: 0; } }
         #transition-overlay { position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;opacity:1;pointer-events:none;background:repeating-linear-gradient(0deg,#000 0px,#000 2px,rgba(0,0,0,0.85) 2px,rgba(0,0,0,0.85) 4px);transition:opacity 0.4s; }
     </style>
@@ -1031,13 +1031,13 @@
 
             function updateKnob(tx, ty) {
                 var c = getCenter();
-                var dx = tx - c.x, dy = ty - c.y;
-                var dist = Math.sqrt(dx * dx + dy * dy);
+                var dx = 0, dy = ty - c.y;
+                var dist = Math.abs(dy);
                 var maxDist = BASE_R - KNOB_R * 0.5;
-                if (dist > maxDist) { dx = dx / dist * maxDist; dy = dy / dist * maxDist; }
-                knob.style.left = (BASE_R + dx - KNOB_R) + 'px';
+                if (dist > maxDist) { dy = (dy > 0 ? 1 : -1) * maxDist; }
+                knob.style.left = (BASE_R - KNOB_R) + 'px';
                 knob.style.top = (BASE_R + dy - KNOB_R) + 'px';
-                return { dx: dx, dy: dy, dist: Math.sqrt(dx * dx + dy * dy) };
+                return { dx: dx, dy: dy, dist: Math.abs(dy) };
             }
 
             function resetKnob() {

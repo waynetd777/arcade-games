@@ -371,7 +371,7 @@
         </div>
     </div>
 
-    <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').then(function(reg) { reg.update(); });</script>
+    <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(function(reg) { reg.update(); });</script>
     <script>
     (function() {
         // === Audio engine ===

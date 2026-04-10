@@ -73,7 +73,7 @@
         <button class="fire-btn" id="fight-btn">FIGHT</button>
     </div>
 
-    <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');</script>
+    <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(function(r){ r.update(); });</script>
     <script>
     (function() {
         const canvas = document.getElementById('c');

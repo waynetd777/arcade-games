@@ -1,4 +1,4 @@
-const CACHE = 'retro-arcade-v5';
+const CACHE = 'retro-arcade-v6';
 const FILES = [
   './', 'index.html', 'manifest.json',
   'tetris.html', 'asteroids.html', 'pacman.html',
@@ -9,8 +9,10 @@ const FILES = [
   'gorillas.html', 'scorchedearth.html', 'bomberman.html'
 ];
 self.addEventListener('install', e => { self.skipWaiting(); e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); });
-self.addEventListener('activate', e => e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k))))));
+self.addEventListener('activate', e => e.waitUntil(
+  caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())
+));
 // Network-first: always try fresh content, fall back to cache when offline
 self.addEventListener('fetch', e => e.respondWith(
-  fetch(e.request).then(r => { caches.open(CACHE).then(c => c.put(e.request, r.clone())); return r; }).catch(() => caches.match(e.request))
+  fetch(e.request).then(r => { if (r.ok) { caches.open(CACHE).then(c => c.put(e.request, r.clone())); } return r; }).catch(() => caches.match(e.request))
 ));

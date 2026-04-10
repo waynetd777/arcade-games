@@ -1,4 +1,4 @@
-const CACHE = 'retro-arcade-v6';
+const CACHE = 'retro-arcade-v7';
 const FILES = [
   './', 'index.html', 'manifest.json',
   'tetris.html', 'asteroids.html', 'pacman.html',

@@ -45,7 +45,7 @@ Every game includes:
 - **Global Mute** — Speaker icon toggle, synced across all games via localStorage
 - **High Scores** — Top 10 Hall of Fame saved to localStorage
 - **Responsive Design** — Scales to any screen size, works on phones and tablets
-- **Mobile Support** — Touch controls, swipe gestures, on-screen d-pad, and haptic feedback
+- **Mobile Support** — Touch controls, swipe gestures, virtual joystick, action buttons, and haptic feedback
 - **PWA / Install as App** — Add to home screen for a native app experience with offline support
 - **Scanline Transitions** — Retro CRT-style wipe effect when navigating between pages
 - **Particle Effects** — Glowing particles burst from game cards on hover
@@ -68,6 +68,8 @@ Every game includes:
 | Arrow Keys | Player 2 — right paddle (Pong 2P mode) |
 | E / M / H | Select difficulty (on menu) |
 | Escape | Return to arcade menu (on home/game-over screen) |
+
+On touch devices, a **virtual joystick** replaces arrow keys for movement and **on-screen buttons** (FIRE, DROP, ROTATE, etc.) replace spacebar/action keys. Swipe gestures also work for directional input.
 
 ## How to Play
 

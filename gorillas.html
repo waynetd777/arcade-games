@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#ffcc00">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -16,7 +16,7 @@
         #game-wrapper { position: relative; border: 4px solid #333; box-shadow: 0 0 50px rgba(255, 204, 0, 0.15); border-radius: 8px; overflow: hidden; touch-action: none; max-width: 560px; width: 100%; }
         canvas { display: block; background: #000; cursor: default; width: 100%; height: auto; }
         .controls { display: flex; gap: 15px; margin-top: 15px; z-index: 10; flex-wrap: wrap; justify-content: center; }
-        button { padding: 12px 25px; font-size: 16px; font-family: inherit; font-weight: bold; cursor: pointer; border: none; border-radius: 4px; transition: 0.2s; text-transform: uppercase; }
+        button { padding: 14px 25px; min-height: 44px; font-size: 16px; font-family: inherit; font-weight: bold; cursor: pointer; border: none; border-radius: 4px; transition: 0.2s; text-transform: uppercase; }
         #b { background: linear-gradient(180deg, #ffcc00, #cc9900); color: #000; box-shadow: 0 4px 0 #886600; }
         #ai-btn { background: #222; color: #00ccff; border: 2px solid #00ccff; box-shadow: 0 0 10px rgba(0, 204, 255, 0.3); }
         #pause-btn { background: #222; color: #ffaa00; border: 2px solid #ffaa00; box-shadow: 0 0 10px rgba(255, 170, 0, 0.3); }
@@ -27,7 +27,7 @@
         @media (pointer: coarse) { .touch-controls { display: flex; } }
         .joystick-area { position: relative; width: 130px; height: 130px; touch-action: none; flex-shrink: 0; }
         .joystick-base { position: absolute; top: 0; left: 0; width: 130px; height: 130px; border-radius: 50%; background: rgba(255, 204, 0, 0.08); border: 2px solid rgba(255, 204, 0, 0.25); }
-        .joystick-knob { position: absolute; top: 40px; left: 40px; width: 50px; height: 50px; border-radius: 50%; background: radial-gradient(circle at 40% 38%, rgba(255, 204, 0, 0.45), rgba(255, 204, 0, 0.18)); border: 2px solid rgba(255, 204, 0, 0.5); transition: top 0.08s, left 0.08s; pointer-events: none; }
+        .joystick-knob { position: absolute; top: 35px; left: 35px; width: 60px; height: 60px; border-radius: 50%; background: radial-gradient(circle at 40% 38%, rgba(255, 204, 0, 0.45), rgba(255, 204, 0, 0.18)); border: 2px solid rgba(255, 204, 0, 0.5); transition: top 0.08s, left 0.08s; pointer-events: none; }
         .joystick-dir { position: absolute; font-size: 14px; color: rgba(255, 204, 0, 0.3); pointer-events: none; font-family: 'Courier New', monospace; font-weight: bold; }
         .joystick-dir.up { top: 4px; left: 50%; transform: translateX(-50%); }
         .joystick-dir.down { bottom: 4px; left: 50%; transform: translateX(-50%); }
@@ -116,7 +116,10 @@
         let p1Score = 0, p2Score = 0;
         let buildings = [];
         let buildingDamage = []; // offscreen canvas for damage
-        let damageCtx = null;
+        const damageCanvas = document.createElement('canvas');
+        damageCanvas.width = W;
+        damageCanvas.height = H;
+        let damageCtx = damageCanvas.getContext('2d');
         let gorillas = [{x:0, y:0}, {x:0, y:0}]; // positions (center-bottom)
         let currentPlayer = 0; // 0 = P1, 1 = P2
         let angle = 45, velocity = 60;
@@ -310,11 +313,7 @@
                 buildings.push({ x: x, w: w, h: h, y: GROUND_Y - h, color: color });
                 x += w;
             }
-            // Create damage canvas
-            const dmgCanvas = document.createElement('canvas');
-            dmgCanvas.width = W;
-            dmgCanvas.height = H;
-            damageCtx = dmgCanvas.getContext('2d');
+            // Reset damage canvas
             damageCtx.clearRect(0, 0, W, H);
         }
 
@@ -1437,7 +1436,7 @@
             var knob = document.getElementById('joystick-knob');
             var fireBtn = document.getElementById('fire-btn');
             if (!joystick || !knob) return;
-            var BASE_R = 65, KNOB_R = 25, DEAD_ZONE = 12;
+            var BASE_R = 65, KNOB_R = 30, DEAD_ZONE = 12;
             var active = false, lastDir = null;
 
             function getCenter() {
@@ -1527,14 +1526,14 @@
         // Start home music
         let audioStarted = false;
         function startHomeMusic() {
+            document.removeEventListener('click', startHomeMusic);
+            document.removeEventListener('keydown', startHomeMusic);
+            document.removeEventListener('touchstart', startHomeMusic);
             if (audioStarted) return;
             audioStarted = true;
             ensureAudio();
             function play() {
                 if (!muted && (state === 'START' || state === 'OVER')) { currentTrack = null; playMusic('home'); }
-                document.removeEventListener('click', startHomeMusic);
-                document.removeEventListener('keydown', startHomeMusic);
-                document.removeEventListener('touchstart', startHomeMusic);
             }
             if (audioCtx.state === 'suspended') { audioCtx.resume().then(play); }
             else { play(); }

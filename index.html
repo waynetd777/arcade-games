@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#00e5ff">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -181,7 +181,7 @@
         .footer {
             font-size: 12px;
             letter-spacing: 3px;
-            color: #888;
+            color: #b0b0b0;
             text-align: center;
             padding: 30px 0;
             border-top: 1px solid #333;
@@ -202,7 +202,7 @@
         .qr-label {
             font-size: 13px;
             letter-spacing: 3px;
-            color: #888;
+            color: #b0b0b0;
             margin-top: 10px;
             text-transform: uppercase;
         }
@@ -247,114 +247,114 @@
     <canvas id="starfield"></canvas>
     <canvas id="particle-canvas"></canvas>
     <div class="content">
-        <div class="title" style="display:flex;align-items:center;justify-content:center;gap:0.5em;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" style="width:1.1em;height:1.1em;flex-shrink:0;transform:translateY(0.08em)"><rect width="32" height="32" rx="4" fill="#111"/><rect x="4" y="3" width="24" height="18" rx="2" fill="#000" stroke="#00e5ff" stroke-width="1.5"/><rect x="8" y="6" width="16" height="12" rx="1" fill="#001a2e"/><circle cx="10" cy="10" r="1.5" fill="#4ae04a"/><circle cx="14" cy="8" r="1.5" fill="#ffff00"/><circle cx="18" cy="11" r="1.5" fill="#ff4444"/><circle cx="22" cy="9" r="1.5" fill="#00e5ff"/><rect x="8" y="24" width="4" height="5" rx="1" fill="#ff4444"/><rect x="14" y="24" width="4" height="5" rx="1" fill="#4ae04a"/><circle cx="27" cy="26" r="2.5" fill="#ffaa00"/></svg><span style="margin-right:-12px">WAYNE'S RETRO ARCADE</span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" style="width:1.1em;height:1.1em;flex-shrink:0;transform:translateY(0.08em)"><rect width="32" height="32" rx="4" fill="#111"/><rect x="4" y="3" width="24" height="18" rx="2" fill="#000" stroke="#00e5ff" stroke-width="1.5"/><rect x="8" y="6" width="16" height="12" rx="1" fill="#001a2e"/><circle cx="10" cy="10" r="1.5" fill="#4ae04a"/><circle cx="14" cy="8" r="1.5" fill="#ffff00"/><circle cx="18" cy="11" r="1.5" fill="#ff4444"/><circle cx="22" cy="9" r="1.5" fill="#00e5ff"/><rect x="8" y="24" width="4" height="5" rx="1" fill="#ff4444"/><rect x="14" y="24" width="4" height="5" rx="1" fill="#4ae04a"/><circle cx="27" cy="26" r="2.5" fill="#ffaa00"/></svg></div>
+        <h1 class="title" style="display:flex;align-items:center;justify-content:center;gap:0.5em;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" style="width:1.1em;height:1.1em;flex-shrink:0;transform:translateY(0.08em)"><rect width="32" height="32" rx="4" fill="#111"/><rect x="4" y="3" width="24" height="18" rx="2" fill="#000" stroke="#00e5ff" stroke-width="1.5"/><rect x="8" y="6" width="16" height="12" rx="1" fill="#001a2e"/><circle cx="10" cy="10" r="1.5" fill="#4ae04a"/><circle cx="14" cy="8" r="1.5" fill="#ffff00"/><circle cx="18" cy="11" r="1.5" fill="#ff4444"/><circle cx="22" cy="9" r="1.5" fill="#00e5ff"/><rect x="8" y="24" width="4" height="5" rx="1" fill="#ff4444"/><rect x="14" y="24" width="4" height="5" rx="1" fill="#4ae04a"/><circle cx="27" cy="26" r="2.5" fill="#ffaa00"/></svg><span style="margin-right:-12px">WAYNE'S RETRO ARCADE</span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" style="width:1.1em;height:1.1em;flex-shrink:0;transform:translateY(0.08em)"><rect width="32" height="32" rx="4" fill="#111"/><rect x="4" y="3" width="24" height="18" rx="2" fill="#000" stroke="#00e5ff" stroke-width="1.5"/><rect x="8" y="6" width="16" height="12" rx="1" fill="#001a2e"/><circle cx="10" cy="10" r="1.5" fill="#4ae04a"/><circle cx="14" cy="8" r="1.5" fill="#ffff00"/><circle cx="18" cy="11" r="1.5" fill="#ff4444"/><circle cx="22" cy="9" r="1.5" fill="#00e5ff"/><rect x="8" y="24" width="4" height="5" rx="1" fill="#ff4444"/><rect x="14" y="24" width="4" height="5" rx="1" fill="#4ae04a"/><circle cx="27" cy="26" r="2.5" fill="#ffaa00"/></svg></h1>
         <div class="subtitle">SELECT A GAME TO PLAY</div>
         <button id="mute-btn" class="mute-btn"><svg viewBox="0 0 24 24"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><path d="M14,9.5 Q17,12 14,14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M16,7.5 Q21,12 16,16.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
 
         <div class="grid">
-            <a href="frogger.html" class="card" style="--glow: #4ae04a;" tabindex="0" data-game="frogger">
+            <a href="frogger.html" class="card" style="--glow: #4ae04a;" data-game="frogger">
                 <canvas class="card-preview" width="160" height="100"></canvas>
                 <div class="card-name">FROGGER</div>
                 <div class="card-desc">Cross roads and rivers to reach home</div>
                 <div class="card-play">&#9654; PLAY</div>
             </a>
-            <a href="pacman.html" class="card" style="--glow: #ffff00;" tabindex="0" data-game="pacman">
+            <a href="pacman.html" class="card" style="--glow: #ffff00;" data-game="pacman">
                 <canvas class="card-preview" width="160" height="100"></canvas>
                 <div class="card-name">PAC-MAN</div>
                 <div class="card-desc">Eat dots, avoid ghosts, chomp power pellets</div>
                 <div class="card-play">&#9654; PLAY</div>
             </a>
-            <a href="invaders.html" class="card" style="--glow: #ffffff;" tabindex="0" data-game="invaders">
+            <a href="invaders.html" class="card" style="--glow: #ffffff;" data-game="invaders">
                 <canvas class="card-preview" width="160" height="100"></canvas>
                 <div class="card-name">SPACE INVADERS</div>
                 <div class="card-desc">Defend Earth from alien invasion</div>
                 <div class="card-play">&#9654; PLAY</div>
             </a>
-            <a href="asteroids.html" class="card" style="--glow: #00e5ff;" tabindex="0" data-game="asteroids">
+            <a href="asteroids.html" class="card" style="--glow: #00e5ff;" data-game="asteroids">
                 <canvas class="card-preview" width="160" height="100"></canvas>
                 <div class="card-name">ASTEROIDS</div>
                 <div class="card-desc">Navigate and blast through asteroid fields</div>
                 <div class="card-play">&#9654; PLAY</div>
             </a>
-            <a href="tetris.html" class="card" style="--glow: #7c4dff;" tabindex="0" data-game="tetris">
+            <a href="tetris.html" class="card" style="--glow: #7c4dff;" data-game="tetris">
                 <canvas class="card-preview" width="160" height="100"></canvas>
                 <div class="card-name">TETRIS</div>
                 <div class="card-desc">Stack falling blocks, clear lines</div>
                 <div class="card-play">&#9654; PLAY</div>
             </a>
-            <a href="breakout.html" class="card" style="--glow: #ff8c00;" tabindex="0" data-game="breakout">
+            <a href="breakout.html" class="card" style="--glow: #ff8c00;" data-game="breakout">
                 <canvas class="card-preview" width="160" height="100"></canvas>
                 <div class="card-name">BREAKOUT</div>
                 <div class="card-desc">Smash bricks with a bouncing ball</div>
                 <div class="card-play">&#9654; PLAY</div>
             </a>
-            <a href="snake.html" class="card" style="--glow: #aaff00;" tabindex="0" data-game="snake">
+            <a href="snake.html" class="card" style="--glow: #aaff00;" data-game="snake">
                 <canvas class="card-preview" width="160" height="100"></canvas>
                 <div class="card-name">SNAKE</div>
                 <div class="card-desc">Grow your snake, don't hit the walls</div>
                 <div class="card-play">&#9654; PLAY</div>
             </a>
-            <a href="pong.html" class="card" style="--glow: #ff4444;" tabindex="0" data-game="pong">
+            <a href="pong.html" class="card" style="--glow: #ff4444;" data-game="pong">
                 <canvas class="card-preview" width="160" height="100"></canvas>
                 <div class="card-name">PONG</div>
                 <div class="card-desc">Classic paddle battle — first to 11 wins</div>
                 <div class="card-play">&#9654; PLAY</div>
             </a>
-            <a href="centipede.html" class="card" style="--glow: #ffc107;" tabindex="0" data-game="centipede">
+            <a href="centipede.html" class="card" style="--glow: #ffc107;" data-game="centipede">
                 <canvas class="card-preview" width="160" height="100"></canvas>
                 <div class="card-name">CENTIPEDE</div>
                 <div class="card-desc">Blast the centipede through mushroom fields</div>
                 <div class="card-play">&#9654; PLAY</div>
             </a>
-            <a href="donkeykong.html" class="card" style="--glow: #ff6b35;" tabindex="0" data-game="donkeykong">
+            <a href="donkeykong.html" class="card" style="--glow: #ff6b35;" data-game="donkeykong">
                 <canvas class="card-preview" width="160" height="100"></canvas>
                 <div class="card-name">DONKEY KONG</div>
                 <div class="card-desc">Climb girders, dodge barrels, rescue Pauline</div>
                 <div class="card-play">&#9654; PLAY</div>
             </a>
-            <a href="princeofpersia.html" class="card" style="--glow: #c084fc;" tabindex="0" data-game="princeofpersia">
+            <a href="princeofpersia.html" class="card" style="--glow: #c084fc;" data-game="princeofpersia">
                 <canvas class="card-preview" width="160" height="100"></canvas>
                 <div class="card-name">PRINCE OF PERSIA</div>
                 <div class="card-desc">Fight guards and escape the dungeon</div>
                 <div class="card-play">&#9654; PLAY</div>
             </a>
-            <a href="digdug.html" class="card" style="--glow: #00bfff;" tabindex="0" data-game="digdug">
+            <a href="digdug.html" class="card" style="--glow: #00bfff;" data-game="digdug">
                 <canvas class="card-preview" width="160" height="100"></canvas>
                 <div class="card-name">DIG DUG</div>
                 <div class="card-desc">Tunnel underground, pump and pop enemies</div>
                 <div class="card-play">&#9654; PLAY</div>
             </a>
-            <a href="galaga.html" class="card" style="--glow: #ff1744;" tabindex="0" data-game="galaga">
+            <a href="galaga.html" class="card" style="--glow: #ff1744;" data-game="galaga">
                 <canvas class="card-preview" width="160" height="100"></canvas>
                 <div class="card-name">GALAGA</div>
                 <div class="card-desc">Blast diving aliens, rescue captured ships</div>
                 <div class="card-play">&#9654; PLAY</div>
             </a>
-            <a href="qbert.html" class="card" style="--glow: #e040fb;" tabindex="0" data-game="qbert">
+            <a href="qbert.html" class="card" style="--glow: #e040fb;" data-game="qbert">
                 <canvas class="card-preview" width="160" height="100"></canvas>
                 <div class="card-name">Q*BERT</div>
                 <div class="card-desc">Hop cubes, change colors, dodge Coily</div>
                 <div class="card-play">&#9654; PLAY</div>
             </a>
-            <a href="missilecommand.html" class="card" style="--glow: #40c4ff;" tabindex="0" data-game="missilecommand">
+            <a href="missilecommand.html" class="card" style="--glow: #40c4ff;" data-game="missilecommand">
                 <canvas class="card-preview" width="160" height="100"></canvas>
                 <div class="card-name">MISSILE COMMAND</div>
                 <div class="card-desc">Defend cities from nuclear annihilation</div>
                 <div class="card-play">&#9654; PLAY</div>
             </a>
-            <a href="gorillas.html" class="card" style="--glow: #ffcc00;" tabindex="0" data-game="gorillas">
+            <a href="gorillas.html" class="card" style="--glow: #ffcc00;" data-game="gorillas">
                 <canvas class="card-preview" width="160" height="100"></canvas>
                 <div class="card-name">GORILLAS</div>
                 <div class="card-desc">Hurl explosive bananas across the skyline</div>
                 <div class="card-play">&#9654; PLAY</div>
             </a>
-            <a href="scorchedearth.html" class="card" style="--glow: #ff6600;" tabindex="0" data-game="scorchedearth">
+            <a href="scorchedearth.html" class="card" style="--glow: #ff6600;" data-game="scorchedearth">
                 <canvas class="card-preview" width="160" height="100"></canvas>
                 <div class="card-name">SCORCHED EARTH</div>
                 <div class="card-desc">Destroy terrain and blast rival tanks</div>
                 <div class="card-play">&#9654; PLAY</div>
             </a>
-            <a href="bomberman.html" class="card" style="--glow: #ff8800;" tabindex="0" data-game="bomberman">
+            <a href="bomberman.html" class="card" style="--glow: #ff8800;" data-game="bomberman">
                 <canvas class="card-preview" width="160" height="100"></canvas>
                 <div class="card-name">BOMBERMAN</div>
                 <div class="card-desc">Plant bombs, chain reactions, defeat enemies</div>
@@ -364,7 +364,7 @@
 
         <div class="footer">
             <div class="qr-section">
-                <img id="qr-img" alt="QR Code" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
+                <img id="qr-img" alt="" role="presentation" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
                 <div class="qr-label">SCAN TO PLAY ON PHONE</div>
             </div>
             18 CLASSIC ARCADE GAMES &nbsp;|&nbsp; BUILT WITH HTML5 CANVAS
@@ -2788,7 +2788,7 @@
             ptr.style.top = (-50 + dy * 0.5) + 'px';
             ptr.style.opacity = String(progress);
             ptr.className = dy > threshold ? 'ready' : '';
-            if (dy > 10) e.preventDefault();
+            e.preventDefault();
         }, { passive: false });
 
         document.addEventListener('touchend', function() {

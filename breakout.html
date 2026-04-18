@@ -29,8 +29,8 @@
         .joystick-base { position: absolute; top: 0; left: 0; width: 130px; height: 130px; border-radius: 50%; background: rgba(255, 140, 0, 0.08); border: 2px solid rgba(255, 140, 0, 0.25); }
         .joystick-knob { position: absolute; top: 40px; left: 40px; width: 50px; height: 50px; border-radius: 50%; background: radial-gradient(circle at 40% 38%, rgba(255, 140, 0, 0.45), rgba(255, 140, 0, 0.18)); border: 2px solid rgba(255, 140, 0, 0.5); transition: top 0.08s, left 0.08s; pointer-events: none; }
         .joystick-dir { position: absolute; font-size: 14px; color: rgba(255, 140, 0, 0.3); pointer-events: none; font-family: 'Courier New', monospace; font-weight: bold; }
-        .joystick-dir.up { top: 4px; left: 50%; transform: translateX(-50%); }
-        .joystick-dir.down { bottom: 4px; left: 50%; transform: translateX(-50%); }
+        .joystick-dir.up { top: 4px; left: 50%; transform: translateX(-50%); display: none; }
+        .joystick-dir.down { bottom: 4px; left: 50%; transform: translateX(-50%); display: none; }
         .joystick-dir.left { left: 8px; top: 50%; transform: translateY(-50%); }
         .joystick-dir.right { right: 8px; top: 50%; transform: translateY(-50%); }
         .fire-btn { width: 80px; height: 80px; border-radius: 50%; background: rgba(255, 140, 0, 0.15); border: 3px solid rgba(255, 140, 0, 0.5); color: rgba(255, 140, 0, 0.8); font-family: 'Courier New', monospace; font-weight: bold; font-size: 14px; cursor: pointer; touch-action: none; flex-shrink: 0; text-transform: uppercase; display: flex; align-items: center; justify-content: center; padding: 0; line-height: 1; }
@@ -1243,13 +1243,13 @@
 
             function updateKnob(tx, ty) {
                 var c = getCenter();
-                var dx = tx - c.x, dy = ty - c.y;
-                var dist = Math.sqrt(dx * dx + dy * dy);
+                var dx = tx - c.x, dy = 0;
+                var dist = Math.abs(dx);
                 var maxDist = BASE_R - KNOB_R * 0.5;
-                if (dist > maxDist) { dx = dx / dist * maxDist; dy = dy / dist * maxDist; }
+                if (dist > maxDist) { dx = (dx > 0 ? 1 : -1) * maxDist; }
                 knob.style.left = (BASE_R + dx - KNOB_R) + 'px';
-                knob.style.top = (BASE_R + dy - KNOB_R) + 'px';
-                return { dx: dx, dy: dy, dist: Math.sqrt(dx * dx + dy * dy) };
+                knob.style.top = (BASE_R - KNOB_R) + 'px';
+                return { dx: dx, dy: dy, dist: Math.abs(dx) };
             }
 
             function resetKnob() {
@@ -1259,22 +1259,17 @@
             }
 
             function clearDir() {
-                keys['ArrowUp'] = false; keys['ArrowDown'] = false;
                 keys['ArrowLeft'] = false; keys['ArrowRight'] = false;
                 lastDir = null;
             }
 
             function setDir(dx, dy) {
-                var dir;
-                if (Math.abs(dx) > Math.abs(dy)) dir = dx > 0 ? 'right' : 'left';
-                else dir = dy > 0 ? 'down' : 'up';
+                var dir = dx > 0 ? 'right' : 'left';
                 if (dir === lastDir) return;
                 clearDir();
                 lastDir = dir;
                 haptic(30);
-                if (dir === 'up') keys['ArrowUp'] = true;
-                else if (dir === 'down') keys['ArrowDown'] = true;
-                else if (dir === 'left') keys['ArrowLeft'] = true;
+                if (dir === 'left') keys['ArrowLeft'] = true;
                 else if (dir === 'right') keys['ArrowRight'] = true;
             }
 

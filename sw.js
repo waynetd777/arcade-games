@@ -1,4 +1,4 @@
-const CACHE = 'retro-arcade-v7';
+const CACHE = 'retro-arcade-v8';
 const FILES = [
   './', 'index.html', 'manifest.json',
   'tetris.html', 'asteroids.html', 'pacman.html',
@@ -14,5 +14,5 @@ self.addEventListener('activate', e => e.waitUntil(
 ));
 // Network-first: always try fresh content, fall back to cache when offline
 self.addEventListener('fetch', e => e.respondWith(
-  fetch(e.request).then(r => { if (r.ok) { caches.open(CACHE).then(c => c.put(e.request, r.clone())); } return r; }).catch(() => caches.match(e.request))
+  fetch(e.request).then(r => { if (r.ok && r.status === 200) { caches.open(CACHE).then(c => c.put(e.request, r.clone())).catch(() => {}); } return r; }).catch(() => caches.match(e.request))
 ));

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#00e5ff">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -16,7 +16,7 @@
         #game-wrapper { position: relative; border: 4px solid #333; box-shadow: 0 0 50px rgba(224, 74, 74, 0.15); border-radius: 8px; overflow: hidden; touch-action: none; max-width: 560px; width: 100%; }
         canvas { display: block; background: #000; cursor: crosshair; width: 100%; height: auto; }
         .controls { display: flex; gap: 15px; margin-top: 15px; z-index: 10; flex-wrap: wrap; justify-content: center; }
-        button { padding: 12px 25px; font-size: 16px; font-family: inherit; font-weight: bold; cursor: pointer; border: none; border-radius: 4px; transition: 0.2s; text-transform: uppercase; }
+        button { padding: 14px 25px; min-height: 44px; font-size: 16px; font-family: inherit; font-weight: bold; cursor: pointer; border: none; border-radius: 4px; transition: 0.2s; text-transform: uppercase; }
         #b { background: linear-gradient(180deg, #ff8c00, #cc7000); color: #000; box-shadow: 0 4px 0 #8a4b00; }
         #ai-btn { background: #222; color: #00ccff; border: 2px solid #00ccff; box-shadow: 0 0 10px rgba(0, 204, 255, 0.3); }
         #pause-btn { background: #222; color: #ffaa00; border: 2px solid #ffaa00; box-shadow: 0 0 10px rgba(255, 170, 0, 0.3); }
@@ -35,7 +35,7 @@
         .joystick-dir.right { right: 8px; top: 50%; transform: translateY(-50%); }
         .fire-btn { width: 80px; height: 80px; border-radius: 50%; background: rgba(255, 140, 0, 0.15); border: 3px solid rgba(255, 140, 0, 0.5); color: rgba(255, 140, 0, 0.8); font-family: 'Courier New', monospace; font-weight: bold; font-size: 14px; cursor: pointer; touch-action: none; flex-shrink: 0; text-transform: uppercase; display: flex; align-items: center; justify-content: center; padding: 0; line-height: 1; }
         .fire-btn:active { background: rgba(255, 140, 0, 0.4); }
-        @media (max-width: 580px) { .stats { font-size: 14px; gap: 10px; } .controls { display: flex; gap: 4px; margin-top: 8px; width: 100%; flex-wrap: nowrap; } .controls button, .controls a { padding: 8px 2px !important; font-size: 11px !important; text-align: center; box-sizing: border-box; flex: 1; min-width: 0; } }
+        @media (max-width: 580px) { .stats { font-size: 14px; gap: 10px; } .controls { display: flex; gap: 4px; margin-top: 8px; width: 100%; flex-wrap: nowrap; } .controls button, .controls a { padding: 14px 2px !important; min-height: 44px; font-size: 11px !important; text-align: center; box-sizing: border-box; flex: 1; min-width: 0; } }
         #transition-overlay { position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;opacity:1;pointer-events:none;background:repeating-linear-gradient(0deg,#000 0px,#000 2px,rgba(0,0,0,0.85) 2px,rgba(0,0,0,0.85) 4px);transition:opacity 0.4s; }
     </style>
 </head>
@@ -720,9 +720,7 @@
                 }
 
                 // Brick collisions
-                let brickHit = false;
                 bricks.forEach(function(brick) {
-                    if (brickHit) return;
                     if (!brick.alive) return;
                     // AABB check
                     if (ball.x + BALL_R > brick.x && ball.x - BALL_R < brick.x + brick.w &&
@@ -757,7 +755,6 @@
                             }
                         }
                         sfxBrickHit();
-                        brickHit = true;
                     }
                 });
             });

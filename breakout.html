@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- Copyright © 2026 Wayne Davies. Free software under the GNU General Public License, version 3 or later.
+     SPDX-License-Identifier: GPL-3.0-or-later. See LICENSE in the project root. -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -82,7 +84,6 @@
         const pauseBtn = document.getElementById('pause-btn');
         const menuBtn = document.getElementById('menu-btn');
         let muted = localStorage.getItem('arcade_muted') === 'true';
-        const _mob = window.innerWidth <= 580;
         const muteBtn = document.getElementById('mute-btn');
         const _spkOn = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><path d="M14,9.5 Q17,12 14,14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M16,7.5 Q21,12 16,16.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
         const _spkOff = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><line x1="15" y1="9" x2="21" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="21" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
@@ -95,7 +96,7 @@
         canvas.height = H;
 
         let state = 'START', aiMode = false, paused = false;
-        let score = 0, lives = 3, level = 1, lastTime = performance.now(), gameTime = 0;
+        let score = 0, lives = 3, level = 1, lastTime = performance.now();
         let floatingTexts = [], particles = [];
         let difficulty = 1;
         const DIFF_NAMES = ['E: EASY', 'M: MEDIUM', 'H: HARD'];
@@ -567,7 +568,6 @@
                 return;
             }
 
-            gameTime += dt;
 
             // Level start
             if (levelStartTimer > 0) {
@@ -1025,7 +1025,7 @@
             var dBtnStartX = (W - dTotalW) / 2;
             var dBtnY = 418;
             for (var d = 0; d < 3; d++) {
-                var bx = dBtnStartX + d * (dBtnW + dBtnGap);
+                bx = dBtnStartX + d * (dBtnW + dBtnGap);
                 var selected = d === difficulty;
                 ctx.fillStyle = selected ? DIFF_COLORS[d] : '#222';
                 ctx.fillRect(bx, dBtnY, dBtnW, dBtnH);
@@ -1102,7 +1102,6 @@
             menuBtn.innerText = 'HOME';
             menuBtn.href = '#';
             lastTime = performance.now();
-            gameTime = 0;
             playMusic('game');
             canvas.focus();
             updateHUD();
@@ -1208,7 +1207,6 @@
         canvas.addEventListener('touchmove', function(e) {
             e.preventDefault();
             var dx = e.touches[0].clientX - touchStartX;
-            var dy = e.touches[0].clientY - touchStartY;
             touchTotalMove += Math.abs(e.touches[0].clientX - touchStartX) + Math.abs(e.touches[0].clientY - touchStartY);
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;

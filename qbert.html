@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- Copyright © 2026 Wayne Davies. Free software under the GNU General Public License, version 3 or later.
+     SPDX-License-Identifier: GPL-3.0-or-later. See LICENSE in the project root. -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -76,7 +78,6 @@
         const pauseBtn = document.getElementById('pause-btn');
         const menuBtn = document.getElementById('menu-btn');
         let muted = localStorage.getItem('arcade_muted') === 'true';
-        const _mob = window.innerWidth <= 580;
         const muteBtn = document.getElementById('mute-btn');
         const _spkOn = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><path d="M14,9.5 Q17,12 14,14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M16,7.5 Q21,12 16,16.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
         const _spkOff = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><line x1="15" y1="9" x2="21" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="21" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
@@ -135,7 +136,6 @@
         let discs = [];       // {row, side, used, screenX, screenY, spinning, spinTimer}
         let speechBubble = { active: false, x: 0, y: 0, timer: 0 };
 
-        let enemySpawnTimer = 0;
         let coilySpawnTimer = 0;
         let slickSamSpawnTimer = 0;
         let uggWrongSpawnTimer = 0;
@@ -245,7 +245,6 @@
             speechBubble = { active: false, x: 0, y: 0, timer: 0 };
             roundComplete = false;
             roundCompleteTimer = 0;
-            enemySpawnTimer = 0;
             coilySpawnTimer = 2.5;
             slickSamSpawnTimer = 8;
             uggWrongSpawnTimer = 12;
@@ -709,7 +708,6 @@
         function spawnCoily() {
             if (coily && coily.active) return;
             // Start as a ball at top
-            let startCol = 0; // always col 0 of row 0
             let pos = cubeToScreen(0, 0);
             coily = { row: 0, col: 0, screenX: pos.x, screenY: pos.y, hopping: false, hopTimer: 0, hopFrom: null, hopTo: null, hopDuration: 0.35, hopArc: 0, isBall: true, active: true, facing: 'dr', waitTimer: 0.5 / DIFF_ENEMY_SPEED[difficulty] };
         }
@@ -899,10 +897,6 @@
 
             // Find nearest uncolored cube
             let target = getTargetState();
-            let bestCube = null;
-            let bestDist = 9999;
-            let bestDir = null;
-
             // Check all 4 directions
             let dirs = ['ul', 'ur', 'dl', 'dr'];
 
@@ -1128,7 +1122,7 @@
             ctx.fill();
 
             // Snout/nose - tubular, points in facing direction
-            let snoutDX = 0, snoutDY = 0;
+            let snoutDX, snoutDY;
             if (qbert.facing === 'ul') { snoutDX = -10; snoutDY = -4; }
             else if (qbert.facing === 'ur') { snoutDX = 10; snoutDY = -4; }
             else if (qbert.facing === 'dl') { snoutDX = -10; snoutDY = 4; }

@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- Copyright © 2026 Wayne Davies. Free software under the GNU General Public License, version 3 or later.
+     SPDX-License-Identifier: GPL-3.0-or-later. See LICENSE in the project root. -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -82,7 +84,6 @@
         const pauseBtn = document.getElementById('pause-btn');
         const menuBtn = document.getElementById('menu-btn');
         let muted = localStorage.getItem('arcade_muted') === 'true';
-        const _mob = window.innerWidth <= 580;
         const muteBtn = document.getElementById('mute-btn');
         const _spkOn = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><path d="M14,9.5 Q17,12 14,14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M16,7.5 Q21,12 16,16.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
         const _spkOff = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><line x1="15" y1="9" x2="21" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="21" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
@@ -110,7 +111,6 @@
         let gameOverTimeout = null;
 
         // Player
-        const PLAYER_W = 40, PLAYER_H = 20;
         let player = { x: W / 2, speed: 0 };
         const PLAYER_Y = H - 50;
         let playerBullets = [];
@@ -124,7 +124,7 @@
         const INV_W = 32, INV_H = 24;
         const INV_PAD_X = 10, INV_PAD_Y = 10;
         let invaders = [];
-        let invDir = 1, invSpeed = 0, invDropTimer = 0;
+        let invDir = 1;
         let invMoveTimer = 0, invMoveInterval = 0;
         let invBullets = [];
 
@@ -228,7 +228,6 @@
             setTimeout(() => playTone(80, 0.6, 'sawtooth', 0.09), 950);
         }
         // Invader march beat
-        let marchTimer = 0;
         const marchNotes = [80, 70, 60, 50];
         let marchIndex = 0;
         function sfxMarch() {
@@ -364,7 +363,6 @@
             invMoveInterval = Math.max(0.15, 0.6 - (level - 1) * 0.04);
             invMoveTimer = 0;
             invBullets = [];
-            invDropTimer = 0;
         }
 
         function initLevel() {
@@ -836,7 +834,6 @@
                     if (b.x < s.baseX - 5 || b.x > s.baseX + 49) return;
                     const speed = 500 * dt;
                     for (let step = 0; step <= speed; step++) {
-                        const checkY = b.y + step; // b.y is already moved; check from b.y back to b.y+speed (previous pos)
                         let hit = false;
                         for (let pi = 0; pi < s.pixels.length; pi++) {
                             const p = s.pixels[pi];

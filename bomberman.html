@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- Copyright © 2026 Wayne Davies. Free software under the GNU General Public License, version 3 or later.
+     SPDX-License-Identifier: GPL-3.0-or-later. See LICENSE in the project root. -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -82,7 +84,6 @@
         var pauseBtn = document.getElementById('pause-btn');
         var menuBtn = document.getElementById('menu-btn');
         var muted = localStorage.getItem('arcade_muted') === 'true';
-        var _mob = window.innerWidth <= 580;
         var muteBtn = document.getElementById('mute-btn');
         var _spkOn = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><path d="M14,9.5 Q17,12 14,14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M16,7.5 Q21,12 16,16.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
         var _spkOff = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><line x1="15" y1="9" x2="21" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="21" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
@@ -103,7 +104,7 @@
         var OFFSET_Y = H - GRID_H - 10; // top area for HUD within canvas = 150
 
         // Cell types
-        var EMPTY = 0, WALL = 1, BRICK = 2, POWERUP_BOMB = 3, POWERUP_FIRE = 4, POWERUP_SPEED = 5, EXIT = 6;
+        var EMPTY = 0, WALL = 1, BRICK = 2, POWERUP_BOMB = 3, POWERUP_FIRE = 4, POWERUP_SPEED = 5;
 
         var state = 'START', aiMode = false, paused = false;
         var score = 0, lives = 3, level = 1, lastTime = 0, gameTime = 0;
@@ -294,8 +295,8 @@
 
             // Place bricks randomly
             var brickChance = 0.35 + Math.min(level * 0.03, 0.2);
-            for (var r = 1; r < ROWS - 1; r++) {
-                for (var c = 1; c < COLS - 1; c++) {
+            for (r = 1; r < ROWS - 1; r++) {
+                for (c = 1; c < COLS - 1; c++) {
                     if (grid[r][c] !== EMPTY) continue;
                     // Keep player start area clear (top-left corner)
                     if ((r === 1 && c <= 2) || (r === 2 && c === 1) || (r === 1 && c === 1)) continue;
@@ -307,8 +308,8 @@
 
             // Place exit under a random brick (must be reachable from player start)
             var brickCells = [];
-            for (var r = 1; r < ROWS - 1; r++) {
-                for (var c = 1; c < COLS - 1; c++) {
+            for (r = 1; r < ROWS - 1; r++) {
+                for (c = 1; c < COLS - 1; c++) {
                     if (grid[r][c] === BRICK) brickCells.push({r: r, c: c});
                 }
             }
@@ -338,7 +339,7 @@
                     var tmp = brickCells[i]; brickCells[i] = brickCells[j]; brickCells[j] = tmp;
                 }
                 var exitFound = false;
-                for (var i = 0; i < brickCells.length; i++) {
+                for (i = 0; i < brickCells.length; i++) {
                     if (isReachable(grid, 1, 1, brickCells[i].r, brickCells[i].c)) {
                         exitCol = brickCells[i].c;
                         exitRow = brickCells[i].r;
@@ -361,7 +362,7 @@
             var numPowerups = 2 + Math.min(Math.floor(level / 2), 3);
             // Remove exit brick from candidates
             var candidates = brickCells.filter(function(b) { return !(b.r === exitRow && b.c === exitCol); });
-            for (var i = 0; i < numPowerups && candidates.length > 0; i++) {
+            for (i = 0; i < numPowerups && candidates.length > 0; i++) {
                 var idx = Math.floor(Math.random() * candidates.length);
                 var cell = candidates.splice(idx, 1)[0];
                 var pType = powerupTypes[i % powerupTypes.length];
@@ -472,8 +473,6 @@
         // === Coordinate helpers ===
         function gridToPixelX(col) { return OFFSET_X + col * TILE + TILE / 2; }
         function gridToPixelY(row) { return OFFSET_Y + row * TILE + TILE / 2; }
-        function pixelToCol(px) { return Math.round((px - OFFSET_X - TILE / 2) / TILE); }
-        function pixelToRow(py) { return Math.round((py - OFFSET_Y - TILE / 2) / TILE); }
 
         function isWalkable(col, row) {
             if (col < 0 || col >= COLS || row < 0 || row >= ROWS) return false;
@@ -606,7 +605,7 @@
             bombs = bombs.filter(function(b) { return !b.exploded; });
 
             // Update explosions
-            for (var i = explosions.length - 1; i >= 0; i--) {
+            for (i = explosions.length - 1; i >= 0; i--) {
                 explosions[i].timer -= dt;
                 if (explosions[i].timer <= 0) {
                     explosions.splice(i, 1);
@@ -639,7 +638,7 @@
                 }
             }
             // Check powerups (explosions destroy revealed powerups)
-            for (var i = 0; i < powerups.length; i++) {
+            for (i = 0; i < powerups.length; i++) {
                 var p = powerups[i];
                 if (p.revealed && !p.collected && isExplosionAt(p.col, p.row)) {
                     p.collected = true; // destroyed
@@ -751,9 +750,9 @@
                 var bestDir = possibleDirs[0];
                 var bestDist = Infinity;
                 for (var i = 0; i < possibleDirs.length; i++) {
-                    var d = possibleDirs[i];
-                    var nc = e.col + DX[d];
-                    var nr = e.row + DY[d];
+                    d = possibleDirs[i];
+                    nc = e.col + DX[d];
+                    nr = e.row + DY[d];
                     var dist = Math.abs(nc - player.col) + Math.abs(nr - player.row);
                     if (dist < bestDist) { bestDist = dist; bestDir = d; }
                 }
@@ -793,15 +792,14 @@
             player.x = targetX;
             player.y = targetY;
 
-            var moved = false;
             if (keys['ArrowRight'] && isWalkable(player.col + 1, player.row) && !hasBombBlockingPlayer(player.col + 1, player.row)) {
-                player.col += 1; player.dir = 0; moved = true;
+                player.col += 1; player.dir = 0;
             } else if (keys['ArrowLeft'] && isWalkable(player.col - 1, player.row) && !hasBombBlockingPlayer(player.col - 1, player.row)) {
-                player.col -= 1; player.dir = 2; moved = true;
+                player.col -= 1; player.dir = 2;
             } else if (keys['ArrowDown'] && isWalkable(player.col, player.row + 1) && !hasBombBlockingPlayer(player.col, player.row + 1)) {
-                player.row += 1; player.dir = 1; moved = true;
+                player.row += 1; player.dir = 1;
             } else if (keys['ArrowUp'] && isWalkable(player.col, player.row - 1) && !hasBombBlockingPlayer(player.col, player.row - 1)) {
-                player.row -= 1; player.dir = 3; moved = true;
+                player.row -= 1; player.dir = 3;
             }
 
             // Place bomb
@@ -904,8 +902,8 @@
                 ctx.stroke();
             }
 
-            for (var r = 0; r < ROWS; r++) {
-                for (var c = 0; c < COLS; c++) {
+            for (r = 0; r < ROWS; r++) {
+                for (c = 0; c < COLS; c++) {
                     var x = OFFSET_X + c * TILE;
                     var y = OFFSET_Y + r * TILE;
                     var cell = grid[r][c];
@@ -1172,7 +1170,7 @@
                     // Bottom wavey
                     ctx.beginPath();
                     ctx.moveTo(e.x - 13, e.y - 2 + bob);
-                    for (var w = 0; w < 7; w++) {
+                    for (w = 0; w < 7; w++) {
                         ctx.lineTo(e.x - 13 + w * 4 + 1, e.y + 10 + bob + (w % 2 === 0 ? 3 : 0));
                     }
                     ctx.lineTo(e.x + 13, e.y - 2 + bob);
@@ -1265,7 +1263,6 @@
         // === AI Mode ===
         var aiActionTimer = 0;
         var aiBombCooldown = 0;
-        var aiCurrentDir = -1;
 
         function runAI(dt) {
             aiBombCooldown -= dt;
@@ -1287,7 +1284,6 @@
             keys['ArrowUp'] = false;
             keys['ArrowDown'] = false;
             keys[' '] = false;
-            aiCurrentDir = -1;
 
             if (!player.alive) return;
 
@@ -1383,7 +1379,7 @@
 
             // PRIORITY 2: Go to exit if revealed and all enemies dead
             if (exitRevealed && allEnemiesDead) {
-                var d = bfsPath(pc, pr, exitCol, exitRow, true);
+                d = bfsPath(pc, pr, exitCol, exitRow, true);
                 if (d >= 0) setAIDirection(d);
                 return;
             }
@@ -1399,8 +1395,8 @@
 
             // Check if adjacent to a brick or enemy (could bomb it)
             var adjacentTarget = false;
-            for (var d = 0; d < 4; d++) {
-                var nc = pc + DX[d], nr = pr + DY[d];
+            for (d = 0; d < 4; d++) {
+                nc = pc + DX[d], nr = pr + DY[d];
                 if (nc >= 0 && nc < COLS && nr >= 0 && nr < ROWS) {
                     if (grid[nr][nc] === BRICK) adjacentTarget = true;
                     if (nearestEnemy && nearestEnemy.col === nc && nearestEnemy.row === nr) adjacentTarget = true;
@@ -1431,7 +1427,7 @@
                     for (var c = 1; c < COLS - 1; c++) {
                         if (grid[r][c] === BRICK) {
                             // Find cell adjacent to brick that's walkable
-                            for (var d = 0; d < 4; d++) {
+                            for (d = 0; d < 4; d++) {
                                 var ac = c + DX[d], ar = r + DY[d];
                                 if (isWalkable(ac, ar)) {
                                     var bd = Math.abs(ac - pc) + Math.abs(ar - pr);
@@ -1445,7 +1441,7 @@
             }
 
             if (targetC >= 0) {
-                var d = bfsPath(pc, pr, targetC, targetR, true);
+                d = bfsPath(pc, pr, targetC, targetR, true);
                 if (d >= 0) { setAIDirection(d); return; }
                 // Try without avoiding danger as last resort
                 d = bfsPath(pc, pr, targetC, targetR, false);
@@ -1454,8 +1450,8 @@
 
             // PRIORITY 5: Wander safely
             var safeDirs = [];
-            for (var d = 0; d < 4; d++) {
-                var nc = pc + DX[d], nr = pr + DY[d];
+            for (d = 0; d < 4; d++) {
+                nc = pc + DX[d], nr = pr + DY[d];
                 if (isWalkable(nc, nr) && !hasBombAt(nc, nr) && !isTileDangerous(nc, nr)) safeDirs.push(d);
             }
             if (safeDirs.length > 0) setAIDirection(safeDirs[Math.floor(Math.random() * safeDirs.length)]);
@@ -1475,7 +1471,7 @@
                     if (!blocked) return true;
                 }
                 if (col === b.col && Math.abs(row - b.row) <= b.range) {
-                    var blocked = false;
+                    blocked = false;
                     var minR = Math.min(row, b.row), maxR = Math.max(row, b.row);
                     for (var tr = minR + 1; tr < maxR; tr++) {
                         if (grid[tr][col] === WALL || grid[tr][col] === BRICK) { blocked = true; break; }
@@ -1487,7 +1483,6 @@
         }
 
         function setAIDirection(d) {
-            aiCurrentDir = d;
             if (d === 0) keys['ArrowRight'] = true;
             else if (d === 1) keys['ArrowDown'] = true;
             else if (d === 2) keys['ArrowLeft'] = true;
@@ -1645,7 +1640,6 @@
             ctx.lineTo(panelX + panelW - 10, panelY + 42);
             ctx.stroke();
 
-            var maxShow = Math.min(5, highScores.length);
             for (var i = 0; i < 5; i++) {
                 var rowY = panelY + 56 + i * 16;
                 if (i < highScores.length) {
@@ -1967,12 +1961,10 @@
 
         // === Touch / Swipe ===
         var touchStartX = 0, touchStartY = 0;
-        var touchTotalMove = 0;
         canvas.addEventListener('touchstart', function(e) {
             e.preventDefault();
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
-            touchTotalMove = 0;
             if (state === 'START' || state === 'OVER') {
                 ensureAudio();
                 playMusic('home');

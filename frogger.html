@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- Copyright © 2026 Wayne Davies. Free software under the GNU General Public License, version 3 or later.
+     SPDX-License-Identifier: GPL-3.0-or-later. See LICENSE in the project root. -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -79,7 +81,6 @@
         const pauseBtn = document.getElementById('pause-btn');
         const menuBtn = document.getElementById('menu-btn');
         let muted = localStorage.getItem('arcade_muted') === 'true';
-        const _mob = window.innerWidth <= 580;
         const muteBtn = document.getElementById('mute-btn');
         const _spkOn = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><path d="M14,9.5 Q17,12 14,14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M16,7.5 Q21,12 16,16.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
         const _spkOff = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><line x1="15" y1="9" x2="21" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="21" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
@@ -90,7 +91,6 @@
         const W = 560, H = 600;
         const GAME_W = 480, GAME_H = 560;
         const OFFSET_X = 40, OFFSET_Y = 20;
-        const ROWS = GAME_H / GRID; // 14 rows (0-13)
         // Layout (y values):
         // Row 0  (y=0):   Goal slots
         // Row 1-5 (y=40-200): River (logs + turtles)
@@ -407,7 +407,6 @@
 
             let s = 0;
             const inWater = (ny >= RIVER_TOP && ny <= RIVER_BOT);
-            const inRoad = (ny >= ROAD_TOP && ny <= ROAD_BOT);
             let onLog = false, logSpeed = 0;
 
             // Check collisions at future positions
@@ -1112,7 +1111,7 @@
             const KNOB_R = 25; // knob radius
             const DEAD_ZONE = 12; // minimum drag to register direction
             const MOVE_INTERVAL = 300; // ms between repeated moves
-            let active = false, moveTimer = null, lastDir = null, lastMoveTime = 0;
+            let active = false, moveTimer = null, lastDir = null;
 
             function getCenter() {
                 const r = joystick.getBoundingClientRect();
@@ -1150,21 +1149,18 @@
             }
 
             function startRepeat(dir) {
-                var now = Date.now();
                 if (dir !== lastDir) {
                     // Direction changed — fire immediately
                     lastDir = dir;
                     fireMove(dir);
-                    lastMoveTime = now;
                     // Reset the repeat timer
                     if (moveTimer) clearInterval(moveTimer);
-                    moveTimer = setInterval(function() { fireMove(lastDir); lastMoveTime = Date.now(); }, MOVE_INTERVAL);
+                    moveTimer = setInterval(function() { fireMove(lastDir); }, MOVE_INTERVAL);
                 } else if (!moveTimer) {
                     // Same direction, no timer running — start fresh
                     lastDir = dir;
                     fireMove(dir);
-                    lastMoveTime = now;
-                    moveTimer = setInterval(function() { fireMove(lastDir); lastMoveTime = Date.now(); }, MOVE_INTERVAL);
+                    moveTimer = setInterval(function() { fireMove(lastDir); }, MOVE_INTERVAL);
                 }
             }
 

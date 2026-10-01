@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- Copyright © 2026 Wayne Davies. Free software under the GNU General Public License, version 3 or later.
+     SPDX-License-Identifier: GPL-3.0-or-later. See LICENSE in the project root. -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -83,7 +85,6 @@
         const pauseBtn = document.getElementById('pause-btn');
         const menuBtn = document.getElementById('menu-btn');
         let muted = localStorage.getItem('arcade_muted') === 'true';
-        const _mob = window.innerWidth <= 580;
         const muteBtn = document.getElementById('mute-btn');
         const _spkOn = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><path d="M14,9.5 Q17,12 14,14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M16,7.5 Q21,12 16,16.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
         const _spkOff = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><line x1="15" y1="9" x2="21" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="21" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
@@ -113,8 +114,6 @@
 
         // Tile size
         const TILE = 40;
-        const COLS = 14;
-        const ROWS = 15;
 
         // Camera
         let camX = 0;
@@ -127,7 +126,6 @@
         let levelMap = [];
         let guards = [];
         let spikes = [];
-        let guillotines = []; // unused — kept for compatibility
         let fallingTiles = [];
         let exitDoor = null;
         let path = [];
@@ -216,7 +214,6 @@
         function sfxSpike() {
             [500, 300, 150, 80].forEach(function(f, i) { setTimeout(function() { playTone(f, 0.15, 'sawtooth', 0.12); }, i * 60); });
         }
-        function sfxGuillotine() { playTone(60, 0.3, 'sawtooth', 0.1); playTone(200, 0.05, 'square', 0.08); }
         function sfxDeath() {
             [350, 310, 270, 230, 190, 150].forEach(function(f, i) { setTimeout(function() { playTone(f, 0.25, 'sawtooth', 0.11); }, i * 120); });
             setTimeout(function() { playTone(90, 0.5, 'sawtooth', 0.08); }, 750);
@@ -348,7 +345,7 @@
 
             // === Build the main path ===
             path = [];
-            let col = 1;
+            let col;
 
             // Varied spawn positions — not always ground floor
             const spawnTypes = ['ground', 'mid', 'high'];
@@ -574,7 +571,6 @@
 
             guards = [];
             spikes = [];
-            guillotines = [];
             fallingTiles = [];
 
             // === Place traps along the main path only ===
@@ -931,10 +927,6 @@
             return t === 1 || t === 2;
         }
 
-        function isFallingTile(r, c) {
-            return getTile(r, c) === 4;
-        }
-
         function getFallingTileAt(r, c) {
             for (let i = 0; i < fallingTiles.length; i++) {
                 if (fallingTiles[i].r === r && fallingTiles[i].c === c && !fallingTiles[i].fallen) return fallingTiles[i];
@@ -1065,8 +1057,6 @@
 
         // === Decorations Drawing ===
         function drawDecorations() {
-            const theme = currentTheme;
-
             // Hanging chains
             for (let i = 0; i < decorations.chains.length; i++) {
                 const ch = decorations.chains[i];
@@ -1233,8 +1223,6 @@
 
         // === Ambient Particles (dust motes / embers) ===
         function updateAmbientParticles(dt) {
-            const mapPxW = (levelMap[0] ? levelMap[0].length : 70) * TILE;
-            const mapPxH = levelMap.length * TILE;
 
             for (let i = ambientParticles.length - 1; i >= 0; i--) {
                 const p = ambientParticles[i];
@@ -2103,11 +2091,6 @@
         }
 
         function checkTraps() {
-            const pcx = prince.x + prince.w / 2;
-            const pcy = prince.y + prince.h / 2;
-            const pRow = Math.floor((prince.y + prince.h - 2) / TILE);
-            const pCol = Math.floor(pcx / TILE);
-
             // Spikes - check tile the prince is standing on/in
             const feetRow = Math.floor((prince.y + prince.h) / TILE);
             const bodyRow = Math.floor((prince.y + prince.h - 10) / TILE);

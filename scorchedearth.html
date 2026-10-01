@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- Copyright © 2026 Wayne Davies. Free software under the GNU General Public License, version 3 or later.
+     SPDX-License-Identifier: GPL-3.0-or-later. See LICENSE in the project root. -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -143,13 +145,10 @@
 
         // === Settle timer ===
         let settleTimer = 0;
-        let nextTurnTimer = 0;
         let roundOverTimer = 0;
-        let roundOverWinner = -1;
 
         // === Attract mode state ===
         let attractFireTimer = 0;
-        let attractAimTimer = 0;
 
         let keys = {};
 
@@ -652,9 +651,7 @@
             currentPlayer = round % 2 === 0 ? 1 : 0;
             turnPhase = 'AIM';
             settleTimer = 0;
-            nextTurnTimer = 0;
             roundOverTimer = 0;
-            roundOverWinner = -1;
         }
 
         function resetGame() {
@@ -951,7 +948,6 @@
 
             // Calculate ideal angle and power to hit target
             const dx = target.x - ai.x;
-            const dy = (target.y - TANK_H / 2) - (ai.y - TANK_H / 2);
 
             // Binary search for the right power at a reasonable angle
             let bestAngle = 45;
@@ -1018,7 +1014,6 @@
 
         // === Attract Mode AI ===
         function attractUpdate(dt) {
-            attractAimTimer += dt;
 
             // Both tanks are AI-controlled
             if (turnPhase === 'AIM') {
@@ -1033,10 +1028,8 @@
         // === Main Game Update ===
         function updateGame(dt) {
             // Update projectiles
-            let allLanded = true;
             for (let p of projectiles) {
                 if (!p.active) continue;
-                allLanded = false;
                 p.vx += wind * 0.7 * dt;
                 p.vy += GRAVITY * dt;
                 p.x += p.vx * dt;
@@ -1131,15 +1124,12 @@
                         turnPhase = 'NEXT';
                         roundOverTimer = 0;
                         if (tanks[0].hp <= 0 && tanks[1].hp <= 0) {
-                            roundOverWinner = -1; // draw
                             floatingTexts.push({ x: W / 2, y: H / 2 - 40, t: 'DRAW!', life: 2, c: '#ffaa00' });
                         } else if (tanks[1].hp <= 0) {
-                            roundOverWinner = 0;
                             p1Score++;
                             sfxVictory();
                             floatingTexts.push({ x: W / 2, y: H / 2 - 40, t: 'P1 WINS ROUND!', life: 2, c: '#4ae04a' });
                         } else {
-                            roundOverWinner = 1;
                             p2Score++;
                             sfxVictory();
                             floatingTexts.push({ x: W / 2, y: H / 2 - 40, t: (aiMode ? 'P2' : 'CPU') + ' WINS ROUND!', life: 2, c: '#ff4444' });
@@ -1237,7 +1227,6 @@
             } else {
                 // Reset for new attract round
                 attractFireTimer = 0;
-                attractAimTimer = 0;
                 initRound();
             }
 

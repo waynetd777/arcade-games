@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- Copyright © 2026 Wayne Davies. Free software under the GNU General Public License, version 3 or later.
+     SPDX-License-Identifier: GPL-3.0-or-later. See LICENSE in the project root. -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -105,7 +107,6 @@
         // Game constants
         const GRAVITY = 9.8 * 30; // pixels/s^2
         const GROUND_Y = 570;
-        const SKY_TOP = 40;
         const WIN_SCORE = 3;
         const GORILLA_W = 28;
         const GORILLA_H = 30;
@@ -115,7 +116,6 @@
         // Game state
         let p1Score = 0, p2Score = 0;
         let buildings = [];
-        let buildingDamage = []; // offscreen canvas for damage
         const damageCanvas = document.createElement('canvas');
         damageCanvas.width = W;
         damageCanvas.height = H;

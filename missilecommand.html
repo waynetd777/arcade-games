@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- Copyright © 2026 Wayne Davies. Free software under the GNU General Public License, version 3 or later.
+     SPDX-License-Identifier: GPL-3.0-or-later. See LICENSE in the project root. -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -95,7 +97,7 @@
         canvas.height = H;
 
         let state = 'START', aiMode = false, paused = false;
-        let score = 0, citiesAlive = 6, level = 1, lastTime = performance.now(), gameTime = 0;
+        let score = 0, citiesAlive = 6, level = 1, lastTime = performance.now();
         let floatingTexts = [], particles = [], stars = [];
         let difficulty = 1;
         const DIFF_NAMES = ['E: EASY', 'M: MEDIUM', 'H: HARD'];
@@ -941,7 +943,6 @@
                 return;
             }
 
-            gameTime += dt;
 
             // === Wave start countdown ===
             if (waveStartTimer > 0) {
@@ -981,9 +982,7 @@
                 const cityDelay = 0.4;
                 let shownCities = Math.floor(bonusTimer / cityDelay);
                 let survivingCities = cities.filter(c => c.alive);
-                let cityBonus = 0;
                 for (let i = 0; i < Math.min(shownCities, survivingCities.length); i++) {
-                    cityBonus += 100;
                     ctx.fillStyle = survivingCities[i].color;
                     ctx.font = 'bold 16px Courier';
                     ctx.fillText("CITY " + (i + 1) + ": +100", W / 2, H / 2 - 50 + i * 22);
@@ -1672,7 +1671,6 @@
             menuBtn.innerText = 'HOME';
             menuBtn.href = '#';
             lastTime = performance.now();
-            gameTime = 0;
             playMusic('game');
             canvas.focus();
             updateHUD();

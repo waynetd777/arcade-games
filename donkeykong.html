@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- Copyright © 2026 Wayne Davies. Free software under the GNU General Public License, version 3 or later.
+     SPDX-License-Identifier: GPL-3.0-or-later. See LICENSE in the project root. -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -82,7 +84,6 @@
         const pauseBtn = document.getElementById('pause-btn');
         const menuBtn = document.getElementById('menu-btn');
         let muted = localStorage.getItem('arcade_muted') === 'true';
-        const _mob = window.innerWidth <= 580;
         const muteBtn = document.getElementById('mute-btn');
         const _spkOn = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><path d="M14,9.5 Q17,12 14,14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M16,7.5 Q21,12 16,16.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
         const _spkOff = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><line x1="15" y1="9" x2="21" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="21" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
@@ -115,7 +116,6 @@
         var ladders = [];
         var hammers = [];
         var barrels = [];
-        var barrelTimer = 0;
         var barrelInterval = 2.5;
 
         // Mario state
@@ -133,7 +133,6 @@
 
         // Score items on platforms
         var items = [];
-        var jumpedBarrels = []; // track barrels jumped over for scoring
 
         // Difficulty multipliers
         var DIFF_BARREL_RATE = [3.0, 2.2, 1.4];
@@ -146,8 +145,6 @@
             hammers = [];
             barrels = [];
             items = [];
-            jumpedBarrels = [];
-            barrelTimer = 0;
             barrelInterval = DIFF_BARREL_RATE[difficulty];
 
             // Ground platform
@@ -163,8 +160,8 @@
                 var baseY = groundY - (r + 1) * rowSpacing;
                 var slope = (r % 2 === 0) ? 0.03 : -0.03;
                 // Alternate direction: even rows slope right-down, odd rows slope left-down
-                var px = 20;
-                var pw = W - 40;
+                var px;
+                var pw;
                 // Leave gap on alternating sides for barrels to fall
                 if (r % 2 === 0) {
                     px = 0;
@@ -191,7 +188,7 @@
             }
 
             // Place ladders connecting platforms (not to DK platform, that's separate)
-            for (var r = 0; r < numRows - 1; r++) {
+            for (r = 0; r < numRows - 1; r++) {
                 var p1 = platforms[r + 1]; // lower platform
                 var p2 = platforms[r + 2]; // upper platform
                 if (!p2) continue;
@@ -215,7 +212,7 @@
             var dkPlat = platforms[platforms.length - 1];
             var topRegPlat = platforms[platforms.length - 2];
             if (topRegPlat && dkPlat) {
-                var lx = dkPlat.x + dkPlat.w * 0.5;
+                lx = dkPlat.x + dkPlat.w * 0.5;
                 ladders.push({ x: lx, y1: dkPlat.y, y2: topRegPlat.y, broken: false });
             }
 
@@ -230,7 +227,7 @@
             }
 
             // Place bonus items
-            for (var r = 1; r <= Math.min(numRows, 5); r++) {
+            for (r = 1; r <= Math.min(numRows, 5); r++) {
                 var p = platforms[r];
                 if (Math.random() < 0.5) {
                     var ix = p.x + p.w * (0.3 + Math.random() * 0.4);
@@ -286,23 +283,6 @@
                 }
             }
             return null;
-        }
-
-        function getPlatformBelow(x, y, w) {
-            var cx = x + w / 2;
-            var best = null;
-            var bestY = 9999;
-            for (var i = 0; i < platforms.length; i++) {
-                var p = platforms[i];
-                if (cx >= p.x && cx <= p.x + p.w) {
-                    var py = getPlatformY(p, cx);
-                    if (py > y + 2 && py < bestY) {
-                        bestY = py;
-                        best = p;
-                    }
-                }
-            }
-            return best;
         }
 
         function getLadderAt(x, y, w, h) {
@@ -709,7 +689,7 @@
                 }
                 // Detect barrels on the same platform from any direction
                 if (Math.abs(dy) < 30 && Math.abs(dx) < 80) {
-                    var dist = Math.abs(dx);
+                    dist = Math.abs(dx);
                     if (dist < nearestBarrelDist) { nearestBarrelDist = dist; nearestBarrel = b; }
                 }
             }
@@ -738,7 +718,7 @@
             var bestLadder = null;
             var bestLadderScore = 9999;
             var marioFoot = mario.y + mario.h;
-            for (var i = 0; i < ladders.length; i++) {
+            for (i = 0; i < ladders.length; i++) {
                 var lad = ladders[i];
                 if (lad.broken) continue;
                 var ladBot = lad.y2;
@@ -755,7 +735,7 @@
             }
 
             // Collect nearby hammer on the same platform
-            for (var i = 0; i < hammers.length; i++) {
+            for (i = 0; i < hammers.length; i++) {
                 var hm = hammers[i];
                 if (!hm.collected && Math.abs(hm.y - mario.y) < 20 && Math.abs(hm.x - mario.x) < 60) {
                     if (Math.abs(hm.x - mario.x) > 5) {
@@ -1456,8 +1436,7 @@
                         mario.hasHammer = false;
                         mario.hammerTimer = 0;
                         barrels = [];
-                        barrelTimer = 0;
-                    }
+                                }
                 }
                 return;
             }
@@ -1506,7 +1485,7 @@
                         b.falling = false;
                         b.onGround = true;
                         // Reverse direction based on platform slope
-                        var speed = DIFF_BARREL_SPEED[difficulty] + (level - 1) * 10;
+                        speed = DIFF_BARREL_SPEED[difficulty] + (level - 1) * 10;
                         if (plat.plat.slope > 0) b.vx = speed;
                         else if (plat.plat.slope < 0) b.vx = -speed;
                         else b.vx = (b.vx > 0 ? 1 : -1) * speed;
@@ -1644,7 +1623,7 @@
 
                 // Check ladder entry (up) - find ladder whose bottom (y2) is at Mario's feet
                 if (moveUp && mario.onGround) {
-                    var ladder = getLadderAbove(mario.x, mario.y, mario.w, mario.h);
+                    ladder = getLadderAbove(mario.x, mario.y, mario.w, mario.h);
                     if (ladder) {
                         mario.onLadder = true;
                         mario.onGround = false;
@@ -1654,7 +1633,7 @@
                 }
                 // Check ladder entry (down) - find ladder whose top (y1) is at Mario's feet
                 if (moveDown && mario.onGround) {
-                    var ladder = getLadderBelow(mario.x, mario.y, mario.w, mario.h);
+                    ladder = getLadderBelow(mario.x, mario.y, mario.w, mario.h);
                     if (ladder) {
                         mario.onLadder = true;
                         mario.onGround = false;
@@ -1665,7 +1644,7 @@
 
                 // Platform collision
                 if (mario.vy >= 0 && !mario.onLadder) {
-                    var plat = isOnPlatform(mario.x, mario.y + mario.h, mario.w);
+                    plat = isOnPlatform(mario.x, mario.y + mario.h, mario.w);
                     if (plat) {
                         mario.y = plat.y - mario.h;
                         mario.vy = 0;
@@ -1683,7 +1662,7 @@
             }
 
             // Collect hammers
-            for (var i = 0; i < hammers.length; i++) {
+            for (i = 0; i < hammers.length; i++) {
                 var hm = hammers[i];
                 if (hm.collected) continue;
                 if (Math.abs(mario.x + mario.w / 2 - (hm.x + 6)) < 16 && Math.abs(mario.y + mario.h / 2 - (hm.y + 8)) < 16) {
@@ -1697,7 +1676,7 @@
             }
 
             // Collect items
-            for (var i = 0; i < items.length; i++) {
+            for (i = 0; i < items.length; i++) {
                 var item = items[i];
                 if (item.collected) continue;
                 if (Math.abs(mario.x + mario.w / 2 - (item.x + 6)) < 16 && Math.abs(mario.y + mario.h / 2 - (item.y + 5)) < 16) {

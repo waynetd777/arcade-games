@@ -10,6 +10,19 @@ A collection of 18 classic arcade games built entirely with HTML5 Canvas and van
   <sub>Scan to play on your phone</sub>
 </p>
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/images/index.png" alt="The arcade menu" width="800">
+</p>
+
+| | | |
+|:-:|:-:|:-:|
+| <img src="docs/images/pacman.png" alt="Pac-Man" width="260"> | <img src="docs/images/galaga.png" alt="Galaga" width="260"> | <img src="docs/images/tetris.png" alt="Tetris" width="260"> |
+| Pac-Man | Galaga | Tetris |
+| <img src="docs/images/donkeykong.png" alt="Donkey Kong" width="260"> | <img src="docs/images/princeofpersia.png" alt="Prince of Persia" width="260"> | |
+| Donkey Kong | Prince of Persia | |
+
 ## Games
 
 | Game | Description |
@@ -90,3 +103,16 @@ On touch devices, a **virtual joystick** replaces arrow keys for movement and **
 - Vibration API for haptic feedback on mobile
 - Responsive CSS with mobile-first media queries
 - GitHub Pages deployment
+
+## Development
+
+The games need nothing installed. To lint their JavaScript with ESLint:
+
+```sh
+npm install
+npm run lint
+```
+
+## Licence
+
+Copyright © 2026 Wayne Davies. Free software under the [GNU General Public License, version 3 or later](LICENSE).

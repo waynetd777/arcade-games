@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- Copyright © 2026 Wayne Davies. Free software under the GNU General Public License, version 3 or later.
+     SPDX-License-Identifier: GPL-3.0-or-later. See LICENSE in the project root. -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -109,7 +111,6 @@
         let gameOverTimeout = null;
 
         // Player
-        const PLAYER_W = 36, PLAYER_H = 20;
         let player = { x: W / 2, speed: 0, dual: false };
         const PLAYER_Y = H - 50;
         let playerBullets = [];
@@ -117,7 +118,6 @@
         let keys = {};
         let deathTimer = 0;
         let levelStartTimer = 0;
-        let shotsFired = 0, shotsHit = 0;
 
         // Enemy formation
         const FORM_ROWS = 5, FORM_COLS = 10;
@@ -898,7 +898,6 @@
                     playerBullets.push({ x: player.x + 24, y: PLAYER_Y - 18 });
                 }
                 fireTimer = 0.22;
-                shotsFired++;
                 sfxShoot();
             }
 
@@ -1058,7 +1057,6 @@
                     const ex = e.x, ey = e.y;
                     if (b.x > ex && b.x < ex + ENM_W && b.y > ey && b.y < ey + ENM_H) {
                         playerBullets[bi] = null;
-                        shotsHit++;
                         e.hp--;
                         if (e.hp <= 0) {
                             e.alive = false;
@@ -1212,7 +1210,6 @@
                 playerBullets.push({ x: player.x, y: PLAYER_Y - 18 });
                 if (player.dual) playerBullets.push({ x: player.x + 24, y: PLAYER_Y - 18 });
                 fireTimer = 0.22;
-                shotsFired++;
                 challengeShotsFired++;
                 sfxShoot();
             }
@@ -1255,7 +1252,6 @@
                         e.alive = false;
                         playerBullets[bi] = null;
                         challengeKills++;
-                        shotsHit++;
                         challengeShotsHit++;
                         const pts = 100;
                         score += pts;
@@ -1630,7 +1626,6 @@
             keys = {};
             floatingTexts = []; particles = [];
             player.dual = false;
-            shotsFired = 0; shotsHit = 0;
             initLevel();
             state = 'PLAY';
             menuBtn.innerText = 'HOME';

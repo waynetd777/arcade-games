@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- Copyright © 2026 Wayne Davies. Free software under the GNU General Public License, version 3 or later.
+     SPDX-License-Identifier: GPL-3.0-or-later. See LICENSE in the project root. -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -76,7 +78,6 @@
         const pauseBtn = document.getElementById('pause-btn');
         const menuBtn = document.getElementById('menu-btn');
         let muted = localStorage.getItem('arcade_muted') === 'true';
-        const _mob = window.innerWidth <= 580;
         const muteBtn = document.getElementById('mute-btn');
         const _spkOn = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><path d="M14,9.5 Q17,12 14,14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M16,7.5 Q21,12 16,16.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
         const _spkOff = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><line x1="15" y1="9" x2="21" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="21" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
@@ -97,7 +98,7 @@
         const OFFSET_Y = Math.floor((H - GRID_H) / 2);
 
         let state = 'START', aiMode = false, paused = false;
-        let score = 0, lives = 3, length = 3, level = 1, lastTime = performance.now(), gameTime = 0;
+        let score = 0, lives = 3, level = 1, lastTime = performance.now(), gameTime = 0;
         let floatingTexts = [], particles = [];
         let difficulty = 1;
         const DIFF_NAMES = ['E: EASY', 'M: MEDIUM', 'H: HARD'];
@@ -155,13 +156,6 @@
 
         function isSnake(cx, cy) {
             return snake.some(s => s.x === cx && s.y === cy);
-        }
-
-        function isFree(cx, cy) {
-            if (cx < 0 || cx >= COLS || cy < 0 || cy >= ROWS) return false;
-            if (isWall(cx, cy)) return false;
-            if (isSnake(cx, cy)) return false;
-            return true;
         }
 
         function randomFreeCell() {
@@ -325,7 +319,6 @@
         function startGame() {
             score = 0;
             lives = DIFF_LIVES[difficulty];
-            length = 3;
             level = 1;
             foodEaten = 0;
             paused = false;
@@ -588,9 +581,9 @@
                 }
             } else {
                 // No path found - try any safe direction
-                for (var d = 0; d < dirs.length; d++) {
-                    var nx = head.x + dirs[d].x;
-                    var ny = head.y + dirs[d].y;
+                for (d = 0; d < dirs.length; d++) {
+                    nx = head.x + dirs[d].x;
+                    ny = head.y + dirs[d].y;
                     if (difficulty <= 1 && (nx < 0 || nx >= COLS)) {
                         nx = ((nx % COLS) + COLS) % COLS;
                     }
@@ -736,7 +729,6 @@
                     // Eyes
                     ctx.fillStyle = '#000';
                     ctx.shadowBlur = 0;
-                    var eyeOff = 5;
                     var ex1, ey1, ex2, ey2;
                     if (dir.x === 1) { ex1 = px + 13; ey1 = py + 5; ex2 = px + 13; ey2 = py + 13; }
                     else if (dir.x === -1) { ex1 = px + 5; ey1 = py + 5; ex2 = px + 5; ey2 = py + 13; }
@@ -909,7 +901,7 @@
                     ctx.fillStyle = '#ffee00';
                     ctx.save();
                     ctx.translate(px, py);
-                    var s = pulse;
+                    s = pulse;
                     ctx.beginPath();
                     ctx.moveTo(-2 * s, -8 * s); ctx.lineTo(3 * s, -2 * s); ctx.lineTo(0, -1 * s);
                     ctx.lineTo(4 * s, 8 * s); ctx.lineTo(-1 * s, 1 * s); ctx.lineTo(1 * s, 2 * s);
@@ -923,7 +915,7 @@
                     ctx.fillStyle = '#4488ff';
                     ctx.save();
                     ctx.translate(px, py);
-                    var s = pulse;
+                    s = pulse;
                     ctx.beginPath();
                     ctx.moveTo(0, -8 * s);
                     ctx.quadraticCurveTo(8 * s, -6 * s, 7 * s, 0);
@@ -942,7 +934,7 @@
                     ctx.fillStyle = '#ff4488';
                     ctx.save();
                     ctx.translate(px, py);
-                    var s = pulse;
+                    s = pulse;
                     ctx.beginPath();
                     ctx.moveTo(0, 3 * s);
                     ctx.bezierCurveTo(-7 * s, -3 * s, -7 * s, -8 * s, 0, -4 * s);
@@ -975,7 +967,7 @@
             if (activeEffects.shield && activeEffects.shield > 0) {
                 ctx.fillStyle = '#4488ff';
                 ctx.shadowBlur = 5; ctx.shadowColor = '#4488ff';
-                var bar = Math.ceil(activeEffects.shield);
+                bar = Math.ceil(activeEffects.shield);
                 ctx.fillText('SHIELD ' + '|'.repeat(bar), x, y);
                 ctx.shadowBlur = 0;
             }
@@ -1069,7 +1061,7 @@
             ctx.lineTo(panelX + panelW - 10, panelY + 50);
             ctx.stroke();
 
-            for (var i = 0; i < 10; i++) {
+            for (i = 0; i < 10; i++) {
                 var rowY = panelY + 68 + i * 22;
                 if (i < highScores.length) {
                     var h = highScores[i];
@@ -1333,7 +1325,7 @@
 
                 // Check wall obstacle collision
                 if (isWall(nx, ny)) {
-                    var hp = cellToPixel(head.x, head.y);
+                    hp = cellToPixel(head.x, head.y);
                     spawnExplosion(hp.x + CELL / 2, hp.y + CELL / 2, aiMode ? '#00ccff' : '#4ae04a', 30);
                     sfxDie();
                     deathTimer = 1.0;
@@ -1346,7 +1338,7 @@
                 if (!hasShield()) {
                     for (var si = 0; si < snake.length - 1; si++) {
                         if (snake[si].x === nx && snake[si].y === ny) {
-                            var hp = cellToPixel(head.x, head.y);
+                            hp = cellToPixel(head.x, head.y);
                             spawnExplosion(hp.x + CELL / 2, hp.y + CELL / 2, aiMode ? '#00ccff' : '#4ae04a', 30);
                             sfxDie();
                             deathTimer = 1.0;
@@ -1400,7 +1392,7 @@
                 }
 
                 // Check special items
-                for (var si = specialItems.length - 1; si >= 0; si--) {
+                for (si = specialItems.length - 1; si >= 0; si--) {
                     var item = specialItems[si];
                     if (nx === item.x && ny === item.y) {
                         var t = ITEM_TYPES[item.type];
@@ -1459,7 +1451,7 @@
                 }
             });
             // Decay special item lifetimes
-            for (var si = specialItems.length - 1; si >= 0; si--) {
+            for (si = specialItems.length - 1; si >= 0; si--) {
                 specialItems[si].life -= dt;
                 if (specialItems[si].life <= 0) specialItems.splice(si, 1);
             }
@@ -1627,7 +1619,7 @@
             var minSwipe = 20;
             if (Math.abs(dx) < minSwipe && Math.abs(dy) < minSwipe) return;
 
-            var newDir = null;
+            var newDir;
             if (Math.abs(dx) > Math.abs(dy)) {
                 newDir = dx > 0 ? {x: 1, y: 0} : {x: -1, y: 0};
             } else {

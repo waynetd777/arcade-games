@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- Copyright © 2026 Wayne Davies. Free software under the GNU General Public License, version 3 or later.
+     SPDX-License-Identifier: GPL-3.0-or-later. See LICENSE in the project root. -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -82,7 +84,6 @@
         const pauseBtn = document.getElementById('pause-btn');
         const menuBtn = document.getElementById('menu-btn');
         let muted = localStorage.getItem('arcade_muted') === 'true';
-        const _mob = window.innerWidth <= 580;
         const muteBtn = document.getElementById('mute-btn');
         const _spkOn = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><path d="M14,9.5 Q17,12 14,14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M16,7.5 Q21,12 16,16.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
         const _spkOff = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><line x1="15" y1="9" x2="21" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="21" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
@@ -132,11 +133,9 @@
         let keys = {};
         let deathTimer = 0;
         let levelStartTimer = 0;
-        let playerWalkTimer = 0;
         let playerMoving = false;
         // Bonus veggie
         let veggie = null;
-        let veggieTimer = 0;
         let rocksDropped = 0;
         // Fleeing
         let lastEnemyFleeing = false;
@@ -331,7 +330,7 @@
                 if (tr < ROWS) {
                     var startC = 1 + Math.floor(Math.random() * 3);
                     var endC = COLS - 2 - Math.floor(Math.random() * 3);
-                    for (var c = startC; c <= endC; c++) {
+                    for (c = startC; c <= endC; c++) {
                         dirt[tr][c] = false;
                     }
                 }
@@ -369,7 +368,6 @@
             if (level === 1) fygarCount = 0;
             var totalEnemies = Math.min(pookaCount + fygarCount, 8);
             pookaCount = Math.min(pookaCount, totalEnemies);
-            fygarCount = totalEnemies - pookaCount;
 
             for (var i = 0; i < totalEnemies; i++) {
                 var type = i < pookaCount ? 'pooka' : 'fygar';
@@ -429,10 +427,8 @@
             player.pumpTimer = 0;
             deathTimer = 0;
             levelStartTimer = 1.5;
-            playerWalkTimer = 0;
             playerMoving = false;
             veggie = null;
-            veggieTimer = 0;
             rocksDropped = 0;
             lastEnemyFleeing = false;
             initDirt();
@@ -454,7 +450,6 @@
             player.pumpDist = 0;
             deathTimer = 0;
             levelStartTimer = 1.0;
-            playerWalkTimer = 0;
             playerMoving = false;
             // Reset enemy positions but keep the level
             for (var i = 0; i < enemies.length; i++) {
@@ -565,8 +560,8 @@
                 }
             }
             // Draw tunnel borders for visual clarity
-            for (var r = DIRT_START; r < ROWS; r++) {
-                for (var c = 0; c < COLS; c++) {
+            for (r = DIRT_START; r < ROWS; r++) {
+                for (c = 0; c < COLS; c++) {
                     if (!dirt[r][c]) {
                         // Check each neighbor for dirt and draw edge
                         ctx.strokeStyle = 'rgba(0,0,0,0.3)';
@@ -800,7 +795,6 @@
             var vx = v.x, vy = v.y;
             // Carrot / turnip / tomato based on level
             var veggieColors = ['#ff6600', '#cc44cc', '#ff0000', '#00cc00', '#ffcc00'];
-            var veggieNames = ['CARROT', 'TURNIP', 'TOMATO', 'CUCUMBER', 'MUSHROOM'];
             var idx = (level - 1) % veggieColors.length;
             ctx.fillStyle = veggieColors[idx];
             ctx.shadowBlur = 8;
@@ -829,7 +823,7 @@
                 if (enemies[i].alive) aliveCount++;
             }
 
-            for (var i = 0; i < enemies.length; i++) {
+            for (i = 0; i < enemies.length; i++) {
                 var e = enemies[i];
                 if (!e.alive) continue;
 
@@ -856,8 +850,6 @@
 
                 if (e.fleeing) {
                     // Move toward surface
-                    var targetRow = 0;
-                    var targetCol = e.col;
                     // Move up through dirt (ghost mode)
                     if (e.row > DIRT_START) {
                         e.ghost = true;
@@ -1152,8 +1144,8 @@
             }
 
             // Avoid fire from Fygars
-            for (var i = 0; i < enemies.length; i++) {
-                var e = enemies[i];
+            for (i = 0; i < enemies.length; i++) {
+                e = enemies[i];
                 if (!e.alive || e.type !== 'fygar' || !e.firing) continue;
                 var fireMinX = e.x;
                 var fireMaxX = e.x + e.fireDir * 80;
@@ -1231,7 +1223,7 @@
                 for (var i = 0; i < rocks.length; i++) {
                     if (!rocks[i].removed) drawRock(rocks[i]);
                 }
-                for (var i = 0; i < enemies.length; i++) {
+                for (i = 0; i < enemies.length; i++) {
                     if (enemies[i].alive) {
                         if (enemies[i].type === 'pooka') drawPooka(enemies[i], gameTime);
                         else drawFygar(enemies[i], gameTime);
@@ -1372,7 +1364,7 @@
                 var pDirY = player.dir === 1 ? 1 : player.dir === 3 ? -1 : 0;
                 var pumpX = gx(player.x) + pDirX * player.pumpDist * TILE;
                 var pumpY = gy(player.y) + pDirY * player.pumpDist * TILE;
-                for (var i = 0; i < enemies.length; i++) {
+                for (i = 0; i < enemies.length; i++) {
                     var e = enemies[i];
                     if (!e.alive || e.squished) continue;
                     var edx = pumpX - e.x;
@@ -1437,8 +1429,8 @@
 
             // === Enemy-player collision ===
             if (deathTimer <= 0) {
-                for (var i = 0; i < enemies.length; i++) {
-                    var e = enemies[i];
+                for (i = 0; i < enemies.length; i++) {
+                    e = enemies[i];
                     if (!e.alive || e.inflate > 0) continue;
                     var pdx = gx(player.x) - e.x;
                     var pdy = gy(player.y) - e.y;
@@ -1471,7 +1463,7 @@
 
             // === Level clear check ===
             var aliveCount = 0;
-            for (var i = 0; i < enemies.length; i++) {
+            for (i = 0; i < enemies.length; i++) {
                 if (enemies[i].alive) aliveCount++;
             }
             if (aliveCount === 0 && deathTimer <= 0) {
@@ -1504,7 +1496,7 @@
             if (veggie) drawVeggie(veggie);
 
             // Draw enemies
-            for (var i = 0; i < enemies.length; i++) {
+            for (i = 0; i < enemies.length; i++) {
                 var e = enemies[i];
                 if (!e.alive) continue;
                 if (e.type === 'pooka') drawPooka(e, gameTime);

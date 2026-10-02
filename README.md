@@ -10,41 +10,44 @@ A collection of 18 classic arcade games built entirely with HTML5 Canvas and van
   <sub>Scan to play on your phone</sub>
 </p>
 
-## Screenshots
+## Games
 
 <p align="center">
   <img src="docs/images/index.png" alt="The arcade menu" width="800">
 </p>
 
-| | | |
-|:-:|:-:|:-:|
-| <img src="docs/images/pacman.png" alt="Pac-Man" width="260"> | <img src="docs/images/galaga.png" alt="Galaga" width="260"> | <img src="docs/images/tetris.png" alt="Tetris" width="260"> |
-| Pac-Man | Galaga | Tetris |
-| <img src="docs/images/donkeykong.png" alt="Donkey Kong" width="260"> | <img src="docs/images/princeofpersia.png" alt="Prince of Persia" width="260"> | |
-| Donkey Kong | Prince of Persia | |
-
-## Games
-
-| Game | Description |
-|------|-------------|
-| **Frogger** | Cross roads and rivers to reach home |
-| **Pac-Man** | Eat dots, avoid ghosts, chomp power pellets |
-| **Space Invaders** | Defend Earth from alien invasion |
-| **Asteroids** | Navigate and blast through asteroid fields |
-| **Tetris** | Stack falling blocks, clear lines |
-| **Breakout** | Smash bricks with a bouncing ball |
-| **Snake** | Grow your snake, don't hit the walls |
-| **Pong** | Classic paddle battle — 1P vs CPU or 2P local multiplayer |
-| **Centipede** | Blast the centipede through mushroom fields |
-| **Donkey Kong** | Climb girders, dodge barrels, rescue Pauline |
-| **Prince of Persia** | Fight guards and escape the dungeon |
-| **Dig Dug** | Tunnel underground, pump and pop enemies |
-| **Galaga** | Blast diving aliens, rescue captured ships |
-| **Q*bert** | Hop cubes, change colors, dodge Coily |
-| **Missile Command** | Defend cities from nuclear annihilation |
-| **Gorillas** | Hurl explosive bananas across the skyline |
-| **Scorched Earth** | Destroy terrain and blast rival tanks |
-| **Bomberman** | Plant bombs, chain reactions, defeat enemies |
+<table>
+<tr>
+<td align="center" width="33%"><img src="docs/images/frogger.png" alt="Frogger" width="260"><br><b>Frogger</b><br><sub>Cross roads and rivers to reach home</sub></td>
+<td align="center" width="33%"><img src="docs/images/pacman.png" alt="Pac-Man" width="260"><br><b>Pac-Man</b><br><sub>Eat dots, avoid ghosts, chomp power pellets</sub></td>
+<td align="center" width="33%"><img src="docs/images/invaders.png" alt="Space Invaders" width="260"><br><b>Space Invaders</b><br><sub>Defend Earth from alien invasion</sub></td>
+</tr>
+<tr>
+<td align="center" width="33%"><img src="docs/images/asteroids.png" alt="Asteroids" width="260"><br><b>Asteroids</b><br><sub>Navigate and blast through asteroid fields</sub></td>
+<td align="center" width="33%"><img src="docs/images/tetris.png" alt="Tetris" width="260"><br><b>Tetris</b><br><sub>Stack falling blocks, clear lines</sub></td>
+<td align="center" width="33%"><img src="docs/images/breakout.png" alt="Breakout" width="260"><br><b>Breakout</b><br><sub>Smash bricks with a bouncing ball</sub></td>
+</tr>
+<tr>
+<td align="center" width="33%"><img src="docs/images/snake.png" alt="Snake" width="260"><br><b>Snake</b><br><sub>Grow your snake, don't hit the walls</sub></td>
+<td align="center" width="33%"><img src="docs/images/pong.png" alt="Pong" width="260"><br><b>Pong</b><br><sub>Classic paddle battle — 1P vs CPU or 2P local multiplayer</sub></td>
+<td align="center" width="33%"><img src="docs/images/centipede.png" alt="Centipede" width="260"><br><b>Centipede</b><br><sub>Blast the centipede through mushroom fields</sub></td>
+</tr>
+<tr>
+<td align="center" width="33%"><img src="docs/images/donkeykong.png" alt="Donkey Kong" width="260"><br><b>Donkey Kong</b><br><sub>Climb girders, dodge barrels, rescue Pauline</sub></td>
+<td align="center" width="33%"><img src="docs/images/princeofpersia.png" alt="Prince of Persia" width="260"><br><b>Prince of Persia</b><br><sub>Fight guards and escape the dungeon</sub></td>
+<td align="center" width="33%"><img src="docs/images/digdug.png" alt="Dig Dug" width="260"><br><b>Dig Dug</b><br><sub>Tunnel underground, pump and pop enemies</sub></td>
+</tr>
+<tr>
+<td align="center" width="33%"><img src="docs/images/galaga.png" alt="Galaga" width="260"><br><b>Galaga</b><br><sub>Blast diving aliens, rescue captured ships</sub></td>
+<td align="center" width="33%"><img src="docs/images/qbert.png" alt="Q*bert" width="260"><br><b>Q*bert</b><br><sub>Hop cubes, change colors, dodge Coily</sub></td>
+<td align="center" width="33%"><img src="docs/images/missilecommand.png" alt="Missile Command" width="260"><br><b>Missile Command</b><br><sub>Defend cities from nuclear annihilation</sub></td>
+</tr>
+<tr>
+<td align="center" width="33%"><img src="docs/images/gorillas.png" alt="Gorillas" width="260"><br><b>Gorillas</b><br><sub>Hurl explosive bananas across the skyline</sub></td>
+<td align="center" width="33%"><img src="docs/images/scorchedearth.png" alt="Scorched Earth" width="260"><br><b>Scorched Earth</b><br><sub>Destroy terrain and blast rival tanks</sub></td>
+<td align="center" width="33%"><img src="docs/images/bomberman.png" alt="Bomberman" width="260"><br><b>Bomberman</b><br><sub>Plant bombs, chain reactions, defeat enemies</sub></td>
+</tr>
+</table>
 
 ## Features
 
